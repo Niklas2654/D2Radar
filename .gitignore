@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+*.tsbuildinfo
+src-tauri/target/
+src-tauri/gen/
+
+# Website: the app's build (made by website's build:app) and the installer
+# (published as a release of the public D2Radar repo by `pnpm release`)
+website/public/app/
+website/public/download/
+
+# Vercel project link (website deploys)
+.vercel/
+
+# Local secrets and settings
+.env
+.env.*
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Radar's Bungie app, built into local builds (build.rs; CI uses secrets)
+src-tauri/bungie.local.json

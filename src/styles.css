@@ -1,0 +1,1126 @@
+@import "tailwindcss";
+
+/* Tailwind 4 gives buttons the plain arrow; everything clickable shows the
+   hand, so a click target is obvious (the toggles' own knob had the arrow). */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+}
+
+/* ---------- Scrollbars ----------
+   Slim glass thumbs that light up in the accent color; no track, no arrow
+   buttons. Hidden unless scrolling (lib/scrollbars.ts sets .is-scrolling)
+   or the pointer is on the thumb. (Only the ::-webkit-scrollbar styles:
+   setting the standard scrollbar-color would make Chromium ignore them.)
+   DIM gets the same from dim.rs. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  /* The transparent border insets the thumb from the edge. */
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: transparent padding-box;
+}
+.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.2) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  border-width: 2px;
+  background: color-mix(in oklab, var(--accent) 70%, white) padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+  border-width: 2px;
+  background: var(--accent) padding-box;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+select option {
+  background-color: #15171c;
+  color: #eef0f4;
+}
+
+:root {
+  color-scheme: dark;
+  /* Overwritten at runtime from the selected subclass accent. */
+  --accent: #ff9f2e;
+  --accent-soft: color-mix(in oklab, var(--accent) 22%, transparent);
+  --accent-glow: color-mix(in oklab, var(--accent) 35%, transparent);
+  /* Glows (shadows) only: faint, the app keeps them barely there. */
+  --accent-halo: color-mix(in oklab, var(--accent) 10%, transparent);
+  /* The accent as light on black: text and icons stay readable however
+     dark the chosen color is. */
+  --accent-text: color-mix(in oklab, var(--accent) 58%, white);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: rgb(240 242 248);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* ---------- Window backgrounds ---------- */
+
+.app-body {
+  background: #020307;
+  overflow: hidden;
+}
+/* The inspect page over the game: only its page, the game around it. */
+.app-body.inspect-body {
+  background: transparent;
+}
+.app-body #root {
+  position: relative;
+  z-index: 1;
+}
+
+/* How much the glass light shows on a panel (0..1), eased. */
+@property --glow {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+/* In the components layer: a transition utility on a panel still wins. */
+@layer components {
+  .glass {
+    transition: --glow 0.5s ease;
+  }
+}
+
+/* The neon radar behind the app (components/Backdrop.tsx), in the style of
+   the loading screen: faint rings and a dot grid around an origin off the
+   bottom right, a light sweep with a comet on its rim going round. Only
+   transforms animate (on the GPU); gradients are painted once. */
+.backdrop {
+  --ox: 86%;
+  --oy: 112%;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.backdrop-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgb(255 255 255 / 0.055) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  mask: radial-gradient(70% 80% at var(--ox) var(--oy), #000, transparent 75%);
+}
+.backdrop-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(42rem 30rem at var(--ox) var(--oy), color-mix(in oklab, var(--accent) 9%, transparent), transparent 70%),
+    radial-gradient(36rem 26rem at 8% -12%, rgb(150 90 255 / 0.1), transparent 70%);
+}
+
+/* A faint band of light crossing the navbar now and then (at random,
+   lib/lights.ts), the same light that runs through the wordmark. */
+.nav-sweep {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 38%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgb(150 90 255 / 0.09) 35%,
+    color-mix(in oklab, var(--accent) 18%, transparent) 55%,
+    rgb(255 255 255 / 0.09) 62%,
+    transparent
+  );
+  transform: translateX(-110%);
+}
+.nav-sweep.run {
+  animation: nav-sweep 3.4s cubic-bezier(0.45, 0, 0.35, 1) both;
+}
+@keyframes nav-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-sweep {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* A label turning into "Copied" and back (components/CopySwap.tsx): the
+   new text settles in from below, the old one drifts up out of a blur. */
+.copy-in {
+  animation: copy-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 0.06s both;
+}
+.copy-out {
+  animation: copy-out 0.32s cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+@keyframes copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.9);
+    filter: blur(3px);
+  }
+}
+@keyframes copy-out {
+  to {
+    opacity: 0;
+    transform: translateY(-7px) scale(0.9);
+    filter: blur(3px);
+  }
+}
+
+/* The delete button's fuse (components/FuseButton.tsx): burns down the rim
+   clockwise with a glow; held while the pointer is on the button. */
+.fuse-burn {
+  filter: drop-shadow(0 0 3px #ff7a59) drop-shadow(0 0 6px rgb(255 122 89 / 0.6));
+  animation-name: fuse-burn;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.fuse:hover .fuse-burn {
+  animation-play-state: paused;
+}
+@keyframes fuse-burn {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* Loading placeholders: pulse between grey and black… */
+.skeleton {
+  background: rgb(255 255 255 / 0.07);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  50% {
+    background: rgb(255 255 255 / 0.02);
+  }
+}
+/* …and a sheen of light running across what is still loading. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgb(255 255 255 / 0.05) 40%,
+    color-mix(in oklab, var(--accent) 10%, transparent) 50%,
+    rgb(255 255 255 / 0.05) 60%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: shimmer-run 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes shimmer-run {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .shimmer::after {
+    animation: none;
+  }
+}
+
+/* Uppercase wordmark with a light running through it (navbar, splash). */
+.neon-title {
+  background: linear-gradient(90deg, #fff 0 30%, var(--accent) 50%, #fff 70% 100%) 0 0 / 200% 100% repeat-x;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 4.5s linear infinite;
+}
+
+/* The HUD window must stay fully transparent: only widgets are painted. */
+.overlay-body {
+  background: transparent;
+  overflow: hidden;
+}
+
+/* Components live in a layer so Tailwind utilities (absolute, etc.) win. */
+@layer components {
+/* ---------- Glass surfaces ---------- */
+
+.glass {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--glass-radius, 20px);
+  /* No backdrop-filter on purpose: everything behind a panel is a static
+     gradient (and the HUD window can't blur the game), so a backdrop blur
+     looked the same but had to be recomputed on every animated frame. */
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0.012)),
+    rgb(4 6 12 / 0.5);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    inset 0 -1px 0 rgb(0 0 0 / 0.3),
+    0 18px 50px -18px rgb(0 0 0 / 0.9),
+    /* Lights up a little under the pointer. */
+    0 0 calc(var(--glow) * 16px) calc(var(--glow) * -6px) var(--accent-halo);
+}
+
+/* The hairline border of app panels: a real 1px border painted with the
+   gradient (border-box) under an opaque fill (padding-box). The browser
+   anti-aliases that cleanly on the round corners, unlike a masked layer
+   (which looked jagged at Windows display scaling). */
+.glass:not(.glass-hud) {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.01)) padding-box,
+    linear-gradient(#05070c, #05070c) padding-box,
+    linear-gradient(140deg, rgb(255 255 255 / 0.18), rgb(255 255 255 / 0.06) 35%, rgb(255 255 255 / 0.05))
+      border-box;
+}
+
+.glass-subtle:not(.glass-hud) {
+  background:
+    linear-gradient(145deg, rgb(255 255 255 / 0.04), rgb(255 255 255 / 0.01)) padding-box,
+    linear-gradient(#0a0c12, #0a0c12) padding-box,
+    linear-gradient(140deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.05) 40%, rgb(255 255 255 / 0.05)) border-box;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* Over the game the webview cannot blur what is behind the window, so HUD
+   glass carries a darker tint of its own to stay readable (and keeps the
+   masked hairline: its fill has to stay see-through). */
+.glass-hud {
+  background: linear-gradient(145deg, rgb(16 18 26 / 0.72), rgb(10 12 18 / 0.5));
+}
+
+.glass-hud::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background:
+    radial-gradient(
+      220px circle at var(--mx, -9999px) var(--my, -9999px),
+      color-mix(in oklab, color-mix(in oklab, var(--accent) 70%, white) calc(25% + var(--glow) * 50%), transparent),
+      transparent 70%
+    ),
+    linear-gradient(140deg, rgb(255 255 255 / 0.32), rgb(255 255 255 / 0.06) 35%, rgb(255 255 255 / 0.02) 65%, var(--accent-glow));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* The loading screen's comet, once around a panel now and then (at
+   random, lib/lights.ts adds .beam): a bright head with a violet tail
+   running along the edge, then gone. */
+@property --beam {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.glass:not(.glass-hud)::before {
+  content: "";
+  position: absolute;
+  /* On the panel's edge, not past it: a panel that clips its content
+     (overflow hidden) would cut it off. */
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--beam),
+    transparent 0 72%,
+    rgb(150 90 255 / 0.55) 86%,
+    var(--accent) 96%,
+    #fff 99%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 2px var(--accent-halo));
+  opacity: 0;
+  pointer-events: none;
+}
+.glass.beam:not(.glass-hud)::before {
+  animation: panel-beam 1.8s cubic-bezier(0.45, 0.05, 0.25, 1) both;
+}
+@keyframes panel-beam {
+  0% {
+    --beam: -90deg;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    --beam: 270deg;
+    opacity: 0;
+  }
+}
+/* Panels inside panels: only the outer one. */
+.glass .glass::before {
+  content: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass:not(.glass-hud)::before {
+    content: none;
+  }
+}
+
+
+/* Soft specular highlight across the top edge. */
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    /* A soft sheen, only on the panel under the pointer. */
+    radial-gradient(
+      650px circle at var(--mx, -9999px) var(--my, -9999px),
+      color-mix(in oklab, color-mix(in oklab, var(--accent) 35%, white) calc(var(--glow) * 7%), transparent),
+      transparent 55%
+    ),
+    linear-gradient(180deg, rgb(255 255 255 / 0.06), transparent 55%);
+  /* Its own layer: the light moving repaints only this, not the panel. */
+  will-change: transform;
+  pointer-events: none;
+}
+}
+
+/* ---------- Range slider ---------- */
+
+.glass-range {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 70%, white))
+      0 / var(--fill, 50%) 100% no-repeat,
+    rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.5);
+  outline: none;
+  cursor: pointer;
+}
+
+.glass-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #d9dce6);
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    0 2px 8px rgb(0 0 0 / 0.5);
+  transition: box-shadow 0.15s;
+}
+
+.glass-range:hover::-webkit-slider-thumb,
+.glass-range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 6px var(--accent-soft),
+    0 0 8px var(--accent-glow),
+    0 2px 8px rgb(0 0 0 / 0.5);
+}
+
+/* ---------- Motion ---------- */
+
+/* Settles in from slightly smaller (anchored at the top), never reaching
+   past its final box: a downward offset would briefly overflow scroll
+   containers and flash a scrollbar (e.g. the fireteam list). */
+@keyframes widget-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.animate-widget-in {
+  transform-origin: 50% 0;
+  animation: widget-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Inspected weapon / armor: the colored line on top draws from left to
+   right, then the panel unfolds down from it. */
+.hud-reveal {
+  animation: hud-reveal 0.7s both;
+}
+@keyframes hud-reveal {
+  0% {
+    clip-path: inset(0 100% calc(100% - 3px) 0);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+  }
+  40% {
+    clip-path: inset(0 0 calc(100% - 3px) 0);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  /* Past the edges at the end: the shadow and the edit-mode label and
+     handle around the panel stay visible. */
+  100% {
+    clip-path: inset(-48px -40px -48px -40px);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+@keyframes pulse-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-dot {
+  position: relative;
+}
+.animate-pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: pulse-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* The HUD sits over the game: keep it completely still unless something
+   changes, so the compositor never has to redraw a fullscreen window. */
+.overlay-body .animate-pulse-dot::after {
+  animation: none;
+  opacity: 0;
+}
+
+.edit-grid {
+  background-image: radial-gradient(rgb(255 255 255 / 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ---------- Page transitions ----------
+   Going to another page in the navbar: the old page sinks back and fades,
+   the new one builds up, its parts rising in one after another. The new
+   layer itself only holds for the cascade's length (its animationend tells
+   the page it has arrived: DIM and Discord show their webview then). */
+
+.page-enter-forward,
+.page-enter-back {
+  animation: page-hold 0.62s linear both;
+}
+.page-exit-forward,
+.page-exit-back {
+  will-change: transform, opacity;
+  animation: page-recede 0.3s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+
+/* The page's parts (and, a page with one wrapper, the wrapper's). */
+:is(.page-enter-forward, .page-enter-back) > * > :not(:only-child),
+:is(.page-enter-forward, .page-enter-back) > * > :only-child > * {
+  animation: rise-in 0.36s cubic-bezier(0.22, 0.8, 0.2, 1) backwards;
+  animation-delay: 60ms;
+}
+:is(.page-enter-forward, .page-enter-back) > * > :nth-child(2):not(:only-child),
+:is(.page-enter-forward, .page-enter-back) > * > :only-child > :nth-child(2) {
+  animation-delay: 100ms;
+}
+:is(.page-enter-forward, .page-enter-back) > * > :nth-child(3),
+:is(.page-enter-forward, .page-enter-back) > * > :only-child > :nth-child(3) {
+  animation-delay: 140ms;
+}
+:is(.page-enter-forward, .page-enter-back) > * > :nth-child(4),
+:is(.page-enter-forward, .page-enter-back) > * > :only-child > :nth-child(4) {
+  animation-delay: 180ms;
+}
+:is(.page-enter-forward, .page-enter-back) > * > :nth-child(n + 5),
+:is(.page-enter-forward, .page-enter-back) > * > :only-child > :nth-child(n + 5) {
+  animation-delay: 220ms;
+}
+
+@keyframes page-hold {
+  from {
+    opacity: 0.999;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes page-recede {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-widget-in,
+  .hud-reveal,
+  .animate-fade-in,
+  .animate-pulse-dot::after {
+    animation: none;
+  }
+}
+
+/* ---------- Loading screen (components/Splash.tsx) ---------- */
+
+.splash {
+  background: #000;
+}
+/* From black into the app: under way at once, settling softly. */
+.splash-reveal {
+  animation: splash-reveal var(--exit) cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+/* …and the app behind it settles in: out of a soft blur, a touch smaller
+   growing to its size, at the same pace. */
+:has(> .splash-reveal) > :not(.splash) {
+  animation: app-arrive var(--exit, 900ms) cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+@keyframes app-arrive {
+  from {
+    filter: blur(5px);
+    transform: scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :has(> .splash-reveal) > :not(.splash) {
+    animation: none;
+  }
+}
+@keyframes splash-reveal {
+  to {
+    opacity: 0;
+  }
+}
+.splash-leave {
+  animation: splash-leave var(--exit) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes splash-leave {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(6px);
+  }
+}
+.splash-aurora {
+  position: absolute;
+  inset: -30%;
+  background:
+    radial-gradient(22% 18% at 30% 40%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 70%),
+    radial-gradient(20% 16% at 70% 62%, rgb(90 110 255 / 0.14), transparent 70%);
+  filter: blur(40px);
+  animation: aurora-a 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.splash-scope {
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent) 10%, transparent), transparent 70%);
+  animation: splash-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7) rotate(-20deg);
+  }
+}
+.splash-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
+  box-shadow: inset 0 0 18px color-mix(in oklab, var(--accent) 5%, transparent);
+}
+.splash-dash {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px dashed color-mix(in oklab, var(--accent) 40%, transparent);
+  animation: radar-spin 22s linear infinite reverse;
+}
+.splash-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, color-mix(in oklab, var(--accent) 65%, transparent), transparent 22%);
+  mask: radial-gradient(circle, #000 69%, transparent 70%);
+  animation: radar-spin 2.4s linear infinite;
+}
+/* Contacts: light up as the sweep passes, then fade. */
+.splash-blip {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-halo);
+  opacity: 0;
+  animation: blip 2.4s ease-out infinite;
+}
+@keyframes blip {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  8% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  60% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.splash-title {
+  background: linear-gradient(90deg, #fff 0 30%, var(--accent) 50%, #fff 70% 100%) 0 0 / 200% 100% repeat-x;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-right: -0.55em;
+  animation:
+    splash-rise 1s 1.9s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    shimmer 3.2s linear infinite;
+}
+/* Text after the intro (the radar unfolds first). */
+.splash-late {
+  animation: splash-rise 0.8s 2.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.splash-later {
+  animation: splash-rise 0.8s 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(4px);
+  }
+}
+/* Moves the (repeating, white-edged) light by exactly one tile: the end
+   looks like the start, so the loop never jumps. */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+.splash-bar {
+  background:
+    linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent) 0 0 / 40% 100% no-repeat,
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 70%, white), var(--accent));
+  box-shadow: 0 0 16px var(--accent-halo);
+  animation: bar-shine 1.4s linear infinite;
+}
+@keyframes bar-shine {
+  from {
+    background-position: -60% 0, 0 0;
+  }
+  to {
+    background-position: 160% 0, 0 0;
+  }
+}
+.animate-pop {
+  animation: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes pop {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+@keyframes radar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A widget resized in edit mode: its panel fills it and grows with
+   longer content (components/Widget.tsx). */
+/* A widget given a size in edit mode: the width is a maximum (short text
+   keeps it narrow, long text widens it up to there and then wraps), the
+   height a minimum. */
+.widget-sized > .hud-panel {
+  width: auto !important;
+  min-width: 220px;
+  min-height: 100%;
+}
+/* Text sizes in the HUD are in em of this: the widget's own text size (set
+   in edit mode, components/Widget.tsx), 12px by default. */
+.hud-panel {
+  font-size: var(--hud-font, 12px);
+}
+
+/* A new accent color (lib/accentWipe.ts): the page after is uncovered
+   along a slanted edge, left to right, a glossy band of light on the edge.
+   The slant: the edge is 25% of the width further on at the top than at
+   the bottom. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: accent-wipe 1.1s cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+@keyframes accent-wipe {
+  from {
+    clip-path: polygon(-30% 0, 0% 0, -25% 100%, -30% 100%);
+  }
+  to {
+    clip-path: polygon(-30% 0, 125% 0, 100% 100%, -30% 100%);
+  }
+}
+/* The band: a stripe across the screen at the edge's angle (--wipe-angle,
+   set from the window's shape), its middle on the edge the whole way. */
+.accent-shimmer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  view-transition-name: accent-shimmer;
+  background: linear-gradient(
+    var(--wipe-angle, 104deg),
+    transparent 38%,
+    rgb(255 255 255 / 0.05) 44%,
+    rgb(255 255 255 / 0.16) 48%,
+    rgb(255 255 255 / 0.5) 49.6%,
+    rgb(255 255 255 / 0.7) 50%,
+    rgb(255 255 255 / 0.5) 50.4%,
+    rgb(255 255 255 / 0.16) 52%,
+    rgb(255 255 255 / 0.05) 56%,
+    transparent 62%
+  );
+}
+::view-transition-group(accent-shimmer) {
+  animation: none;
+}
+/* Lightening what it passes over: a sheen, not a white bar. */
+::view-transition-new(accent-shimmer) {
+  mix-blend-mode: plus-lighter;
+  animation: accent-shimmer 1.1s cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+@keyframes accent-shimmer {
+  from {
+    transform: translateX(-62.5%);
+    opacity: 0;
+  }
+  10%,
+  85% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(62.5%);
+    opacity: 0;
+  }
+}
+
+/* Radar's window not in front (lib/idle.ts): every animation holds still,
+   so nothing is drawn while the game runs in front of it. */
+.app-idle *,
+.app-idle *::before,
+.app-idle *::after {
+  animation-play-state: paused !important;
+}
+
+/* ---------- Fireteam: a list item still loading (FireteamPage) ---------- */
+
+/* A thin line along a tile's bottom with a light running over it. */
+.tile-loading {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+/* Loaded: it fades out, then stops painting. */
+.tile-loading {
+  transition:
+    opacity 0.5s,
+    visibility 0s 0.5s;
+}
+.tile-loading.done {
+  opacity: 0;
+  visibility: hidden;
+}
+.tile-loading.done::after {
+  animation: none;
+}
+.tile-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--accent-text), transparent);
+  animation: tile-loading 1.4s ease-in-out infinite;
+}
+@keyframes tile-loading {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile-loading::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
+
+/* ---------- Fireteam: a panel's tab switched (FireteamPage) ----------
+   The page push (same timing as above), each list going its width plus the
+   panel's padding and a bit: fully out of sight past the panel's edge. */
+
+.tab-enter-forward,
+.tab-enter-back,
+.tab-exit-forward,
+.tab-exit-back {
+  animation-duration: 0.5s;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  animation-fill-mode: both;
+}
+.tab-enter-forward {
+  animation-name: tab-from-right;
+}
+.tab-exit-forward {
+  animation-name: tab-to-left;
+}
+.tab-enter-back {
+  animation-name: tab-from-left;
+}
+.tab-exit-back {
+  animation-name: tab-to-right;
+}
+@keyframes tab-from-right {
+  from {
+    transform: translate3d(calc(100% + 2.5rem), 0, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes tab-to-left {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translate3d(calc(-100% - 2.5rem), 0, 0);
+  }
+}
+@keyframes tab-from-left {
+  from {
+    transform: translate3d(calc(-100% - 2.5rem), 0, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes tab-to-right {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translate3d(calc(100% + 2.5rem), 0, 0);
+  }
+}
+
+/* ---------- Small motions (lists, bars, tags, views) ---------- */
+
+/* A list's items come in one after another (later ones with the twelfth). */
+.stagger-in > * {
+  animation: rise-in 0.38s cubic-bezier(0.22, 0.8, 0.2, 1) backwards;
+}
+.stagger-in > :nth-child(2) { animation-delay: 35ms; }
+.stagger-in > :nth-child(3) { animation-delay: 70ms; }
+.stagger-in > :nth-child(4) { animation-delay: 105ms; }
+.stagger-in > :nth-child(5) { animation-delay: 140ms; }
+.stagger-in > :nth-child(6) { animation-delay: 175ms; }
+.stagger-in > :nth-child(7) { animation-delay: 210ms; }
+.stagger-in > :nth-child(8) { animation-delay: 245ms; }
+.stagger-in > :nth-child(9) { animation-delay: 280ms; }
+.stagger-in > :nth-child(10) { animation-delay: 315ms; }
+.stagger-in > :nth-child(11) { animation-delay: 350ms; }
+.stagger-in > :nth-child(n + 12) { animation-delay: 385ms; }
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* A bar growing to its value as it shows. */
+.bar-grow {
+  transform-origin: left;
+  animation: bar-grow 0.7s cubic-bezier(0.22, 0.8, 0.2, 1) backwards;
+}
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* A tag showing up (delay per tag set inline). */
+.tag-pop {
+  animation: tag-pop 0.26s cubic-bezier(0.22, 0.8, 0.2, 1) backwards;
+}
+@keyframes tag-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+/* A list sliding out (tab switch) is a copy: nothing in it comes in. */
+:is(.tab-exit-forward, .tab-exit-back) :is(.tag-pop, .bar-grow),
+:is(.tab-exit-forward, .tab-exit-back).stagger-in > * {
+  animation: none;
+}
+
+/* Opening and closing to its height (the child clips). */
+.expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+.expand.open {
+  grid-template-rows: 1fr;
+}
+.expand > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Going deeper inside a page (a character's build, a weapon): it zooms in
+   from a little further away; back out, the view before comes from a
+   little closer. */
+.zoom-in-deeper {
+  animation: zoom-in-deeper 0.44s cubic-bezier(0.22, 0.8, 0.2, 1) backwards;
+}
+.zoom-in-back {
+  animation: zoom-in-back 0.44s cubic-bezier(0.22, 0.8, 0.2, 1) backwards;
+}
+@keyframes zoom-in-deeper {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes zoom-in-back {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-in > *,
+  .bar-grow,
+  .tag-pop,
+  .zoom-in-deeper,
+  .zoom-in-back {
+    animation: none;
+  }
+  .expand {
+    transition: none;
+  }
+}
+
+/* ---------- Spotlight on tiles ----------
+   The pointer's light (lib/glassLight.ts sets --mx / --my on each tile, in
+   its own coordinates) passes over a grid of tiles: a faint white light
+   inside the one under it, and the edges of those near it lighting up a
+   little where it is closest. White only, nothing shining outside a tile;
+   without the pointer the tiles look as before. */
+.spotlight {
+  position: relative;
+}
+.spotlight::before,
+.spotlight:not(.shimmer)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.spotlight::before {
+  background: radial-gradient(
+    300px circle at var(--mx, -9999px) var(--my, -9999px),
+    rgb(255 255 255 / 0.09),
+    transparent 70%
+  );
+}
+/* A ring just inside the border (an overflow-hidden tile would clip one
+   on the border itself). */
+.spotlight:not(.shimmer)::after {
+  padding: 1px;
+  background: radial-gradient(
+    220px circle at var(--mx, -9999px) var(--my, -9999px),
+    rgb(255 255 255 / 0.32),
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}

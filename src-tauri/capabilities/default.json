@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the control window and the overlay",
+  "windows": ["main", "overlay", "inspect-game"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-close",
+    "opener:default",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

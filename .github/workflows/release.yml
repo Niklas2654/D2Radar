@@ -1,0 +1,103 @@
+# A new Radar version (a tag like v0.2.0, pushed by `pnpm release 0.2.0`).
+# Development happens in the private repo; the public D2Radar repo gets
+# each released version:
+#  1. its source, as one commit on D2Radar's main (no development history),
+#  2. the Windows app built from it, with Radar's Bungie app built in, as a
+#     release there: the installer, the signed update and latest.json, which
+#     the app's updater reads, plus a copy as Radar-setup.exe for the website,
+#  3. and the website on Vercel is updated (website.yml: the new version and
+#     size; skipped while the Vercel secrets aren't set).
+#
+# Secrets of this repo:
+#   RELEASES_TOKEN              token with "Contents: read and write" on D2Radar
+#   TAURI_SIGNING_PRIVATE_KEY   the updater's private key (its public one is in tauri.conf.json)
+#   RADAR_BUNGIE_API_KEY, RADAR_BUNGIE_CLIENT_ID, RADAR_BUNGIE_CLIENT_SECRET
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID (website; optional)
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  PUBLIC_REPO: Niklas2654/D2Radar
+
+jobs:
+  source:
+    # Only here, in the private repo (the public copy has this file too).
+    if: github.repository != 'Niklas2654/D2Radar'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish the source to D2Radar
+        env:
+          TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          remote="https://x-access-token:${TOKEN}@github.com/${PUBLIC_REPO}.git"
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --quiet "$remote" main
+          # This version's files, on top of D2Radar's own history.
+          commit=$(git commit-tree "HEAD^{tree}" -p FETCH_HEAD -m "Radar ${version}")
+          git push --quiet "$remote" "${commit}:refs/heads/main"
+
+  app:
+    needs: source
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          # Kept when a later step fails too (the release upload …): a
+          # rerun then doesn't compile everything again.
+          cache-on-failure: true
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          RADAR_BUNGIE_API_KEY: ${{ secrets.RADAR_BUNGIE_API_KEY }}
+          RADAR_BUNGIE_CLIENT_ID: ${{ secrets.RADAR_BUNGIE_CLIENT_ID }}
+          RADAR_BUNGIE_CLIENT_SECRET: ${{ secrets.RADAR_BUNGIE_CLIENT_SECRET }}
+        with:
+          owner: Niklas2654
+          repo: D2Radar
+          # The tag goes on D2Radar's main: the source commit made just before.
+          tagName: v__VERSION__
+          releaseCommitish: main
+          releaseName: Radar __VERSION__
+          releaseBody: Radar __VERSION__ for Windows 10/11. Radar updates itself from here (Settings → About).
+          releaseDraft: false
+          includeUpdaterJson: true
+          args: --config src-tauri/tauri.release.conf.json
+
+      # The same installer under a name that never changes: the website
+      # links to releases/latest/download/Radar-setup.exe.
+      - shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $built = "src-tauri/target/release/bundle/nsis/Radar_${version}_x64-setup.exe"
+          Copy-Item $built Radar-setup.exe
+          gh release upload "v$version" Radar-setup.exe --repo $env:PUBLIC_REPO --clobber
+
+  website:
+    needs: app
+    uses: ./.github/workflows/website.yml
+    secrets: inherit

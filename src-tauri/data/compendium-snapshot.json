@@ -1,0 +1,1015 @@
+{
+  "fetched": 1792320179,
+  "perks": {
+    "set:thunderhead#2": "On Grenade Ability Usage, or upon triggering either the Nanotech Tracer Missile Origin Trait or Quicksilver Storm's Missile Tracer: \nGrants a stack of License to Thrill for 15 seconds, up to a maximum of 10 stacks.\nBuff duration is refreshed upon retriggering.\n\nLicense to Thrill | 12% [2%] Damage Resist against enemies within <5 metres, increased by +?% [?%] per stack afterwards, up to 30% [5%] Damage Resist.",
+    "set:aion adapter#2": "Upon scoring a Missile, Rocket Launcher or Grenade Launcher Kill:\n20% Area-of-Effect Damage Resist and 60% Explosive Self-Damage Resist for 15 seconds.\n\nMissiles:\nQuicksilver Storm's Rocket Tracer, Nanotech Tracer Round, Exhaustive Research Rockets, Rocket Frames, Grand Overture Missiles, and Hazardous Propulsion's Exodus Rockets.",
+    "scoot to loot": "Upon scooting:\nPick ups Ammo Bricks within 15 meters. Will also pick up Motes and Crests.\n+25 Handling and +25 Reload Speed for 10 seconds.",
+    "set:ferropotent#2": "Upon healing Shield HP:\n 10% [2.5%] Damage Resist (Resist x1) and ?% Flinch Resist for 7 seconds.\nCan only trigger once per Full Heal.",
+    "crook and flail": "On Ammo Brick Pickup:\nRestores 70 HP.",
+    "martingale": "On Ally Death or Ally Revival:\n+? Handling and 0.?x ADS Duration Multiplier for 10 seconds.",
+    "combat meditation": "On Sword Hit:\n3% Grenade and Class Ability Energy.",
+    "set:wildwood#2": "Upon scoring a kill while ADS:\nResist x2 (25% [5%]) until no longer ADS.",
+    "set:iron panoply#2": "As Shield HP drops, initially triggering at ? Shield HP, maxing out in effect at ? Shield HP:\nLinearly? grants up to +? Stability and +? Handling\n\nWhile at Critical Health:\nWeapon Kills restore 30HP.\nIncurs a 5 second cooldown between triggers.",
+    "special relativity": "On Ammo Brick Pickup:\nRefills stowed Special Weapons.",
+    "set:first ascent#2": "Scoring a kill with each unique element grants a stack of Stack 'Em Up for 24 seconds.\nStacks up to a maximum of 5 stacks by scoring an Arc, Solar, Void, Stasis, and Strand Kill.\nBuff duration is refreshed upon gaining a stack, and cannot be refreshed once 5 stacks have been reached.\n\nStack 'Em Up grants x1 = 1.2% | x2 = 2.4% | x3 = 3.6% | x4 = 4.8% | x5 = 6% Light+Dark Transcendence Energy.\nGrants 18% Light+Dark Transcendence Energy after having scored kills with every element over the 5 stacks.\nBuff duration serves as a \"cooldown\", during which additional kills will not grant extra Transcendence energy nor additional stacks with the elements already used.",
+    "doppler effect": "Solar Buffs applied to the user and Strand Debuffs inflicted to enemies last 50% longer.\nEquipping Ember of Solace or Thread of Continuity results in the effects lasting 70% longer.",
+    "between poles": "Light Weapon Kills grant a stack of Light Polarity for 10 seconds, up to a maximum of 5 stacks.\nLight Polarity grants +8 | +16 | +24 | +32 | +40 Grenade Stat.\n\nKinetic/Dark Weapon Kills grant a stack of Dark Polarity for 10 seconds, up to a maximum of 5 stacks.\nDark Polarity grants +8 | +16 | +24 | +32 | +40 Melee Stat.\n\nScoring a Non-Alignment Matching Weapon Kill removes all stacks.\nANY Light Polarity --> Dark Alignment Weapon Kill --> x1 Dark Polarity and x0 Light Polarity.",
+    "set:dark age#4": "On Class Ability Usage while Initiative is active:\nCreates a stationary Healing Drone that restores HP every 2 seconds in a 7 meter radius. Instantly releases the first pulse on usage.\nHealing Drone restores 10 HP per Initiative stack per pulse up to 5 times per Class Ability Usage.\nHealing Drone has no collision but can block projectiles.",
+    "nightmarish resilience": "While Unstable Essence is active:\nUpon scoring a total of 8 weapon damage instances within 3 seconds of each, counted up to once every 0.45 seconds: \nBegins Critical Health Regeneration and restores 20 HP.\nIncurs a 2 second cooldown upon triggering before hits count again. \nPerk takes AT LEAST 3.6 seconds to initially trigger, then 5.6 seconds for the next reactivation assuming nonstop damage.",
+    "set:smoke jumper#4": "On Elite+ Finisher:\nRestores 32 HP and +16% Special Ammo Progress.",
+    "shoot to scoot": "Upon dealing Weapon Damage:\nIncreases Scoot Distance from 6.5 meters to 8.5 meters for 3? seconds.\n\nWhile scooting:\n50% [10%] Damage Resist (Resist x4)",
+    "set:sage protector#2": "On Sword Hit:\n3% Grenade and Class Ability Energy.",
+    "suros harmony": "Upon finishing a reload:\nSUROS Harmony | +30? Handling and ?% Flinch Resist for 6 seconds.\nWeapons that have the SUROS Synergy Origin Trait equipped, as well as SUROS Regime are additionally granted +15 Range. \nFor some reason, the +Range benefit's timer begins only once you are able to shoot in the reload animation instead of when the ammo is refilled.\n\nSUROS Harmony persists through stow, but only on the weapon that it was triggered on. \nCan be refreshed by retriggering the buff unless it is a SUROS Weapon lmao.",
+    "spirit of the stag": "Grants 25% [5%] Damage Resist to Guardians inside Rifts created by the wielder.\nStanding in a Rift that overlaps or is inside a Well of Radiance allow the Damage Resist to work in it.",
+    "mod:dexterity": "To Mod-Element Matching Weapon:\n\n0.8x | 0.75x | 0.7x Ready/Stow Duration Multiplier.\n\nCannot exceed 100 Handling Stow Animation Duration.",
+    "mod:nightmare crusher": "Grants 50% [100%] {150%} increased Grenade and Melee Damage against Nightmare Bosses.",
+    "set:kentarch 3#4": "On Weapon Kill:\n?% Melee Energy for the user and their allies within ? meters.",
+    "a wish fulfilled": "On Protective Wish expiry:\nGrants Cure x1.\n\nUpon scoring ? Kills within ? seconds of each:\nProtective Wish expires prematurely.",
+    "mod:in-flight compensator": "+15 | +25 | +30 Airborne Effectiveness.",
+    "spirit of the inmost light": "On Grenade or Class Ability Usage, or upon dealing Powered Melee Damage:\nGrants a stack of Empowered Abilities for the other two abilities for 5 seconds, up to 2 stacks. \ne.g.: Dealing Combination Blow damage -> Increased Grenade and Class Ability Regeneration.\n\nEmpowered Abilities:\nx1 = 400% [100%] | x2 = 800% [200%] Additional Base Grenade and Melee Regeneration Rate.\nx1 = 25% | x2 = 50% Additional Base Class Ability Regeneration Rate.\n\nBuff display is NOT accurate to the active ability regen.\nWith the example in mind, Class Ability Usage before Empowered x1 from Melee runs out will do the following:\nGrenade Empower will go to x2 and will have its duration refreshed. Melee will receive Empower x1 for 5 seconds, and Class Empower x1 won't be refreshed, despite the UI saying Empowered x2",
+    "mod:invigoration": "On Orb of Power Pickup:\n\n10% | 13% | 15% Melee Ability Energy.",
+    "set:aion renewal#4": "Sprinting while at Critical Health, being Suspended, or being affected by a Stasis Debuff will grant Speed Booster.\nCan only trigger once per Force Converter activation.",
+    "mod:restorative finisher": "On Finisher:\nConsumes x2 Armor Charge.\n\n50% Ability Energy to the least-charged Ability.",
+    "set:per audacia#2": "On Primary Ammo Weapon Kill:\nGrants a stack of Primary Chain, up to a maximum of 3 stacks.\nStacks are only lost on death.\n\nPrimary Chain | +5 Mobility, +5 Range, and +10? Handling for Primary Ammo Weapons per stack.\nMaxes out at +15 Mobility, +15 Range, and +30? Handling after scoring 3 Primary Ammo Weapon Kills.",
+    "set:techeun's regalia#4": "Each damage instance scored grants a stack of Truth, up to a maximum of x999 stacks. wherein it gets renamed to Power.\nKills and Finishers grant many more stacks, although it seems to have different gains depending on the stack amount.\nKills tend to be within 20-35 stacks. Finishers tend to give around 60-90 stacks. \nALL stacks are removed on death.\n\nTruth grants Damage Resist per stack, up to 15% DR at maximum.\n250 = 3.75% | 500 = 7.5% | 750 = 10% | 999 = 15% Damage Resist\n\nTruth to Power Effect at x999 stacks:\n+50% Additional Base Grenade, and Melee Regeneration Rate.\n+35% Additional Base Class Regeneration Rate\n15% Damage Resist.",
+    "mod:outreach": "On Class Ability Usage:\nGrants Melee Ability Energy.\n\nMelee Energy Gains:\n12% | 17% | 20%\n6% | 8.5% | 10%",
+    "mod:stacks on stacks": "All sources of Armor Charge now grant an additional stack unless explicitly stated not to.",
+    "cursed fist": "On Melee Kill:\nCauses the enemy to explode, dealing up to ? [?] Arc? Damage over a 4.5 metre radius.\nGlaive Melees also trigger it.\nIncurs a 0.5? second cooldown between triggers.",
+    "high noon": "Upon readying a weapon:\n7% Increased Weakspot Damage against Combatants for 4 seconds.\nBuffs \"Precision Hits\" against Shielded Combatants and works on weapons without Precision Multipliers as long as they hit the weakspot.\nWeakspot Buffs do not work on a Divinity Bubble\n\nBonus is doubled to 14% Increased Weakspot Damage for the following:\nWeapons with the Tex Balanced Stock Origin Trait and Tex Mechanica Exotics.\nDead Man's Tale | Huckleberry | Last Word | Tarrabah | Chaperone | Prospector",
+    "mod:grenade kickstart": "On Grenade Ability Usage while having Armor Charges:\n\nConsumes all Armor Charges to grant Grenade Ability Energy. \n\nAbility Energy Gains are based on the sum of number of Armor Charges consumed and Mod copies equipped.\n\nGrenade Ability Energy:\n16.2% | 21.7% | 28.4% | 34.4% | 38.4% | 41.3% | 43.4% | 45%\n12.5% | 14.2% | 16.2% | 18.7% | 21.7% | 25% | 28.4% | 31.6%",
+    "set:oryx's memory#2": "On Elite+/Guardian Kill:\n+12% Special and +7.5% Heavy Ammo Progress.",
+    "set:techsec#4": "Upon killing an Elite+ Combatant, or breaking a Combatant Shield with Kinetic Damage:\nTriggers a disorienting Kinetic blast, dealing up to 162 Kinetic Damage, heavily staggering, and inflicting disorient to enemies within 10 meters for ? seconds.",
+    "primary chain": "On Primary Ammo Weapon Kill:\nGrants a stack of Primary Chain, up to a maximum of 3 stacks.\nStacks are only lost on death.\n\nPrimary Chain | +5 Mobility, +5 Range, and +10? Handling for Primary Ammo Weapons per stack.\nMaxes out at +15 Mobility, +15 Range, and +30? Handling after scoring 3 Primary Ammo Weapon Kills.",
+    "spirit of the necrotic": "Melee Hits inflict Potent Corruption.\nCorrupted enemies spread Potent Corruption on death in a 5 metre radius.\n\nPotent Corrupted Damage ticks every 0.52 [0.7] seconds up to 19 [?] times over 10 [?] seconds, dealing 32 [5?] Kinetic Damage every tick, totalling 640 [?] damage over its duration.",
+    "mod:explosive finisher": "On Finisher:\nConsumes x3 or more Armor Charge.\n\nGrants Grenade Ability Energy.\nx3 = 70% | x4 = 80% | x5 = 90% | x6 = 100%",
+    "mod:power preservation": "On Super Kill:\nSpawns a Orb of Power for Allies.\n\nOrb of Power:\n2.5% | 3.75% | 4.4% Super Energy.\n\nIncurs a 2 seconds cooldown between Orbs.",
+    "set:lustrous#2": "Upon receiving ANY healing while not at Full HP:\n+20? Handling, +10 Reload Speed, 0.85x Reload Duration Multiplier, and ?% Flinch Resist for Solar Weapons for 4 seconds.\nWorks with ANY source of healing, such as Orb Pickups. Restoration constantly refreshes it",
+    "fanfare": "While Ammo = ≤50% of Magazine AND Ammo ≠ 0:\n+15 Reload Speed and 0.95x Reload Duration Multiplier.\n\nDoes not trigger at 0 Ammo. rip bows, GLs, and Rockets",
+    "adrenal rush": "Upon sprinting for 0.5 seconds:\nGrants Adrenal Rush for 5 seconds.\nScoring a kill or retriggering the perk refreshes the buff duration.\n\nAdrenal Rush | +40 Handling, +30 Reload Speed, and 0.95x Reload Duration Multiplier.",
+    "iron conviction": "Upon reaching Critical Health:\n\n+35 Ammo Generation Stat, ?% Flinch Resist, and 15% Damage Resist against Combatants within 10 meters for 7 seconds.\nAdditional kills while the buff is active refreshes the buff duration.\n\nBuff cannot retrigger until any Shield HP is recovered.",
+    "mod:bolstering detonation": "Upon dealing Grenade Damage:\nGrants Class Ability Energy.\n\nAbility Energy Gain:\n12% | 17% | 20%\n6% | 8.5% | 10%\n\nIncurs a 7 second cooldown after activation.",
+    "set:flain#2": "Upon receiving ? damage from Combatants or upon reaching Critical Health:\nSpawns a Threadling.\nIncurs a 5 second cooldown between Threadling spawns from damage and a 5 second cooldown between Threadlings spawns from reaching Critical Health.",
+    "mod:powerful attraction": "On Class Ability Usage:\nCollects Orbs of Power within 12.5 | 18.5 metres.\n\nWill also pick up Motes and Crests.",
+    "resonant plating": "Upon receiving a Melee Attack from a Miniboss+ Combatant:\nBegins Health Regeneration.",
+    "set:seventh seraph#4": "Upon killing an Elite+ Combatant or destroying a Construct/Tangle while having Warmind Charges:\n\nTriggers a Warmind Detonation, centered on the Combatant/Construct.\nDetonation (from Elite Kill) deals 405 [?] Solar Damage and restores 50 HP to the user and their allies over 10 meters without falloff.\nDetonation (from destroying a Construct) deals half the damage and restores half the health. <---NEEDS MORE THOROUGH TESTING\nDetonation Kills can grant Warmind Charges, but will not chain into additional Warmind Detonations.\nIncurs a 0.3? second internal cooldown between explosions? Hard to test sometimes",
+    "set:smoke jumper#2": "On Orb of Power Pickup:\nGrants Ride Together, Die Together for 3 seconds.\nRide Together, Die Together initially grants 40% [5%] Damage Resist.\nDamage Resist scales down to ~30?% with 1.5 seconds left, further reduced to 24?% with 1 second left, decreasing down to 0% over the remaining second.",
+    "set:tm custom#2": "On Weapon Stow after scoring an Elite+ or Guardian Weapon Kill:\nRestores 40? HP and disorients Combatants within 12 meters.\nIncurs a 2? second cooldown between activations",
+    "network upload": "On Weapon Kill:\n?% Melee Energy for the user and their allies within ? meters.",
+    "concussive rounds": "Upon killing an Elite+ Combatant, or breaking a Combatant Shield with Kinetic Damage:\nTriggers a disorienting Kinetic blast, dealing up to 162 Kinetic Damage, heavily staggering, and inflicting disorient to enemies within 10 meters for ? seconds.",
+    "set:reverie dawn#4": "On Protective Wish expiry:\nGrants Cure x1.\n\nUpon scoring ? Kills within ? seconds of each:\nProtective Wish expires prematurely.",
+    "mod:bomber": "On Class Ability Usage:\nGrants Grenade Ability Energy.\n\nGrenade Energy Gains:\n12% | 17% | 20%\n6% | 8.5% | 10%",
+    "mod:dreambane mod": "5% Damage Resist per Stack against Nightmare Bosses.\nMaxes out at 25% Damage Resist with 5 Mods.",
+    "set:yearning echo#4": ">>DISABLED IN CRUCIBLE<<\n\nWhile at x5 Untold Greed or higher:\nElemental Pickups are massively improved.\nNo discernible effect on Orbs of Power.\n\nFiresprites (+120%) | 11.25% -> 25% Grenade Energy\nIonic Traces (+100% Class, +85% Grenade/Melee) | 11.25% Grenade/Melee + 13.5% Class -> 21% Grenade/Melee + 27% Class + 2% Super\nVoid Breaches (+120%) | 11.25% -> 25% Class Energy\nStasis Shards (+260%) | 10% -> 36% Melee Energy. Additive to Hunger's +60%, totalling 42.5% Energy per pickup.\nStrand Tangles | 350% increased damage. Affects Whirling Maelstrom too!\n\nUpon reaching Critical Health while having x5 Untold Greed or higher:\nConsumes ALL STACKS to spawn 4 Orbs of Power that each grant ~3.15% Super Energy.\nThe Orbs of Power are ejected in front of the user at high speeds, likely clipping inside walls.\n\nLooking upwards/downwards does not affect where the Orbs go.\nAllied Guardians get the Orbs, too.",
+    "spirit of the star-eater": "Picking up an Orb of Power while Super is charged grants a stack of Feast of Light, up to a maximum of x6 stacks.\nSwapping to another Exotic Class Item with Star-Eaters will maintain the current Feast of Light stacks.\n\nOn Super Cast:\nConsumes all Feast of Light stacks, increasing Super Damage for 14 seconds.\n18.2% | 36.4% | 54.6% | 59.7% | 64.8% | 70% increased Super Damage.\n\nReduced effectiveness with certain Super Abilities.\nSong of Flame does not receive increased Solar Effect Damage.\nNova Bomb, Thundercrash, and Twilight Arsenal receive up to 50% Increased Super Damage.\nNeedlestorm receives up to 35% Increased Super Damage.",
+    "spirit of the gyrfalcon": "Upon leaving Void Invisibility:\nGrants Volatile Rounds for 9 [3] seconds.",
+    "spirit of the armamentarium": "Grants an extra Grenade Ability Charge.",
+    "spirit of harmony": "Upon scoring a Super-Element Matching Weapon Kill:\nGrants additional Super Energy based on the Enemy Tier.\nTier 1 Combatant = 1.5% | T2 = 2% | T3 = ?% | T4 = 2.5% | Guardian = ?%",
+    "mod:nightmare banisher": "Grants 66% [133%] {200%} Increased Super Ability Damage against Nightmare Bosses.\n\nNightmare Bosses have an innate 50% Damage Reduction against Super Damage.",
+    "set:cyberserpent null#4": ">>DISABLED IN CRUCIBLE<<\n\nWhile Adrenal Rush is active:\nRank-and-File Combatant Kills grant +3% Special Ammo Progress.\nElite+ Combatants Kills grant +16% Special Ammo Progress.\nElite+ Taken Combatant Kills grant +24% Special Ammo Progress.\nGuardian Kills grant +?% Special Ammo Progress.\nBuff can be triggered by destroying \"destroyable entities\" as well as Constructs, granting +16% Special Ammo Progress.",
+    "nightmarish power": "Upon scoring an Elite+ Kill:\nGrants Unstable Essence for 15 seconds.\nScoring additional Elite+ Kills refresh the buff duration.\n\nUnstable Essence | +30 Melee Stat and +30 Grenade Stat.",
+    "down the line": "Upon scoring a hit against Miniboss+ Combatants:\nGrants a stack of Down the Line, up to a maximum of 10 stacks. \nIncurs a 1 second cooldown between gaining stacks.\n\nDown the Line:\n15% increased Weapon Damage against Rank-and-File and Elite Combatants.\nConsumes a stack upon killing Rank-and-File and Elite Combatants.",
+    "set:promised#4": "While Stable Resonance is active:\nDealing 600? Weapon Damage within ? seconds of each triggers an Exhausting Blast, centered on the enemy.\nIncurs an 2? second cooldown between Exhausting Blasts.\n\nExhausting Blast deals ? Damage and inflicts Exhaust over 8 meters, reducing Combatant Damage Output by 25%.",
+    "lucent tithes": "On Elite+ Finisher:\nRestores 50? HP and spawns 3 Loyal Void Moths that each grant 22.5HP Void Overshield to the user and their allies on impact.",
+    "magnificent duty": "Upon reaching Critical Health or healing an ally at Critical Health:\n\nFor Auto Rifles, Scout Rifles, and Sidearms:\n+20 Range, +20 Stability, +30 Reload Speed, and 0.9x Reload Duration Multiplier for 11 seconds.\n\nUsing a Support Frame Auto to heal a Critical Health Ally after triggering the Pleas Heard effect removes the healing effect as it requires firing to heal... Bungie?",
+    "set:crota's memory#2": "On Melee Kill:\nCauses the enemy to explode, dealing up to ? [?] Arc? Damage over a 4.5 metre radius.\nGlaive Melees also trigger it.\nIncurs a 0.5? second cooldown between triggers.",
+    "gift of sight": "Upon scoring a Primary Weapon Kill:\nEnhanced Radar for 5 seconds.\n\nBuff can be triggered by destroying \"destroyable entities\" as well as Constructs.",
+    "ascendant escape": "On Elite+ Kill:\nGrants Ascendant Escape.\n\nAscendant Escape: Upon reaching Critical Health or being damaged while at Critical Health:\nInvisibility for 6+? seconds.",
+    "stable resonance": "On Elite+ Kill:\n7% Increased Weapon Damage and Resist x2 (25% DR) for 12 seconds.",
+    "mod:grenade font": "While Armor Charge is active:\n\n+20 | +40 | +50 Grenade.",
+    "shock and clear": "Upon scoring a Jolt Kill or a Jolted Enemy Kill:\nCreates an Ionic Trace.",
+    "mod:unflinching aim": "To Mod-Element Matching Weapons, while ADS:\n\n25% | 30% | 35% Flinch Resistance.\n\nFlinch Resistances are multiplicative with each other.",
+    "set:flain#4": "Upon reaching Critical Health:\nThe next 3 Threadling hits within 10 seconds of reaching Critical Health restore 50? HP.\nIncurs a 5 second cooldown afterwards.",
+    "field expertise": "On Precision Kill:\nGrants a stack of Field Expertise for 15 seconds, up to a maximum of 5 stacks.\nScoring a Non-Precision Weapon Kill immediately removes all stacks.\n\nField Expertise x1 | 3.5% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x2 | 7% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x3 | 8% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x4 | 9% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x5 | 10% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.",
+    "mod:impact induction": "Upon dealing Powered Melee Damage:\nGrants Grenade Ability Energy.\n\nAbility Energy Gain:\n12% | 17% | 20%\n6% | 8.5% | 10%\n\nIncurs a 7 second cooldown after activation.",
+    "mod:benevolent finisher": "On Finisher:\nConsumes x3 Armor Charge.\n\nAllies are spawned an Orb of Power that grants 7.15% Super Energy.",
+    "emergency electromagnet": "Upon reaching Critical Health:\nPicks up Ammo Bricks and Orbs of Power within 10? meters.\nPicking up multiple Orbs of Power will count as simultaneous gains for the Repurposed Charges.",
+    "set:cyberserpent null#2": "Upon sprinting for 0.5 seconds:\nGrants Adrenal Rush for 5 seconds.\nScoring a kill or retriggering the perk refreshes the buff duration.\n\nAdrenal Rush | +40 Handling, +30 Reload Speed, and 0.95x Reload Duration Multiplier.",
+    "augmented explosives": "On Grenade Ability Detonation: \nDisorients enemies within 10 meters for 2.7 seconds.\nDoes not work on Grapple. \nDoes not work on Young Ahamkara Spine's Tripmines.",
+    "spirit of the claw": "Grants an extra Melee Ability Charge.",
+    "mod:absolution": "On Orb of Power Pickup:\n\n5% | 7.5% | 10% Grenade Ability Energy\n5% | 7.5% | 10% Melee Ability Energy\n5% | 7.5% | 10% Class Ability Energy",
+    "set:resonant fury#4": "Upon scoring weapon damage instances or a Glaive Melee Attack:\nGrants a stack of Siphoning Touch, up to a maximum of 5 stacks.\nx1 = ~26.7% of Mag | x2 = ~53.4% | x3 = ~80% | x4 = ~106% | x5 = ~133%\nScorch does not count for damage instances. Always rounds down.\n\nOn Weapon Stow:\nConsumes all Siphoning Touch to restores HP, based on the stack amount.\n30 | 60 | 90 | 105 | 120 HP restored.",
+    "mod:elemental charge": "Picking up Elemental Pickups, or destroying Tangles progresses a counter.\n\nGrants x1 Armor Charge upon reaching 100% Counter Progress.\n\nElemental Pickup Counter Progress:\nVoid Breaches, Firesprites, and Tangles: 50% | 50% | 100%\nIonic Traces: 34% | 50% | 50% | Shards: 25% | 34% | 50%",
+    "healing initiative": "On Class Ability Usage while Initiative is active:\nCreates a stationary Healing Drone that restores HP every 2 seconds in a 7 meter radius. Instantly releases the first pulse on usage.\nHealing Drone restores 10 HP per Initiative stack per pulse up to 5 times per Class Ability Usage.\nHealing Drone has no collision but can block projectiles.",
+    "mod:super font": "While Armor Charge is active:\n\n+20 | +40 | +50 Super.",
+    "mod:utility finisher": "On Finisher:\nConsumes x3 or more Armor Charge.\n\nGrants Class Ability Energy.\nx3 = 70% | x4 = 80% | x5 = 90% | x6 = 100%",
+    "mod:targeting": "To Mod-Element Matching Weapons, after 1 second of readying the weapon:\n\n+5 | +8 | +10 Aim Assist\n0.9x | 0.85x | 0.8x Accuracy Cone Size\n 0.85x | 0.75x | 0.7x ADS Duration Multiplier",
+    "augmented servos": "On Powered Melee Kill:\nTarget releases a Disorienting Pulse over 10 meters after 0.67 seconds of dying.\nDisorienting Pulse inflicts Disorient for 2.5 seconds.\nIncurs a 0.5? second cooldown between triggers.",
+    "set:crystocrene#4": ">>DISABLED IN CRUCIBLE<<\n\nAfter having maintained a state of not dealing or receiving damage for at least 12 seconds:\nGrants a stack of Frost Armor every 3 seconds.\nStacks up to x5 Frost Armor, refreshing its duration every 3 seconds.",
+    "rasputin's wrath": "Upon scoring a kill with any of the following methods: \nExplosive Damage | Solar Ability Damage | Seventh Seraph Weapons | IKELOS Weapons | Sleeper Simulant | Outbreak Perfected:\n\nGrants a Warmind Charge for 10 seconds, up to a maximum of 10 charges.\nAll stacks disappear upon expiry.\n\nWarmind Charges each grant +3 Grenade Stat and +3 Weapons Stat, up to +30 Grenade Stat and +30 Weapons Stat at 10 charges.",
+    "set:nezarec's nightmare#4": "On Elite+ Finisher:\nDevour for 6+3 seconds.\n\nWhile Devour is active:\n20?% Damage Resist against Combatants.",
+    "spirit of the dragon": "Passively grants +10 Stability and 0.?x Ready Duration Multiplier.\n\nOn Class Ability Usage:\nGrants Wraithmetal Mail for 9 seconds.\nReloads all weapons and picks up Ammo Bricks within 15 meters. Activates On-Reload Perks.\n\nWraithmetal Mail:\n+35 Stability and +? Handling.",
+    "repurposed charge": "Gaining, losing, or consuming Armor Charges restores 5? HP and grants stacks of Repurposed Charge.\n\nRepurposed Charge stacks are based on the amount of simultaneously(!) gained/lost/consumed Armor charges + 1.\nMaxes out at x7 with 6 Armor Charges simultaneously lost/spent through Kickstart or Finisher Mods.\n\nInitial Buff duration as well as Buff Extensions are equal to (3 seconds X Repurposed Charge Stacks gained/lost/consumed)\n Buff can be extended to a maximum of 30 seconds, maintaining the highest stack.\nExamples: Orb Pickups grant x2 (13% DR) for +6 seconds.\n Special Finisher will grant x4 (29.5% DR) for +12 seconds. Picking up an Orb afterwards will maintain x4 stacks and add +6 seconds.\n\nRepurposed Charge:\nGrant Damage Resist per Repurposed Charge stack, up to 35% [?%] DR at 7 stacks.\nx1 = 0% [0%] | x2 = 13% [?%] | x3 = 21% [?%] | x4 = 29.5% [?%] | x5 = 31% [?%] | x6 = 33% [?%] | x7 = 35% [?%]",
+    "set:reverie dawn#2": "Upon receiving ? damage within ? seconds of each damage instance:\nGrants Protective Wish for 7 seconds.\nIncurs a 5 second cooldown once the buff expires before it can be triggered again.\n\nProtective Wish:\n+? Reload Speed and 0.?x Reload Duration Multiplier\nCombatants are less accurate at targeting the wearer.",
+    "spirit of the cyrtarachne": "On Grenade Ability Usage:\nGrants Woven Mail for 10 seconds.",
+    "mod:snapload finisher": "On Finisher:\nConsumes x1 Armor Charge.\n\nRefills all weapons.",
+    "set:deep explorer#2": "Grants a stack of Built Bitter for every ? damage taken, up to 10 stacks after receiving ? damage.\nSelf damage does not count. Stacks are lost when stowing.\n\nBuilt Bitter grants Reload Speed and Reload Duration Multiplier per stack until stowed.\nGrants up to +50?? Reload Speed and ~0.85–0.9x Reload Duration Multiplier.\n\n+? | +? | +? | +? | +? | +? | +? | +? | +? | +50??  Reload Speed.\n?x | ?x | ?x | ?x | ?x | ?x | ?x | ?x | ?x | ~0.85x–0.9x Reload Duration Multiplier.",
+    "spirit of hoarfrost": "On Barricade Placement:\nCreates a Stasis Wall that is 5 medium crystals wide. The middle crystal is a small crystal.\nOverrides Barricade Cooldown with Towering Barricade's?.\n\nOn Thruster Usage:\nSpawns 2 Stasis Crystals.\n\nDoes not provide Rally Barricade Bonuses, unlike the Exotic Armor version.",
+    "mod:scavenger": "On Ammo Brick Pickup to Mod-Element Matching Weapons:\nGenerally grants an additional +1 Ammo.\n\nMachine Guns receive +7 Ammo.\nTraces receive +10% Max Reserves.\n\nBy default, Ammo Bricks grant 25% to 33% of Reserves.\nWorks with Ammo Finder Bricks in full effect.\n\nDoes not function in PvP Game Modes.",
+    "set:kentarch 3#2": "While an ally is within 15? meters:\n+? Handling and +? Reload Speed.\n\n+? Health Stat while an allied Network Admin is within 15m.",
+    "set:spacewalk#2": "Primary Ammo Weapons deal 15% increased damage against Disoriented Combatants.\nDisorient Duration is shorter than the animation, generally lasting for ~2.7 seconds.\nDoes NOT work with Arc Blind.",
+    "set:wild anthem#2": "While Ammo = ≤50% of Magazine AND Ammo ≠ 0:\n+15 Reload Speed and 0.95x Reload Duration Multiplier.\n\nDoes not trigger at 0 Ammo. rip bows, GLs, and Rockets",
+    "spirit of severance": "On Powered Melee Kill or Finisher:\nEnemy triggers a Kinetic Explosion, dealing up to 400 [?] damage over ? meters\nIncurs a 1 second cooldown between non-chaining explosions. \n\nSeverance Explosions from Powered Melee Kills can chain, creating weaker explosions that only deal up to 268 [?] damage in a ? meter radius. \nChaining Explosions do not have a cooldown.",
+    "set:shrewd survivor#2": "Upon readying a Heat Weapon, Submachine Gun, or Hand Cannon:\nGrants Reflex Action for 1.5 seconds.\n Dealing Additional Weapon Damage refreshes the buff duration.\n\nReflex Action | +50? Handling, 0.6?x Ready Duration Multiplier, and -2.5% Accuracy Cone Size for 1.5 seconds.",
+    "set:yearning echo#2": "Upon picking up an Ammo Brick, an Orb of Power, on Elemental Pickup, or destroying a Tangle:\nGrants a stack of Untold Greed, up to a maximum of 100 stacks.\n\nUpon reaching Critical Health:\nRemoves 10 stacks.\n\nUntold Greed:\nUp to +? Reload Speed and 15% Damage Resist at x25 stacks.\nx5 = 6% DR | x10 = 9% DR | x15 = 11% DR | x20 = 13% DR | x25+ = 15% DR",
+    "sublime transit": "Passively grants +20 Mobility, increases Sprint Speed from 8 m/s to 8.5m/s, and increases Slide Distance from 6.5 meters to 8.5 meters.",
+    "set:circuit#4": "While Speed Booster is active:\nSliding inflicts Jolt to Combatants within 10 meters in a frontal cone.",
+    "resupply": "Scoring a kill spawns an Orb of Power that grants 1?% Super Energy, as well as +20% Special Ammo Progress and +20% Heavy Ammo Progress.\nIncurs a 12 second cooldown before it can retrigger.",
+    "set:great hunt#4": "On Grenade Kill:\n+10% Heavy Ammo Progress.",
+    "set:veritas#4": "On Elite+ Finisher:\nRestores 50? HP and spawns 3 Loyal Void Moths that each grant 22.5HP Void Overshield to the user and their allies on impact.",
+    "lethal weave": "On Unraveled Enemy Kill:\n10% Grenade Ability Energy.\n+10% Special Ammo Progress if at maximum Grenade Ability Energy.",
+    "taking initiative": "Upon scoring a Melee, Glaive Melee, or Sword Damage Instance:\nGrants a stack of Initiative for 8 seconds, up to a maximum of 5 stacks.\nInitiative grants +Handling and +Reload Speed.\nStacks decay one at a time.\nCan stack on Immune Enemies and with DoT as well, such as Sword Storm Combo, Smoke Bomb, and Scorch Ticks.\n\nInitiative\n+? | +? | +? | +? | +? Handling and Reload Speed",
+    "radiolaria breach": "On Orb of Power Pickup:\nGrants Radiolaria Breach.\nCan only trigger once per Full Heal.\n\nUpon reaching Critical Health:\nConsumes Radiolaria Breach to trigger an explosion that deals up to 360 [11] Damage over 7 meters.\n+50 Health Stat for 7.5 seconds and releases 4 Radiolaria Pools 5 meters away from the user.\nRadiolaria Pools deal 14 Arc Damage every 0.5 seconds.",
+    "revving up": "While Movement Speed is at least ?m/s:\nGrants a stack of Revving Up, with a maximum of 10 stacks.\nTransforms into Fully Revved at 10 stacks.\n\nEach Revving Up stack grants increased Critical Health Regeneration Speed. Does not affect Shields in any way.\nBy default, it takes 1.75 seconds for Critical Health to begin regenerating at a rate of 27.5%HP/s.\nAt x5 stacks, it takes 1.5 seconds to begin regenerating at a rate of ~37.5% HP/s.\nAt x10 stacks, it takes 1.25 seconds to begin regenerating at a rate of 45% HP/s\n\nSprinting: 5 seconds per stack, takes 45 seconds to max out regardless of speed.\nOther movement (Jumping, Falling, Sword Swinging, Sparrows) greatly accelerate the rate based on their speed, down to a minimum of 1.25 seconds per stack.\nMost easily achieved by using a Sparrow, as those reach the Movement Cap.\n\nWhile Movement Speed is lower than 3m/s:\nRapidly removes 4 stacks per second after a 0.5 second delay.\n\nWhile Fully Revved is ready:\nSprinting for 2.5 seconds grants Speed Booster.\nTriggering Speed Booster and sliding at least once grants Extended Slide Distance until death.",
+    "set:techeun's regalia#2": "Finishers grant a 200? HP Overshield for the duration of the finisher (+0.3s).\n\nOn Finisher:\nInflicts x? Slow to enemies within 7 meters.",
+    "mod:orbs of restoration": "On Orb of Power Pickup:\n\n10% | 13% | 15% Ability Energy to the least-charged Ability.\nDoes not grant any Ability Energy to abilities with multiple charges if they have at least 1 charge readied.",
+    "set:bushido#2": "Upon scoring a Weapon Kill within 4 seconds of reloading or readying a weapon:\nRestores 40 HP.\nIncurs a 3 second cooldown upon triggering. Must reload or swap weapons after the cooldown is over for the effect to trigger on kill.",
+    "from the storm": ">>DISABLED IN CRUCIBLE<<\n\nAfter having maintained a state of not dealing or receiving damage for at least 12 seconds:\nGrants a stack of Frost Armor every 3 seconds.\nStacks up to x5 Frost Armor, refreshing its duration every 3 seconds.",
+    "mod:resistance": "15% | 25% | 30% Damage Resist against Combatants.\n\nElemental Mods reduce Mod-Matching Elemental damage.\nSniper reduces damage from >30 metres.\nMelee reduces damage from <5 metres.\nConcussive Dampener reduces AoE/Blast/Explosive Damage.\n\nDifferent Resist Mods, as well as other sources of Resist all stack multiplicatively with each other.",
+    "set:thunderhead#4": "On Unraveled Enemy Kill:\n10% Grenade Ability Energy.\n+10% Special Ammo Progress if at maximum Grenade Ability Energy.",
+    "set:seventh seraph#2": "Upon scoring a kill with any of the following methods: \nExplosive Damage | Solar Ability Damage | Seventh Seraph Weapons | IKELOS Weapons | Sleeper Simulant | Outbreak Perfected:\n\nGrants a Warmind Charge for 10 seconds, up to a maximum of 10 charges.\nAll stacks disappear upon expiry.\n\nWarmind Charges each grant +3 Grenade Stat and +3 Weapons Stat, up to +30 Grenade Stat and +30 Weapons Stat at 10 charges.",
+    "vigilant watch": "As Shield HP drops, initially triggering at ? Shield HP, maxing out in effect at ? Shield HP:\nLinearly? grants up to +? Stability and +? Handling\n\nWhile at Critical Health:\nWeapon Kills restore 30HP.\nIncurs a 5 second cooldown between triggers.",
+    "untold greed": "Upon picking up an Ammo Brick, an Orb of Power, on Elemental Pickup, or destroying a Tangle:\nGrants a stack of Untold Greed, up to a maximum of 100 stacks.\n\nUpon reaching Critical Health:\nRemoves 10 stacks.\n\nUntold Greed:\nUp to +? Reload Speed and 15% Damage Resist at x25 stacks.\nx5 = 6% DR | x10 = 9% DR | x15 = 11% DR | x20 = 13% DR | x25+ = 15% DR",
+    "set:pantheos resplendent#2": "On Ammo Brick Pickup: \nGrants a stack of Armor Charge.\n\nEach Armor Charge stack grants +10 Health Stat.\nGrants up to +30 Health Stat with x3 Armor Charge.\nMaxes out at +60 Health Stat with x6 Armor Charges.",
+    "set:iron battalion#2": "+15 Handling and 0.9x Reload Duration Multiplier for Primary Weapons.\n\nIncreased Primary Weapon Damage against Non-Boss Combatants based on the Weapons stat.\n\nCompared to the damage dealt at the equivalent Weapons Stat:\n20 Stat = 0.6% | 40 = 1.2% | 60 = 1.8% | 80 = 2.4% | 100 = 3%\n120 = 4.75% | 140 = 6.6% | 160 = 8.35% | 180 = 10.2% | 200 = 12%",
+    "set:crota's memory#4": "While maintaining a state of dealing or receiving damage every 7 seconds:\nGrants a stack of Power of the Son after 12 seconds, up to 2 stacks after 24 seconds.\n\nPower of the Son x1 | 15% Damage Resist against Combatants and ?% Flinch Resist.\nPower of the Son x2 | 25% Damage Resist against Combatants and ?% Flinch Resist.",
+    "set:exodus down#2": "Upon reaching Critical Health:\nPicks up Ammo Bricks and Orbs of Power within 10? meters.\nPicking up multiple Orbs of Power will count as simultaneous gains for the Repurposed Charges.",
+    "set:per audacia#4": "Passively grants +20 Mobility, increases Sprint Speed from 8 m/s to 8.5m/s, and increases Slide Distance from 6.5 meters to 8.5 meters.",
+    "mod:focusing strike": "Upon dealing Powered Melee Damage:\nGrants Class Ability Energy.\n\nAbility Energy Gain:\n12% | 17% | 20%\n6% | 8.5% | 10%\n\nIncurs a 7 second cooldown after activation.",
+    "set:spacewalk#4": "On Grenade Ability Detonation: \nDisorients enemies within 10 meters for 2.7 seconds.\nDoes not work on Grapple. \nDoes not work on Young Ahamkara Spine's Tripmines.",
+    "siphoning touch": "Upon scoring weapon damage instances or a Glaive Melee Attack:\nGrants a stack of Siphoning Touch, up to a maximum of 5 stacks.\nx1 = ~26.7% of Mag | x2 = ~53.4% | x3 = ~80% | x4 = ~106% | x5 = ~133%\nScorch does not count for damage instances. Always rounds down.\n\nOn Weapon Stow:\nConsumes all Siphoning Touch to restores HP, based on the stack amount.\n30 | 60 | 90 | 105 | 120 HP restored.",
+    "supercyclical": "Upon scoring kills while in a Super Ability:\nx1 = ~5?% | x2 = ?% | x3 = ?% | x4 = ?% | x5 = ?% | x6 = ~33% Super Ability Energy once it ends.\n\nUpon scoring kills with Super Damage while NOT in a Super Ability:\nx1 = ~5?% | x2 = ?% | x3 = ?% | x4 = ?% | x5 = ?% | x6 = ~33% Super Ability Energy.\n\nSuper Ability Refund Cap is reset on Super Ability Cast or upon swaping off of Supercyclical and then reacquiring the 4 Piece Perk by changing gear.",
+    "mod:proximity ward": "During a Finisher:\nGrants a 200 HP Overshield.",
+    "mod:powerful friends": "On Orb of Power Pickup:\n\n Allies within 18 metres receive x1 Armor Charge.",
+    "set:thriving survivor#4": "Upon scoring 3 Heat Weapons or Primary Weapon Kills within 4 seconds of each:\nGrants Room Cleaning for 10 seconds.\n\nRoom Cleaning | +40 Grenade and +40 Weapons. Additionally, it grants +40 Ammo Generation for Heat Weapons and Primary Ammo Weapons.",
+    "regenerative threshold": "On Finisher:\nGrants Regenerative Threshold.\n\nUpon reaching Critical Health:\nConsumes Regenerative Threshold.\nRestores 20 HP and begins Health Regeneration.",
+    "superluminal motion": "Upon dealing Super Damage, while Movement Speed isn't 0m/s:\nRestores 2? [?] HP/s for 11 seconds. \nDealing Additional Super Damage refreshes the buff duration.",
+    "hotshot": "While Reflex Action is active:\nScoring a kill grants Hotshot for 10 seconds.\nBuff can be refreshed by retriggering Hotshot.\n\nHotshot | +15? Stability, +20 Reload Speed, and +? Aim Assist for Heat Weapons, Submachine Guns, and Hand Cannons. Additionally, it grants +30 Weapons stat.",
+    "terminal velocity": "Upon scoring a Primary Weapon Kill:\n+20 Reload Speed and 0.95x Reload Duration Multiplier for Primary Weapons for 6 seconds.\nBuff can be triggered by destroying \"destroyable entities\" as well as Constructs.",
+    "spirit of the liar": "Receiving Melee Damage, or scoring a Powered Melee Hit grants Cross Counter for the next Melee Hit within 3 seconds.\n\nCross Counter grants 400% increased Basic and Arc Melee Damage.\nCross Counter's Melee Attack deals Arc Damage.",
+    "taken barrier": "On Grenade Kill:\nResist x1 (10% [2.5%] DR) for 7 seconds.",
+    "mod:dynamo": "On Class Ability Usage while within 15 metres of an enemy:\nGrants Super Ability Energy.\n\nSuper Energy Gains:\n2.5% | 4%\n1.25% | 2.4%\n\nSuper Energy Multipliers based on Class:\nHunters: x1 | Titans: x1.2 | Warlocks: x2",
+    "set:eutechnology#2": "Upon scoring 3 Void Kills within 5? seconds of each:\nSpawns a Void Breach.",
+    "spirit of osmiomancy": "Coldsnap Grenades have better tracking, and travel 17.5% further and faster. \n\nColdsnap, Storm, Threadling, and Vortex Grenades grant Grenade Energy upon dealing damage.\nHealing Grenades grant Fixed Grenade Energy upon healing the user or an ally.\nVortex Grenades have a ~0.8s cooldown between energy gains on a single target.\n\nColdsnap Grenade Ability Energy:\nT1 Combatant = 10% | T2 = 22% | T3 = 34% | T4 = 50% | Guardian = 7%\n\nStorm, Healing, Threadling, and Vortex Grenade Ability Energy:\nT1 Combatant = 3% | T2 = 5.7% | T3 = 8.4% | T4 & Healing = 12% | Guardian = 5%",
+    "set:twofold crown#2": "On Ammo Brick Pickup:\nRestores 70 HP.",
+    "lucent swarm": "On Orb of Power Pickup:\nExtends the Ceremony duration to 30 seconds.\n\nWhile Ceremony is active:\nScoring 2 Ability Kills spawns a Loyal Arc Moth that lingers for 8 seconds.\nLoyal Arc Moths relentlessly chase the closest enemy within 60+👀 meters, dealing up to 180 Arc Damage and inflicting blind for 8 seconds over ~6? meters.\nAnything that would discharge Bolt Charge counts, including Unpowered Melee Kills and Forerunner's Rock EXCEPT FOR PRAXIC BLADE😔.\nArc Moth Damage is considered Generic Arc Damage. Does not benefit from Grenade, Melee, or Ability buffs nor does it interact with them.",
+    "set:taken king#4": "On Orb of Power Pickup:\nExtends the Ceremony duration to 30 seconds.\n\nWhile Ceremony is active:\nScoring 2 Ability Kills spawns a Loyal Arc Moth that lingers for 8 seconds.\nLoyal Arc Moths relentlessly chase the closest enemy within 60+👀 meters, dealing up to 180 Arc Damage and inflicting blind for 8 seconds over ~6? meters.\nAnything that would discharge Bolt Charge counts, including Unpowered Melee Kills and Forerunner's Rock EXCEPT FOR PRAXIC BLADE😔.\nArc Moth Damage is considered Generic Arc Damage. Does not benefit from Grenade, Melee, or Ability buffs nor does it interact with them.",
+    "so very thin": "Light Weapon Kills grant ~16% Grenade Energy.\nKinetic/Dark Weapon Kills grant ~16% Melee Energy.\n\nUpon scoring a Light Weapon Kill within 10 seconds of scoring a Dark Weapon Kill, or vice versa:\nResist x3 (40% [7.5%] DR) for 5 seconds.\nRefreshable by retriggering the effect.\n\nBoth effects can be triggered by destroying \"destroyable entities\" as well as Constructs.",
+    "rapid repair": "Upon healing Shield HP:\n 10% [2.5%] Damage Resist (Resist x1) and ?% Flinch Resist for 7 seconds.\nCan only trigger once per Full Heal.",
+    "spirit of the eternal warrior": "On Super End:\nGrants x4 Super-Element Matching Weapon Surge for 30 [6?] seconds.",
+    "set:deep explorer#4": ">>DISABLED IN CRUCIBLE<< \n\nOn Weapon Stow, while Built Bitter stacks are active.\nBegins Critical Health Regeneration.\nRestores Health based on the amount of Built Bitter stacks lost by swapping weapons.\nDo note there are some weird inconsistencies that can result in MUCH higher healing values.\n\nx1 = ~35 [?] | x2 = ~65 [?] | x3 = 87.5 [?] | x4 = ~105 [?] | x5 = 130 [?]\nx6 = ~170 [?] | x7 = 195 [?] | x8 = Full Heal [?] | x9 = Full Heal [?] | x10 = Full Heal [?] \n\nBut acktually you should test with Brawn beyond x8!\nNo, thank you, I'd rather chew bricks.",
+    "unfaltering focus": "On Bow, Shotgun, or Sword Kill:\nResist x1 (10% | 2.5%) for 7 seconds.\nDealing additional Weapon Damage extends the buff duration by +2 seconds, up to 10 seconds.",
+    "set:dreambane#4": "While Unstable Essence is active:\nUpon scoring a total of 8 weapon damage instances within 3 seconds of each, counted up to once every 0.45 seconds: \nBegins Critical Health Regeneration and restores 20 HP.\nIncurs a 2 second cooldown upon triggering before hits count again. \nPerk takes AT LEAST 3.6 seconds to initially trigger, then 5.6 seconds for the next reactivation assuming nonstop damage.",
+    "techeun's foresight": "On Void Breach Pickup:\nGrants Techeun's Clairvoyance for 7 seconds.\nThe next Void Weapon Kill consumes Techeun's Clairvoyance to trigger a Potent Void Detonation.\nPotent Void Detonation deals up to 173 [?] Damage over 5 meters.\n\nOn Techeun's Clairvoyance timer expiry:\nDowngrades to Techeun's Foresight.\nThe next Void Weapon Kill consumes Techeun's Foresight to trigger a Void Detonation.\nVoid Detonation deals 87 [?] Damage over 3 meters.",
+    "the ceremony": "On Finisher or Ally Revival:\nInitiates a Ceremony for 30 seconds.\nAdditional Finishers/Revivals extends the buff duration to 30 seconds.\n\nWhile Ceremony is active:\n+30 Super Stat.",
+    "set:resonant fury#2": "Upon receiving a Melee Attack from a Miniboss+ Combatant:\nBegins Health Regeneration.",
+    "iaido": "Upon scoring a Weapon Kill within 4 seconds of reloading or readying a weapon:\nRestores 40 HP.\nIncurs a 3 second cooldown upon triggering. Must reload or swap weapons after the cooldown is over for the effect to trigger on kill.",
+    "set:disaster corps#4": "Upon reaching Critical Health or healing an ally at Critical Health:\n\nFor Auto Rifles, Scout Rifles, and Sidearms:\n+20 Range, +20 Stability, +30 Reload Speed, and 0.9x Reload Duration Multiplier for 11 seconds.\n\nUsing a Support Frame Auto to heal a Critical Health Ally after triggering the Pleas Heard effect removes the healing effect as it requires firing to heal... Bungie?",
+    "spirit of the synthoceps": "While within 15 metres of 3 enemies: \nGrants Biotic Enhancements for 5 seconds.\n\nBiotic Enhancements:\n165% [100%] Increased Melee Damage.\n100% Increased Glaive Melee Damage.\n\nDecreased effectiveness with Lightning Surge against Guardians.",
+    "paroli": "Upon sliding:\n?% Flinch Resist for ? seconds.",
+    "set:techsec#2": "Passively grants increased Kinetic Damage towards Combatant Shields, Overshields, Vehicles, and Constructs.\n200% increased Kinetic Damage towards Combatant Shields and Combatant Overshields. Damage shows up as Yellow Numbers.\n15% increased Kinetic Damage towards Constructs. Koregos is not a Construct lol\nIt's ALL Kinetic Damage, including Corruption, Praxic Blade, and Unpowered/Glaive Melee!",
+    "set:atheon's memory#4": "Upon scoring 5 damage instances while any Elemental Buff is active:\nSpawns an Orb of Power on the user that grants 0.8?% Super Energy.\nIncurs a 1 second cooldown upon spawning an Orb where additional damage instances will not count.\nOnly counts a hit up to once every 0.8s, meaning the perk takes AT LEAST 4 seconds to trigger. \nConsecutive triggers take a minimum of 5 seconds to reproc.\n\nDamage Instances dealt to Immune Enemies count towards spawning Orbs.\n\nElemental Buffs:\nAmplified, Bolt Charge | Cure, Radiant, Restoration | Devour, Invisibility, Overshield\nFrost Armor | Woven Mail\nAnd also standing in a Healing Rift for no reason",
+    "sinew stitching": "Upon receiving ? damage from Combatants or upon reaching Critical Health:\nSpawns a Threadling.\nIncurs a 5 second cooldown between Threadling spawns from damage and a 5 second cooldown between Threadlings spawns from reaching Critical Health.",
+    "set:triumphal anthem#4": "Upon dealing Weapon Damage:\nIncreases Scoot Distance from 6.5 meters to 8.5 meters for 3? seconds.\n\nWhile scooting:\n50% [10%] Damage Resist (Resist x4)",
+    "too old for this": "On Elite+ Finisher:\nRestores 32 HP and +16% Special Ammo Progress.",
+    "spirit of the bear": "While guarding with Unbreakable:\n15% Increased Movement Speed.\n\nUnbreakable grants up to 60% Grenade Ability Energy once it ends.\nScales from 15% Grenade Energy, up to 60% Grenade Energy after maxing out Unbreakable.",
+    "accretion": "On Ammo Brick Pickup:\nGrants stacks of Accretion, up to a maximum of 20 stacks. Stacks persist until death.\nSpecial Ammo Bricks grant 1 stack of Accretion. Heavy Ammo Bricks grant 3 stacks of Accretion.\n\nAccretion:\nGrants a Ready/Stow Animation Duration Multiplier per stack, up to a maximum of 0.8x Ready/Stow Animation Duration at 20 stacks.",
+    "set:pantheos resplendent#4": "Upon scoring a hit against Miniboss+ Combatants:\nGrants a stack of Down the Line, up to a maximum of 10 stacks. \nIncurs a 1 second cooldown between gaining stacks.\n\nDown the Line:\n15% increased Weapon Damage against Rank-and-File and Elite Combatants.\nConsumes a stack upon killing Rank-and-File and Elite Combatants.",
+    "bittersweet": ">>DISABLED IN CRUCIBLE<< \n\nOn Weapon Stow, while Built Bitter stacks are active.\nBegins Critical Health Regeneration.\nRestores Health based on the amount of Built Bitter stacks lost by swapping weapons.\nDo note there are some weird inconsistencies that can result in MUCH higher healing values.\n\nx1 = ~35 [?] | x2 = ~65 [?] | x3 = 87.5 [?] | x4 = ~105 [?] | x5 = 130 [?]\nx6 = ~170 [?] | x7 = 195 [?] | x8 = Full Heal [?] | x9 = Full Heal [?] | x10 = Full Heal [?] \n\nBut acktually you should test with Brawn beyond x8!\nNo, thank you, I'd rather chew bricks.",
+    "rasputin's reprisal": "Upon killing an Elite+ Combatant or destroying a Construct/Tangle while having Warmind Charges:\n\nTriggers a Warmind Detonation, centered on the Combatant/Construct.\nDetonation (from Elite Kill) deals 405 [?] Solar Damage and restores 50 HP to the user and their allies over 10 meters without falloff.\nDetonation (from destroying a Construct) deals half the damage and restores half the health. <---NEEDS MORE THOROUGH TESTING\nDetonation Kills can grant Warmind Charges, but will not chain into additional Warmind Detonations.\nIncurs a 0.3? second internal cooldown between explosions? Hard to test sometimes",
+    "dream-devourer": "On Elite+ Finisher:\nDevour for 6+3 seconds.\n\nWhile Devour is active:\n20?% Damage Resist against Combatants.",
+    "balestra": "Upon damaging an enemy with a Sword, Glaive, or Melee Attack:\nInflicts Exhaustion for 5 seconds, reducing Combatant Damage Output by 25%.",
+    "set:uncaged deviants#4": "Upon dealing Super Damage, while Movement Speed isn't 0m/s:\nRestores 2? [?] HP/s for 11 seconds. \nDealing Additional Super Damage refreshes the buff duration.",
+    "burn 'em down": "On Prismatic Grenade Ability Usage while Transcendent:\nConsumes all stacks of Stack 'Em Up to grant ~6% Prismatic Grenade Energy per stack\n6% | 12% | 18% | 24% | 30% Prismatic Grenade Energy.",
+    "mod:better already": "On Orb of Power Pickup:\n\nBegins Health Regeneration.\n\nMod does not stack, despite the in-game tooltip.",
+    "gift of the ley lines": "Upon scoring 3 Void Kills within 5? seconds of each:\nSpawns a Void Breach.",
+    "set:luminopotent#4": "Upon scoring a Jolt Kill or a Jolted Enemy Kill:\nCreates an Ionic Trace.",
+    "set:shrewd survivor#4": "While Reflex Action is active:\nScoring a kill grants Hotshot for 10 seconds.\nBuff can be refreshed by retriggering Hotshot.\n\nHotshot | +15? Stability, +20 Reload Speed, and +? Aim Assist for Heat Weapons, Submachine Guns, and Hand Cannons. Additionally, it grants +30 Weapons stat.",
+    "set:cruel electrum#4": "On Primary Kill:\nPrevents passively pinging enemy radar for 7 seconds.\nReadying a Special or Power Weapon will remove the buff.",
+    "cauterize": "Upon scoring 3 Solar Kills within 3? seconds of each:\nRestores 30 HP.\nIncurs a 1 second cooldown between heals.",
+    "augmented armaments": "Primary Ammo Weapons deal 15% increased damage against Disoriented Combatants.\nDisorient Duration is shorter than the animation, generally lasting for ~2.7 seconds.\nDoes NOT work with Arc Blind.",
+    "set:eutechnology#4": "On Void Breach Pickup:\nGrants Techeun's Clairvoyance for 7 seconds.\nThe next Void Weapon Kill consumes Techeun's Clairvoyance to trigger a Potent Void Detonation.\nPotent Void Detonation deals up to 173 [?] Damage over 5 meters.\n\nOn Techeun's Clairvoyance timer expiry:\nDowngrades to Techeun's Foresight.\nThe next Void Weapon Kill consumes Techeun's Foresight to trigger a Void Detonation.\nVoid Detonation deals 87 [?] Damage over 3 meters.",
+    "set:nezarec's nightmare#2": "Upon scoring 3 Elementally-Debuffed Enemy Kills:\nSpawns an Orb of Power that grants ?% Super Energy.\nNo cooldown between Orbs?",
+    "mod:enhanced athletics": "+30 | +50 | +60 Mobility.\n\nHunters reach maximum Mobility with 1 Mod in PVE.",
+    "mod:hands-on": "On Powered Melee Kill:\nGrants additional Super Energy. \n\nTier 1: %? | ?% | ?%\nTier 2: 1.33?% |  ?% | ?%\nTier 3: ?% |  ?% | ?%\nTier 4: 5?% |  ?% | ?%\nGuardians: ?% | ?% | ?%\n\nCannot simultaneously benefit with Ashes to Assets.",
+    "mod:one-two finisher": "On Finisher:\nConsumes x3 or more Armor Charge.\n\nGrants Melee Ability Energy.\nx3 = 70% | x4 = 80% | x5 = 90% | x6 = 100%",
+    "mod:melee font": "While Armor Charge is active:\n\n+20 | +40 | +50 Melee.",
+    "photogalvanic": "Upon receiving ANY healing while not at Full HP:\n+20? Handling, +10 Reload Speed, 0.85x Reload Duration Multiplier, and ?% Flinch Resist for Solar Weapons for 4 seconds.\nWorks with ANY source of healing, such as Orb Pickups. Restoration constantly refreshes it",
+    "mod:weapons font": "While Armor Charge is active:\n\n+20 | +40 | +50 Weapons.",
+    "spirit of the foetracer": "Upon dealing Ability Damage to an Elite, Miniboss, Champion, Boss, or Guardian: \nGrants x4 Ability Element-Matching Weapon Surge for 16 [11] seconds.\nBuff is not refreshable.",
+    "set:crystocrene#2": "Scoring a kill spawns an Orb of Power that grants 1?% Super Energy, as well as +20% Special Ammo Progress and +20% Heavy Ammo Progress.\nIncurs a 12 second cooldown before it can retrigger.",
+    "set:swordmaster#4": "Upon blocking damage with a Glaive or a Sword:\n50% [10%] Damage Resist (Resist x4) for 3 seconds upon no longer guarding. \nDamage Resist can be reset by blocking and dropping the guard before buff expires.",
+    "mod:ammo scout": "Upon spawning a Mod-Matching Ammo Brick:\nAllies receive a copy of the Ammo Brick.\n\nAmmo Scout Brick Pickup Amounts:\n37% | 67% | 100% of a regular Ammo Brick's.\n\nEnhanced Brick Chance is determined by the ally's Weapons Stat.",
+    "mod:insulation": "On Orb of Power Pickup:\n\n4% | 5% | 6% Class Ability Energy.",
+    "power loader": "Upon picking up an Orb of Power:\n+6% Special Ammo Progress.",
+    "spirit of the assassin": "On Powered Melee Kill:\nGrants Void Invisibility for 7 seconds.\n\nOn Finisher:\nGrants Void Invisibility for 10 seconds",
+    "spirit of galanor": "Super Hits and Kills refund Super Energy.\nRefunds up to 50% Super Energy.\nSilkstrike and Golden Gun can only refund up to 30%.\n\nNeeds testing across all 5 Super Abilities :(",
+    "blade focus": "Upon guarding for 1.35 seconds:\nGrants Blade Focus Ready for 1 second.\n Swinging while it is active AND scoring a hit consumes Blade Focus Ready to grant Blade Focus for 7 seconds.\n\nBlade Focus:\n10% Increased Sword Damage and 100% Increased Sword Lunge Distance\nCombat Meditation Energy Gains are increased to 8% Grenade and Class Ability Energy.\nBlade Focus is removed upon guarding or stowing the sword.",
+    "set:apostate's blade#4": "While Cure, Radiant, or Restoration are active:\nMelee and Glaive Hits trigger a Solar Burst on the target, dealing 28 [17] Damage and inflicting x20+10 Scorch within 7 meters.\nIncurs a 1 second cooldown per trigger.\nWill NOT trigger if the Melee Hit granted a Solar Buff, such as Ember of Torches, unless the Melee Ability intrinsically inflicts Scorch. (Exotics do NOT count)",
+    "spirit of verity": "Upon scoring a Grenade-Element Matching Weapon Kill: \nGrants a stack of Death Throes, up to 5 stacks, increasing Grenade Ability Damage and granting Bonus Grenade Ability Energy per second per stack.\nLoses 1 Death Throes stack upon expiring, rather than all of them.\nDeath Throes stack timer begins decaying after 2 seconds of gaining a stack.\n\nDeath Throes:\nx1 = 40% [20%] increased Grenade Damage, +0.5% Bonus Grenade Energy/s for 8 seconds.\nx2 = 55% [40%] increased Grenade Damage, +1% Bonus Grenade Energy/s for 7 seconds.\nx3 = 70% [60%] increased Grenade Damage, +1.5% Bonus Grenade Energy/s for 6 seconds.\nx4 = 85% [80%] increased Grenade Damage, +2% Bonus Grenade Energy/s for 5 seconds.\nx5 = 100% increased Grenade Damage, +2.5% Bonus Grenade Energy/s for 4 seconds.",
+    "spirit of the horn": "On Barricade Placement:\nUnleashes 3 Tracking Solar Wave that travel up to 18.5 metres away.\nSolar Waves deal 480 [100] damage and applies x60 [x30] Scorch.\nSolar Waves spawn a Sunspot under the enemies on hit [kill].\n\nOn Thruster Usage:\nReleases a Solar Ball that explodes after ? seconds, releasing 4 Solar Waves in an X-pattern, using the aforementioned info.",
+    "set:aion adapter#4": "While Force Absorption is active:\nBeing hit by a Melee Attack triggers a Disorienting Burst, disorienting enemies within ? meters for ? seconds.\nCan only trigger once per Reactive Shock activation.",
+    "primary phantom": "On Primary Kill:\nPrevents passively pinging enemy radar for 7 seconds.\nReadying a Special or Power Weapon will remove the buff.",
+    "bountiful munitions": ">>DISABLED IN CRUCIBLE<<\n\nWhile Adrenal Rush is active:\nRank-and-File Combatant Kills grant +3% Special Ammo Progress.\nElite+ Combatants Kills grant +16% Special Ammo Progress.\nElite+ Taken Combatant Kills grant +24% Special Ammo Progress.\nGuardian Kills grant +?% Special Ammo Progress.\nBuff can be triggered by destroying \"destroyable entities\" as well as Constructs, granting +16% Special Ammo Progress.",
+    "set:collective psyche#4": "Solar Buffs applied to the user and Strand Debuffs inflicted to enemies last 50% longer.\nEquipping Ember of Solace or Thread of Continuity results in the effects lasting 70% longer.",
+    "spirit of the ophidian": "Passively grants +35 Handling.",
+    "set:new demotic#4": "On Ally Death or Ally Revival:\n+? Handling and 0.?x ADS Duration Multiplier for 10 seconds.",
+    "spirit of apotheosis": "On Super Cast:\nFully restores Health, Grenade, Melee, and Class Ability Energy.\nCaster and Allies within ? meters are granted Cure x3.\n\nOn Super End:\n66% Fixed Bonus Grenade and Melee Ability Energy per second for 8 seconds.",
+    "set:wildwood#4": "On Precision Kill:\nGrants a stack of Field Expertise for 15 seconds, up to a maximum of 5 stacks.\nScoring a Non-Precision Weapon Kill immediately removes all stacks.\n\nField Expertise x1 | 3.5% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x2 | 7% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x3 | 8% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x4 | 9% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.\nField Expertise x5 | 10% Increased Non-Boss Combatant Damage, +? Reload Speed, +? Aim Assist.",
+    "set:coda#4": "Light Weapon Kills grant ~16% Grenade Energy.\nKinetic/Dark Weapon Kills grant ~16% Melee Energy.\n\nUpon scoring a Light Weapon Kill within 10 seconds of scoring a Dark Weapon Kill, or vice versa:\nResist x3 (40% [7.5%] DR) for 5 seconds.\nRefreshable by retriggering the effect.\n\nBoth effects can be triggered by destroying \"destroyable entities\" as well as Constructs.",
+    "reflex action": "Upon readying a Heat Weapon, Submachine Gun, or Hand Cannon:\nGrants Reflex Action for 1.5 seconds.\n Dealing Additional Weapon Damage refreshes the buff duration.\n\nReflex Action | +50? Handling, 0.6?x Ready Duration Multiplier, and -2.5% Accuracy Cone Size for 1.5 seconds.",
+    "mod:emergency reinforcement": "Upon reaching Critical Health while at x3 or more Armor Charges:\n\nGrants 10% Damage Resist. \nDuration is based on the amount of Armor Charges consumed.\n\nBuff Duration at x3, x4, and x5 Charges.\n6 | 9 | 12 | 15 seconds.",
+    "spirit of starfire": "While Radiant, in a Well of Radiance or Empowering Rift:\nGrants 5% Fixed Grenade Energy per Weapon Hit.\nIncurs a 0.4 seconds cooldown between Grenade Energy Gains.\nGrants 15% Fixed Grenade Energy on Weapon Kill.",
+    "mod:firepower": "On Grenade Kill:\nSpawns a Orb of Power.\n\nOrb of Power:\n0.8% | 1.1% | 1.25% | 1.5% Super Energy.\n\nIncurs a 10 | 5 | 1 second cooldown between Orbs.\nCan trigger alongside Heavy Handed if equipped before it.\nFrom left to right order.",
+    "mod:reaper": "On Class Ability Usage:\nThe next Weapon Kill within 10 seconds spawns an Orb of Power.\n\nOrb of Power:\n0.8% | 1.1% | 1.25% | 1.5% Super Energy.\n\nIncurs a 10 | 5 | 1 second cooldown between Orbs.",
+    "mod:distribution": "On Class Ability Usage while within 15 metres of an enemy:\nGrants Grenade, Melee, Class, and Super Energy.\n\n4% | 6% | 7% Grenade, Melee and Class Energy\n2% | 3% | 4% Super Energy\n\n2% | 3% | 3.5% Grenade, Melee and Class Energy\n1% | 1.5% | 2% Super Energy",
+    "spirit of the swarm": "Upon destroying a Tangle:\nSpawns 2 Threadlings.",
+    "mod:weapon surge": "While Armor Charge is active:\nIncreases Mod-Element Matching Weapon Damage.\n\nDamage Increase:\n10% | 17% | 22% | 25%\n3% | 4.5% | 5.5% | 6%\n\nx4 is only obtainable through Artifact or Exotic Armor.",
+    "mod:recuperation": "On Orb of Power Pickup:\n\nRestores 16 | 21 | 21 Health.",
+    "god-like judgment": "Upon reaching Critical Health through Combatant Damage, or on Super Cast:\nFires multiple Seeking Micro-Missiles, each dealing Class-based [31] Kinetic Damage.\nCritical Health = 2 Missiles | Super Cast = 4 Missiles\n\nHunters = 217 Damage | Titan = 680 Damage | Warlocks = 217 Damage",
+    "set:tm custom#4": "Upon readying a weapon:\n7% Increased Weakspot Damage against Combatants for 4 seconds.\nBuffs \"Precision Hits\" against Shielded Combatants and works on weapons without Precision Multipliers as long as they hit the weakspot.\nWeakspot Buffs do not work on a Divinity Bubble\n\nBonus is doubled to 14% Increased Weakspot Damage for the following:\nWeapons with the Tex Balanced Stock Origin Trait and Tex Mechanica Exotics.\nDead Man's Tale | Huckleberry | Last Word | Tarrabah | Chaperone | Prospector",
+    "set:last discipline#4": "Upon picking up an Orb of Power:\n+6% Special Ammo Progress.",
+    "set:taken king#2": "On Finisher or Ally Revival:\nInitiates a Ceremony for 30 seconds.\nAdditional Finishers/Revivals extends the buff duration to 30 seconds.\n\nWhile Ceremony is active:\n+30 Super Stat.",
+    "reactive shock": "While Force Absorption is active:\nBeing hit by a Melee Attack triggers a Disorienting Burst, disorienting enemies within ? meters for ? seconds.\nCan only trigger once per Reactive Shock activation.",
+    "set:cruel electrum#2": "On Ally Death:\nGrants a stack of Primary Survivor for ? seconds.\nGrants Primary Survivor x? while solo.\n\nPrimary Survivor x1 | Primary Weapons are granted +? Handling, +? Reload Speed, +? Aim Assist, and ?% Flinch Resist.\nPrimary Survivor x2 | Primary Weapons are granted +? Handling, +? Reload Speed, +? Aim Assist, and ?% Flinch Resist.",
+    "spirit of scars": "Upon scoring a Super-Element Matching Weapon Kill:\nGrants x1 Restoration for 3+1.5 seconds to the wearer and allies within 15? metres.\nIncurs a 3 second cooldown between activations.",
+    "mod:class font": "While Armor Charge is active:\n\n+20 | +40 | +50 Class.",
+    "mod:momentum transfer": "Upon dealing Grenade Damage:\nGrants Melee Ability Energy.\n\nAbility Energy Gain:\n12% | 17% | 20%\n6% | 8.5% | 10%\n\nIncurs a 7 second cooldown after activation.\nDoes not work with Grapple.",
+    "set:sage protector#4": "Upon guarding for 1.35 seconds:\nGrants Blade Focus Ready for 1 second.\n Swinging while it is active AND scoring a hit consumes Blade Focus Ready to grant Blade Focus for 7 seconds.\n\nBlade Focus:\n10% Increased Sword Damage and 100% Increased Sword Lunge Distance\nCombat Meditation Energy Gains are increased to 8% Grenade and Class Ability Energy.\nBlade Focus is removed upon guarding or stowing the sword.",
+    "set:swordmaster#2": "Upon damaging an enemy with a Sword, Glaive, or Melee Attack:\nInflicts Exhaustion for 5 seconds, reducing Combatant Damage Output by 25%.",
+    "mod:empowered finish": "On Finisher, while at x0 Armor Charge:\nGrants x1 Armor Charge.",
+    "set:legacy's oath#2": "On Powered Melee Kill:\nTarget releases a Disorienting Pulse over 10 meters after 0.67 seconds of dying.\nDisorienting Pulse inflicts Disorient for 2.5 seconds.\nIncurs a 0.5? second cooldown between triggers.",
+    "opening act": "Upon scoring a Grenade Kill:\nGrants Opening Act for 15 seconds.\n\nOpening Act | +? Stability and +? Vent Speed to Heat Weapons. Primary Weapons are instead granted +? Stability and +? Reload Speed.",
+    "spirit of the coyote": "Grants an extra Class Ability Charge.",
+    "watchtower": "Upon scoring a kill while ADS:\nResist x2 (25% [5%]) until no longer ADS.",
+    "reactive booster": "Sprinting while at Critical Health, being Suspended, or being affected by a Stasis Debuff will grant Speed Booster.\nCan only trigger once per Force Converter activation.",
+    "taken armaments": "On Grenade Kill:\n+10% Heavy Ammo Progress.",
+    "network admin": "While an ally is within 15? meters:\n+? Handling and +? Reload Speed.\n\n+? Health Stat while an allied Network Admin is within 15m.",
+    "set:veritas#2": "Upon scoring 2 Powered Melee Kills or a finisher:\nGenerates a Light-Subclass Super-Matching Elemental Pickup.\nDoes nothing while a Stasis or Strand Super is equipped. Kills must be spaced out by at least ~0.2 seconds.",
+    "queensfoil rush": "Finishers grant a 200? HP Overshield for the duration of the finisher (+0.3s).\n\nOn Finisher:\nInflicts x? Slow to enemies within 7 meters.",
+    "mod:health font": "While Armor Charge is active:\n\n+20 | +40 | +50 Health.",
+    "resonance redirection": "While Stable Resonance is active:\nDealing 600? Weapon Damage within ? seconds of each triggers an Exhausting Blast, centered on the enemy.\nIncurs an 2? second cooldown between Exhausting Blasts.\n\nExhausting Blast deals ? Damage and inflicts Exhaust over 8 meters, reducing Combatant Damage Output by 25%.",
+    "truth to power": "Each damage instance scored grants a stack of Truth, up to a maximum of x999 stacks. wherein it gets renamed to Power.\nKills and Finishers grant many more stacks, although it seems to have different gains depending on the stack amount.\nKills tend to be within 20-35 stacks. Finishers tend to give around 60-90 stacks. \nALL stacks are removed on death.\n\nTruth grants Damage Resist per stack, up to 15% DR at maximum.\n250 = 3.75% | 500 = 7.5% | 750 = 10% | 999 = 15% Damage Resist\n\nTruth to Power Effect at x999 stacks:\n+50% Additional Base Grenade, and Melee Regeneration Rate.\n+35% Additional Base Class Regeneration Rate\n15% Damage Resist.",
+    "set:thriving survivor#2": "Upon scoring a Grenade Kill:\nGrants Opening Act for 15 seconds.\n\nOpening Act | +? Stability and +? Vent Speed to Heat Weapons. Primary Weapons are instead granted +? Stability and +? Reload Speed.",
+    "mod:utility kickstart": "On Class Ability Usage while having Armor Charges:\n\nConsumes all Armor Charges to grant Class Ability Energy. \n\nAbility Energy Gains are based on the sum of number of Armor Charges consumed and Mod copies equipped.\n\nClass Ability Energy:\n16.2% | 21.7% | 28.4% | 34.4% | 38.4% | 41.3% | 43.4% | 45%\n12.5% | 14.2% | 16.2% | 18.7% | 21.7% | 25% | 28.4% | 31.6%",
+    "mod:innervation": "On Orb of Power Pickup:\n\n10% | 13% | 15% Grenade Ability Energy.",
+    "ride together, die together": "On Orb of Power Pickup:\nGrants Ride Together, Die Together for 3 seconds.\nRide Together, Die Together initially grants 40% [5%] Damage Resist.\nDamage Resist scales down to ~30?% with 1.5 seconds left, further reduced to 24?% with 1 second left, decreasing down to 0% over the remaining second.",
+    "spirit of alpha lupi": "On Barricade Placement or Thruster Usage:\nInstantly restores Health and Shields to the wielder and allies in Line of Sight within 12 metres.\nBarricade restores 160 Health and 110 Shields. Thruster restores 30 Health.\nIncurs a 5 second cooldown between healing pulses.\n\nHealing Allies grants ?% Class Ability Energy.",
+    "mod:healthy finisher": "On Finisher:\nConsumes x1 Armor Charge.\n\nInstantly fully restores Health and Shields.",
+    "primary honing": "+15 Handling and 0.9x Reload Duration Multiplier for Primary Weapons.\n\nIncreased Primary Weapon Damage against Non-Boss Combatants based on the Weapons stat.\n\nCompared to the damage dealt at the equivalent Weapons Stat:\n20 Stat = 0.6% | 40 = 1.2% | 60 = 1.8% | 80 = 2.4% | 100 = 3%\n120 = 4.75% | 140 = 6.6% | 160 = 8.35% | 180 = 10.2% | 200 = 12%",
+    "bad dreams": "Upon scoring 3 Elementally-Debuffed Enemy Kills:\nSpawns an Orb of Power that grants ?% Super Energy.\nNo cooldown between Orbs?",
+    "set:exodus down#4": "Gaining, losing, or consuming Armor Charges restores 5? HP and grants stacks of Repurposed Charge.\n\nRepurposed Charge stacks are based on the amount of simultaneously(!) gained/lost/consumed Armor charges + 1.\nMaxes out at x7 with 6 Armor Charges simultaneously lost/spent through Kickstart or Finisher Mods.\n\nInitial Buff duration as well as Buff Extensions are equal to (3 seconds X Repurposed Charge Stacks gained/lost/consumed)\n Buff can be extended to a maximum of 30 seconds, maintaining the highest stack.\nExamples: Orb Pickups grant x2 (13% DR) for +6 seconds.\n Special Finisher will grant x4 (29.5% DR) for +12 seconds. Picking up an Orb afterwards will maintain x4 stacks and add +6 seconds.\n\nRepurposed Charge:\nGrant Damage Resist per Repurposed Charge stack, up to 35% [?%] DR at 7 stacks.\nx1 = 0% [0%] | x2 = 13% [?%] | x3 = 21% [?%] | x4 = 29.5% [?%] | x5 = 31% [?%] | x6 = 33% [?%] | x7 = 35% [?%]",
+    "ionic overclock": "While Amplified:\n(Linear) Fusion Rifles and Heat Weapons are granted +? Handling and +? Reload Speed.",
+    "spirit of contact": "Upon scoring a Powered Melee Hit: \nEnemies within 15 meters of the struck enemy are hit by lightning.\nLightning deals 181 [50] Arc Damage and inflicts Jolt.",
+    "mod:time dilation": "Armor Charges decay every 15 | 18 | 20 seconds.\n\nBy default, an Armor Charge stack is removed every 10 seconds if a Passive Mod is equipped.",
+    "set:bushido#4": "On Bow, Shotgun, or Sword Kill:\nResist x1 (10% | 2.5%) for 7 seconds.\nDealing additional Weapon Damage extends the buff duration by +2 seconds, up to 10 seconds.",
+    "built bitter": "Grants a stack of Built Bitter for every ? damage taken, up to 10 stacks after receiving ? damage.\nSelf damage does not count. Stacks are lost when stowing.\n\nBuilt Bitter grants Reload Speed and Reload Duration Multiplier per stack until stowed.\nGrants up to +50?? Reload Speed and ~0.85–0.9x Reload Duration Multiplier.\n\n+? | +? | +? | +? | +? | +? | +? | +? | +? | +50??  Reload Speed.\n?x | ?x | ?x | ?x | ?x | ?x | ?x | ?x | ?x | ~0.85x–0.9x Reload Duration Multiplier.",
+    "set:promised#2": "On Elite+ Kill:\n7% Increased Weapon Damage and Resist x2 (25% DR) for 12 seconds.",
+    "set:apostate's blade#2": "On Finisher:\nGrants Regenerative Threshold.\n\nUpon reaching Critical Health:\nConsumes Regenerative Threshold.\nRestores 20 HP and begins Health Regeneration.",
+    "license to thrill": "On Grenade Ability Usage, or upon triggering either the Nanotech Tracer Missile Origin Trait or Quicksilver Storm's Missile Tracer: \nGrants a stack of License to Thrill for 15 seconds, up to a maximum of 10 stacks.\nBuff duration is refreshed upon retriggering.\n\nLicense to Thrill | 12% [2%] Damage Resist against enemies within <5 metres, increased by +?% [?%] per stack afterwards, up to 30% [5%] Damage Resist.",
+    "set:iron battalion#4": "Upon scoring kills while in a Super Ability:\nx1 = ~5?% | x2 = ?% | x3 = ?% | x4 = ?% | x5 = ?% | x6 = ~33% Super Ability Energy once it ends.\n\nUpon scoring kills with Super Damage while NOT in a Super Ability:\nx1 = ~5?% | x2 = ?% | x3 = ?% | x4 = ?% | x5 = ?% | x6 = ~33% Super Ability Energy.\n\nSuper Ability Refund Cap is reset on Super Ability Cast or upon swaping off of Supercyclical and then reacquiring the 4 Piece Perk by changing gear.",
+    "spirit of vesper": "After 1 second of placing a Rift:\nTriggers an Arc Shockwave that deals 360 [100] Arc Damage and staggers in a 7.5 metres radius. \nAdditional shockwaves occur every 5 seconds, until the Rift expires.\n\nWhile an Arc Super Ability is equipped, shockwaves blind.",
+    "mod:heavy handed": "On Powered Melee Kill:\nSpawns an Orb of Power.\n\nOrb of Power:\n0.8% | 1.1% | 1.25% | 1.5% Super Energy.\n\nIncurs a 10 | 5 | 1 second cooldown between Orbs.\nCan trigger alongside Firepower if equipped after it.\nFrom left to right order.",
+    "dielectric drift": "While Speed Booster is active:\nSliding inflicts Jolt to Combatants within 10 meters in a frontal cone.",
+    "room clearing": "Upon scoring 3 Heat Weapons or Primary Weapon Kills within 4 seconds of each:\nGrants Room Cleaning for 10 seconds.\n\nRoom Cleaning | +40 Grenade and +40 Weapons. Additionally, it grants +40 Ammo Generation for Heat Weapons and Primary Ammo Weapons.",
+    "set:aion renewal#2": "Upon scoring a Micro-Missile, Rocket Launcher or Grenade Launcher Kill:\nGrants Force Converter.\n\nSprinting while Force Converter is active grants Speed Booster.\n\nMissiles:\nQuicksilver Storm's Rocket Tracer, Nanotech Tracer Rounds, Exhaustive Research Rockets, Rocket Frames, Grand Overture Missiles, and Hazardous Propulsion's Exodus Rockets.",
+    "mod:loader": "To Mod-Element Matching Weapon, after ~0.5 second of readying the weapon:\n\n+10 | +15 | +18 Reload Speed\n0.85x Reload Duration Multiplier",
+    "set:wild anthem#4": "Upon finishing a reload:\nSUROS Harmony | +30? Handling and ?% Flinch Resist for 6 seconds.\nWeapons that have the SUROS Synergy Origin Trait equipped, as well as SUROS Regime are additionally granted +15 Range. \nFor some reason, the +Range benefit's timer begins only once you are able to shoot in the reload animation instead of when the ammo is refilled.\n\nSUROS Harmony persists through stow, but only on the weapon that it was triggered on. \nCan be refreshed by retriggering the buff unless it is a SUROS Weapon lmao.",
+    "set:iron panoply#4": "Upon reaching Critical Health:\n\n+35 Ammo Generation Stat, ?% Flinch Resist, and 15% Damage Resist against Combatants within 10 meters for 7 seconds.\nAdditional kills while the buff is active refreshes the buff duration.\n\nBuff cannot retrigger until any Shield HP is recovered.",
+    "mod:fastball": "Grenades travel ~25% faster and farther.\nStrength of the effect varies between grenades.",
+    "set:dreambane#2": "Upon scoring an Elite+ Kill:\nGrants Unstable Essence for 15 seconds.\nScoring additional Elite+ Kills refresh the buff duration.\n\nUnstable Essence | +30 Melee Stat and +30 Grenade Stat.",
+    "built from scratch": "Combatant Kills grant additional Ammo Progress based on their Ammo Type if Ammo Reserves are low.\n\nPrimary Ammo Weapons grant +3% Special Ammo Progress while Special Ammo Reserves <20%.\nSpecial Ammo Weapons receive +2% Heavy Ammo Progress while Heavy Ammo Reserves <20%.",
+    "melee conduction": "While Cure, Radiant, or Restoration are active:\nMelee and Glaive Hits trigger a Solar Burst on the target, dealing 28 [17] Damage and inflicting x20+10 Scorch within 7 meters.\nIncurs a 1 second cooldown per trigger.\nWill NOT trigger if the Melee Hit granted a Solar Buff, such as Ember of Torches, unless the Melee Ability intrinsically inflicts Scorch. (Exotics do NOT count)",
+    "set:lustrous#4": "Upon scoring 3 Solar Kills within 3? seconds of each:\nRestores 30 HP.\nIncurs a 1 second cooldown between heals.",
+    "set:dark age#2": "Upon scoring a Melee, Glaive Melee, or Sword Damage Instance:\nGrants a stack of Initiative for 8 seconds, up to a maximum of 5 stacks.\nInitiative grants +Handling and +Reload Speed.\nStacks decay one at a time.\nCan stack on Immune Enemies and with DoT as well, such as Sword Storm Combo, Smoke Bomb, and Scorch Ticks.\n\nInitiative\n+? | +? | +? | +? | +? Handling and Reload Speed",
+    "iron sharpens iron": "On Elite+/Guardian Kill:\n+12% Special and +7.5% Heavy Ammo Progress.",
+    "spirit of the abeyant": "Enhances Drengr's Lash\n\nBarricade:\nCreates 2 additional Lashes. \nLashes now seek enemies more aggressively and travel ?% farther. \n\nThruster:\nKnot lasts up to ? seconds, lobbing itself towards enemies within ? meters, and detonates on contact.",
+    "pleas heard": "Upon finishing an Auto Rifle, Scout Rifle, or Sidearm reload within 3 seconds of a kill:\nRestores 2HP/s until firing any weapon, casting Grenade, Melee, Class, or Super Ability, or upon taking damage from an enemy. \n\nCan be triggered multiple times from a single kill if another reload is performed within the time window.\nReceiving Environmental Damage, or dealing damage through other means does not stop the health regen.",
+    "set:collective psyche#2": "On Ammo Brick Pickup:\nGrants stacks of Accretion, up to a maximum of 20 stacks. Stacks persist until death.\nSpecial Ammo Bricks grant 1 stack of Accretion. Heavy Ammo Bricks grant 3 stacks of Accretion.\n\nAccretion:\nGrants a Ready/Stow Animation Duration Multiplier per stack, up to a maximum of 0.8x Ready/Stow Animation Duration at 20 stacks.",
+    "overflowing coffers": ">>DISABLED IN CRUCIBLE<<\n\nWhile at x5 Untold Greed or higher:\nElemental Pickups are massively improved.\nNo discernible effect on Orbs of Power.\n\nFiresprites (+120%) | 11.25% -> 25% Grenade Energy\nIonic Traces (+100% Class, +85% Grenade/Melee) | 11.25% Grenade/Melee + 13.5% Class -> 21% Grenade/Melee + 27% Class + 2% Super\nVoid Breaches (+120%) | 11.25% -> 25% Class Energy\nStasis Shards (+260%) | 10% -> 36% Melee Energy. Additive to Hunger's +60%, totalling 42.5% Energy per pickup.\nStrand Tangles | 350% increased damage. Affects Whirling Maelstrom too!\n\nUpon reaching Critical Health while having x5 Untold Greed or higher:\nConsumes ALL STACKS to spawn 4 Orbs of Power that each grant ~3.15% Super Energy.\nThe Orbs of Power are ejected in front of the user at high speeds, likely clipping inside walls.\n\nLooking upwards/downwards does not affect where the Orbs go.\nAllied Guardians get the Orbs, too.",
+    "mod:ashes to assets": "On Grenade Kill:\nGrants additional Super Energy. \n\nTier 1: 1%? | ?% | ?%\nTier 2: ?% |  ?% | ?%\nTier 3: ?% |  ?% | ?%\nTier 4: 5?% |  ?% | ?%\nGuardians: ?% | ?% | ?%\n\nCannot simultaneously benefit with Hands-On.\nGrapple Melee Kills reduce the Super Energy by 50%.",
+    "well prepared": "On Ammo Brick Pickup: \nGrants a stack of Armor Charge.\n\nEach Armor Charge stack grants +10 Health Stat.\nGrants up to +30 Health Stat with x3 Armor Charge.\nMaxes out at +60 Health Stat with x6 Armor Charges.",
+    "set:circuit#2": "While Movement Speed is at least ?m/s:\nGrants a stack of Revving Up, with a maximum of 10 stacks.\nTransforms into Fully Revved at 10 stacks.\n\nEach Revving Up stack grants increased Critical Health Regeneration Speed. Does not affect Shields in any way.\nBy default, it takes 1.75 seconds for Critical Health to begin regenerating at a rate of 27.5%HP/s.\nAt x5 stacks, it takes 1.5 seconds to begin regenerating at a rate of ~37.5% HP/s.\nAt x10 stacks, it takes 1.25 seconds to begin regenerating at a rate of 45% HP/s\n\nSprinting: 5 seconds per stack, takes 45 seconds to max out regardless of speed.\nOther movement (Jumping, Falling, Sword Swinging, Sparrows) greatly accelerate the rate based on their speed, down to a minimum of 1.25 seconds per stack.\nMost easily achieved by using a Sparrow, as those reach the Movement Cap.\n\nWhile Movement Speed is lower than 3m/s:\nRapidly removes 4 stacks per second after a 0.5 second delay.\n\nWhile Fully Revved is ready:\nSprinting for 2.5 seconds grants Speed Booster.\nTriggering Speed Booster and sliding at least once grants Extended Slide Distance until death.",
+    "mod:lucent blades": "Swords are granted +30 | +50 | +60 Charge Rate.\n\nGlaive Projectile Hits grant 20% | 30% | 35% Increased Weapon Energy. \nStacks additively with Immovable Object.",
+    "a wish for protection": "Upon receiving ? damage within ? seconds of each damage instance:\nGrants Protective Wish for 7 seconds.\nIncurs a 5 second cooldown once the buff expires before it can be triggered again.\n\nProtective Wish:\n+? Reload Speed and 0.?x Reload Duration Multiplier\nCombatants are less accurate at targeting the wearer.",
+    "mod:charged up": "Increases the Maximum Armor Charge Stacks.\n\nMaximum Armor Charge Stacks:\n4 | 5 | 6",
+    "collective power": "Upon scoring 5 damage instances while any Elemental Buff is active:\nSpawns an Orb of Power on the user that grants 0.8?% Super Energy.\nIncurs a 1 second cooldown upon spawning an Orb where additional damage instances will not count.\nOnly counts a hit up to once every 0.8s, meaning the perk takes AT LEAST 4 seconds to trigger. \nConsecutive triggers take a minimum of 5 seconds to reproc.\n\nDamage Instances dealt to Immune Enemies count towards spawning Orbs.\n\nElemental Buffs:\nAmplified, Bolt Charge | Cure, Radiant, Restoration | Devour, Invisibility, Overshield\nFrost Armor | Woven Mail\nAnd also standing in a Healing Rift for no reason",
+    "mod:holster": "Stowed Weapons begin refilling after a period of time.\n\n10% | 10% | 15% Magazine Refill per activation.\n2.5 | 2 | 2 seconds between activations.\n\nDoes not work with Breech-Loaded Grenades Launchers, Crossbows, and Rocket Launchers.",
+    "mod:bulwark finisher": "On Finisher:\nConsumes x3 or more Armor Charges\n\nGrants Void Overshield for a varying duration.\n\nOvershield Duration at x3, x4, x5, and x6 Charges:\n8 | 10 | 12 | 14 seconds.",
+    "mod:nightmare breaker": "Grants 66% [133%] {200%} increased Weapon and Ability Damage to Solar Combatant Shields granted by Nightmare Bosses.",
+    "spirit of caliban": "Powered Melee Kills trigger an Ignition.\nIgnition does not benefit from Melee Damage Increases.",
+    "spirit of the wormhusk": "On Class Ability Usage:\nGrants x2 Cure.\n\nUpon reaching 100% Counter Progress by scoring multiple Kills within 3 seconds of each: \nRank-And-File = 34% | Elite+ and Guardians = 50%\nGrants a stack of Burning Souls for 10 seconds, up to a maximum of 3 stacks.\nAll stacks expire at once. Retriggering Burning Souls refreshes the buff duration.\n\nBurning Souls: Class Ability Usage healing is enhanced and spreads to allies within 15? meters:\nx1 = x3 Cure.\nx2 = x1 Cure + Restoration x1 for 3 seconds.\n x3 = x2 Cure + Restoration x1 for 5 seconds.\nIf Restoration is active, then it will extend its duration by the corresponding duration.",
+    "mod:special finisher": "On Finisher:\nConsumes x3 Armor Charge.\n\nGenerates a Special Ammo Brick for the user and allies.",
+    "mod:shield break charge": "Upon breaking a Combatant Shield with Matching Damage:\n\nGrants x1 | x2 Armor Charge.",
+    "stack 'em up": "Scoring a kill with each unique element grants a stack of Stack 'Em Up for 24 seconds.\nStacks up to a maximum of 5 stacks by scoring an Arc, Solar, Void, Stasis, and Strand Kill.\nBuff duration is refreshed upon gaining a stack, and cannot be refreshed once 5 stacks have been reached.\n\nStack 'Em Up grants x1 = 1.2% | x2 = 2.4% | x3 = 3.6% | x4 = 4.8% | x5 = 6% Light+Dark Transcendence Energy.\nGrants 18% Light+Dark Transcendence Energy after having scored kills with every element over the 5 stacks.\nBuff duration serves as a \"cooldown\", during which additional kills will not grant extra Transcendence energy nor additional stacks with the elements already used.",
+    "knit together": "Upon reaching Critical Health:\nThe next 3 Threadling hits within 10 seconds of reaching Critical Health restore 50? HP.\nIncurs a 5 second cooldown afterwards.",
+    "spirit of renewal": "While inside a Duskfield Grenade's Slowing Field:\nEnemies deal 50% [20%] decreased damage.\nUser and allies are immediately granted x1 Frost Armor.\nGrants an additional Frost Armor stack every 0.5 seconds.",
+    "old martian diplomacy": "On Weapon Stow after scoring an Elite+ or Guardian Weapon Kill:\nRestores 40? HP and disorients Combatants within 12 meters.\nIncurs a 2? second cooldown between activations",
+    "set:coda#2": "Light Weapon Kills grant a stack of Light Polarity for 10 seconds, up to a maximum of 5 stacks.\nLight Polarity grants +8 | +16 | +24 | +32 | +40 Grenade Stat.\n\nKinetic/Dark Weapon Kills grant a stack of Dark Polarity for 10 seconds, up to a maximum of 5 stacks.\nDark Polarity grants +8 | +16 | +24 | +32 | +40 Melee Stat.\n\nScoring a Non-Alignment Matching Weapon Kill removes all stacks.\nANY Light Polarity --> Dark Alignment Weapon Kill --> x1 Dark Polarity and x0 Light Polarity.",
+    "set:new demotic#2": "Upon sliding:\n?% Flinch Resist for ? seconds.",
+    "mod:ammo finder": "Special Ammo Finders:\n1.25x | 1.4x | 1.5x Ammo Progress Multiplier.\n\nHeavy Ammo Finders:\n1.33x | 1.66x | 2x Ammo Progress Multiplier.",
+    "mod:ammo generation": "To Mod-Element Matching Weapons:\n\n+20 | +40 | +50 Ammo Generation stat.\n\nSwords receive +20 | +30 | +35 Ammo Capacity Stat.\nEquivalent to Hungry Edge, Backup Mag, and Enduring Blade respectively.",
+    "wrecker": "Passively grants increased Kinetic Damage towards Combatant Shields, Overshields, Vehicles, and Constructs.\n200% increased Kinetic Damage towards Combatant Shields and Combatant Overshields. Damage shows up as Yellow Numbers.\n15% increased Kinetic Damage towards Constructs. Koregos is not a Construct lol\nIt's ALL Kinetic Damage, including Corruption, Praxic Blade, and Unpowered/Glaive Melee!",
+    "mod:siphon": "Upon scoring 2 Mod-Element Matching Weapon Kills within 3 seconds of each:\n\nSpawns an Orb of Power.\nIncurs a 1 second cooldown upon spawning an Orbs of Power before additional kills count.\n\nOrb of Power:\n2.5% | 3.75% | 4.4% Super Energy.",
+    "set:ferropotent#4": "Combatant Kills grant additional Ammo Progress based on their Ammo Type if Ammo Reserves are low.\n\nPrimary Ammo Weapons grant +3% Special Ammo Progress while Special Ammo Reserves <20%.\nSpecial Ammo Weapons receive +2% Heavy Ammo Progress while Heavy Ammo Reserves <20%.",
+    "set:triumphal anthem#2": "Upon scooting:\nPick ups Ammo Bricks within 15 meters. Will also pick up Motes and Crests.\n+25 Handling and +25 Reload Speed for 10 seconds.",
+    "set:first ascent#4": "On Prismatic Grenade Ability Usage while Transcendent:\nConsumes all stacks of Stack 'Em Up to grant ~6% Prismatic Grenade Energy per stack\n6% | 12% | 18% | 24% | 30% Prismatic Grenade Energy.",
+    "set:legacy's oath#4": "Upon reaching Critical Health through Combatant Damage, or on Super Cast:\nFires multiple Seeking Micro-Missiles, each dealing Class-based [31] Kinetic Damage.\nCritical Health = 2 Missiles | Super Cast = 4 Missiles\n\nHunters = 217 Damage | Titan = 680 Damage | Warlocks = 217 Damage",
+    "set:oryx's memory#4": "On Elite+ Kill:\nGrants Ascendant Escape.\n\nAscendant Escape: Upon reaching Critical Health or being damaged while at Critical Health:\nInvisibility for 6+? seconds.",
+    "set:luminopotent#2": "While Amplified:\n(Linear) Fusion Rifles and Heat Weapons are granted +? Handling and +? Reload Speed.",
+    "lucent transmutation": "Upon scoring 2 Powered Melee Kills or a finisher:\nGenerates a Light-Subclass Super-Matching Elemental Pickup.\nDoes nothing while a Stasis or Strand Super is equipped. Kills must be spaced out by at least ~0.2 seconds.",
+    "spirit of the filaments": "Standing on Empowering Rifts created by the user grants Devour for 11 seconds. \nExiting, and then re-entering the same Empowering Rift refreshes the duration of Devour.\nSecant Filaments' Devour can be refreshed to 11 seconds.\n\nWhile Devour is active:\nKills grant 10% Class Ability Energy.",
+    "power of the son": "While maintaining a state of dealing or receiving damage every 7 seconds:\nGrants a stack of Power of the Son after 12 seconds, up to 2 stacks after 24 seconds.\n\nPower of the Son x1 | 15% Damage Resist against Combatants and ?% Flinch Resist.\nPower of the Son x2 | 25% Damage Resist against Combatants and ?% Flinch Resist.",
+    "primary survivor": "On Ally Death:\nGrants a stack of Primary Survivor for ? seconds.\nGrants Primary Survivor x? while solo.\n\nPrimary Survivor x1 | Primary Weapons are granted +? Handling, +? Reload Speed, +? Aim Assist, and ?% Flinch Resist.\nPrimary Survivor x2 | Primary Weapons are granted +? Handling, +? Reload Speed, +? Aim Assist, and ?% Flinch Resist.",
+    "set:twofold crown#4": "Upon scoring a Primary Weapon Kill:\nEnhanced Radar for 5 seconds.\n\nBuff can be triggered by destroying \"destroyable entities\" as well as Constructs.",
+    "mod:radiant light": "On Super Cast:\n\n Grants x1 Armor Charge to Allies within 21 metres.\nCaster receives x1 Armor Charge if already Charged.\n\nAllies on different Subclasses are granted x2 Armor Charge.",
+    "force converter": "Upon scoring a Micro-Missile, Rocket Launcher or Grenade Launcher Kill:\nGrants Force Converter.\n\nSprinting while Force Converter is active grants Speed Booster.\n\nMissiles:\nQuicksilver Storm's Rocket Tracer, Nanotech Tracer Rounds, Exhaustive Research Rockets, Rocket Frames, Grand Overture Missiles, and Hazardous Propulsion's Exodus Rockets.",
+    "set:great hunt#2": "On Grenade Kill:\nResist x1 (10% [2.5%] DR) for 7 seconds.",
+    "set:uncaged deviants#2": "On Ammo Brick Pickup:\nRefills stowed Special Weapons.",
+    "set:atheon's memory#2": "On Orb of Power Pickup:\nGrants Radiolaria Breach.\nCan only trigger once per Full Heal.\n\nUpon reaching Critical Health:\nConsumes Radiolaria Breach to trigger an explosion that deals up to 360 [11] Damage over 7 meters.\n+50 Health Stat for 7.5 seconds and releases 4 Radiolaria Pools 5 meters away from the user.\nRadiolaria Pools deal 14 Arc Damage every 0.5 seconds.",
+    "stesso tempo": "Upon blocking damage with a Glaive or a Sword:\n50% [10%] Damage Resist (Resist x4) for 3 seconds upon no longer guarding. \nDamage Resist can be reset by blocking and dropping the guard before buff expires.",
+    "set:last discipline#2": "Upon scoring a Primary Weapon Kill:\n+20 Reload Speed and 0.95x Reload Duration Multiplier for Primary Weapons for 6 seconds.\nBuff can be triggered by destroying \"destroyable entities\" as well as Constructs.",
+    "force absorption": "Upon scoring a Missile, Rocket Launcher or Grenade Launcher Kill:\n20% Area-of-Effect Damage Resist and 60% Explosive Self-Damage Resist for 15 seconds.\n\nMissiles:\nQuicksilver Storm's Rocket Tracer, Nanotech Tracer Round, Exhaustive Research Rockets, Rocket Frames, Grand Overture Missiles, and Hazardous Propulsion's Exodus Rockets.",
+    "set:disaster corps#2": "Upon finishing an Auto Rifle, Scout Rifle, or Sidearm reload within 3 seconds of a kill:\nRestores 2HP/s until firing any weapon, casting Grenade, Melee, Class, or Super Ability, or upon taking damage from an enemy. \n\nCan be triggered multiple times from a single kill if another reload is performed within the time window.\nReceiving Environmental Damage, or dealing damage through other means does not stop the health regen."
+  },
+  "artifacts": [
+    {
+      "name": "Encrypted Data Disk",
+      "season": "Renegades",
+      "focus": "",
+      "tiers": [
+        [
+          {
+            "name": "Press The Advantage",
+            "text": "Upon breaking a Combatant's Shield:\n\n+20 Stability, +20? Handling, and +20 Reload Speed for 10 seconds.\nSwords receive +20 Guard Resistance."
+          },
+          {
+            "name": "Kinetic Synthesis",
+            "text": "Dealing Kinetic Weapon Damage and scoring Kinetic Weapon Kills progress a counter, spawning an unique Kinetic Ammo Brick upon reaching 100%.\nCounter lasts 15s and is refreshed upon dealing Kinetic Weapon Damage.\n\nEach damage point grants 0.0265% progress, requiring 3770 damage to spawn a brick.\nA499 generates 75% less progress (15K damage for a brick).\nRnF Kill = 8% | Elite = 15% | Miniboss = 25%\nDamage requirement IGNORES Power-Delta, but considers ACTUAL DAMAGE DEALT.\nThis means it requires the same \"base damage\" regardless of reduced damage from PL deltas.\n\nUpon collecting a Kinetic Ammo Brick:\n+5% Special and +5% Heavy Ammo Progress.\nRefills equipped Kinetic Damage Weapons and generates Special/Heavy Ammo for them.\nGenerates (1/3rd of Magazine) + 1 Ammo, with certain exceptions.\nCounts for Ammo Pickup effects. Kinetic Ammo Generation is unaffected by Scavenger Bricks.\n\nBastion = +1 Ammo | Cull's Shadow = +2 Ammo | Praxic = +2 Ammo |  Microcosm = +12 Ammo."
+          },
+          {
+            "name": "Reload at Range",
+            "text": "Upon scoring a Precision Hit with a Bow or Sniper Rifle:\n\nGrants a stack of Reload at Range for ? seconds, up to ? stacks.\n\nReload at Range:\nx1 | +? Reload Speed\nx2 | +? Reload Speed\nx3 | +? Reload Speed"
+          },
+          {
+            "name": "Riposte",
+            "text": "After guarding with a Sword:\n\nGrants Unstoppable Shots for 3 seconds.\n\nTHIS DOESN'T DO ANYTHING AT ALL LMAO."
+          },
+          {
+            "name": "Power from Pain",
+            "text": "Upon scoring 3 Consecutive Weakened Enemy Kills within 4 seconds of each:\n\nGrants Devour for 5+2.5 seconds.\n\nHits that would've inflicted Weaken will also count even if they instantly kill an enemy."
+          },
+          {
+            "name": "Fierce Proxemics",
+            "text": "On Finisher:\n\n25% Grenade and Melee Ability Energy."
+          },
+          {
+            "name": "Rapid Remedy",
+            "text": "Upon scoring 3 Machine Gun Kills within 3 seconds of each:\n\nRestores 15 HP.\nBegins Critical Health Regeneration."
+          }
+        ],
+        [
+          {
+            "name": "Dielectric",
+            "text": "On Arc-Debuffed Enemy Kill:\nGrants x1 Bolt Charge.\n\nUpon scoring 3 Arc-Debuffed Enemy Kills within 6 seconds of each:\nSpawns an Orb of Power that grants 7.15% Super Energy.\nRestores 40 HP."
+          },
+          {
+            "name": "Armorsmith",
+            "text": "Upon breaking a Combatant's Shield or performing a Finisher:\n\n10% [2.5%] Damage Resist (Resist x1) for 6 seconds.\n100% Increased Melee Damage for 6 seconds.\nIncreases Super Melee Damage as well."
+          },
+          {
+            "name": "Counter Energy",
+            "text": "Whenever a Champion gets stunned:\n\n25% Ability Energy to the least-charged Ability.\nExcludes Super Abilities, obviously."
+          },
+          {
+            "name": "Combination Argent Blade",
+            "text": "Upon swinging, then waiting for 0.5 seconds before swinging again while grounded:\nGrants Argent Blade for 5 seconds.\nBuff cannot be refreshed.\n\nArgent Blade:\n15% Increased Sword Damage\n+100 Charge Rate"
+          },
+          {
+            "name": "Singularity Blade",
+            "text": "While a Void Buff (Devour, Invisibility, or Overshield) is active:\nMelee and Sword Hits inflict Weaken for 6 seconds.\nChecks on-hit, instead of snapshotting on-usage.\n\nOn Melee or Sword Kill while a Void Buff is active:\nTriggers a Weakening Burst, inflicting Weaken to enemies within 4 meters for 6 seconds."
+          },
+          {
+            "name": "Blinding Jolts",
+            "text": "On Jolted Enemy Kill:\n\nInflicts Blind to enemies within 8 meters for 10 seconds."
+          },
+          {
+            "name": "Precision Equity",
+            "text": "Precision Kills grant stacks of Precision Equity, up to 10 stacks.\nRank-and-File = 1 | Elite = 2 | Miniboss = 5 | Champion+ = 10\nDoes not overflow or retains stacks past x10.\n\nUpon reaching x10 stacks:\nConsumes all stacks to spawn a MASSIVE Orb of Power.\nGlobe of Power grants 12.5% Super Energy.\n\nOn GIGA ORB OF POWER PICKUP:\nWeapon Surge x2 for 11 seconds.\nDoes not overwrite stronger Weapon Surges.\nWorks for all damage types."
+          }
+        ],
+        [
+          {
+            "name": "Elemental Orbs: Arc",
+            "text": "Upon scoring 6 [2?] Arc Weapon Kills:\nSpawns an Arc Elemental Orb.\n\nArc Elemental Orb:\nArc Orbs remain on the ground for up to 20 seconds before expiring.\nArc Orbs that are picked up can be held for up to 20 seconds.\n\nArc Orbs deal up to 405 [101] damage, down to 90% damage, and inflict Jolt over 8 meters."
+          },
+          {
+            "name": "Kinetic Rupture",
+            "text": "Upon scoring enough Kinetic Weapon Damage Instances against Elite+ Combatants:\nSpawns a Kinetic Rupture for ? seconds which counts as a Weakspot.\n\nKinetic Ruptures can be damaged, activating after 0.3? seconds of being dealt damage, stunning Unstoppable Champions and dealing damage based on the amount of damage it received.\n\nKinetic Rupture Damage doesn't count as dealing damage to Combatants, uses PVP values for Damage Buffs, doesn't count as hitting nor missing either.\nEg: Radiant is 10%, Surges are 3% | 4.5% | 5.5%, Collective Action is 11%.\n\nIt's complicated, not worth on 99% of situations.\nTends to decrease damage by 25% to 50% on almost every situation.\nOne of the few meaningful exceptions is Izanagi x4\nIzanagi x4 is +120% damage down baseline to +63% based on the buffs used."
+          },
+          {
+            "name": "Sniper's Meditation",
+            "text": "On Sniper Rifle Direct Hit:\nGrant a stack of Sniper's Meditation for 7 seconds.\nHeavy Sniper Rifle hits grant 2 stacks.\nSniper's Meditation Buff persists through stow.\n\nSniper's Meditation \nIncreased Damage, Stability, and Reload Speed.\n2.8% | 5.7% | 9% | 12% | 15% Increased Damage\n+? | +? | +? | +? | +? Stability\n+15 | +30 | +35 | +40 | +45 Reload Speed"
+          },
+          {
+            "name": "Sword Storm Combo",
+            "text": "Upon doing 3 Light Attacks followed by a Heavy Attack while grounded:\nGrants Sword Storm Combo for 5 seconds.\nScoring additional Sword Kills refresh the buff.\n\nSword Storm Combo:\nAutomatically deals 103 [?] Sword Kinetic Damage and disorients on hit for 3 seconds every 0.53 seconds over 6 meters around the user.\nDeals up to 15% more damage at <4 meters."
+          },
+          {
+            "name": "Void Infestation",
+            "text": "Upon killing a Weakened Enemy:\n\nSpawns a tracking projectile that seeks enemies within 15 meters.\n\nProjectile deals 87 [?] Void Damage and inflicts Weaken over ? meters."
+          },
+          {
+            "name": "Tazer Tag",
+            "text": "Upon dealing Arc Melee Damage:\n\nInflicts Jolt and deals 23 Arc DoT every 0.25 seconds.\nDeals a total of ~800 Arc Damage over 8.75 seconds.\nNot including Jolt damage! With Jolt, it is 1245 damage."
+          },
+          {
+            "name": "Sticker Shock",
+            "text": "Flux, Fusion, and Magnetic deal increased damage on direct hits.\nFlux = 60% | Fusion = 30% | Magnetic = 22.5% total increase\nOnly the first Magnetic explosion gets increased by 45%.\nDoes not increase the Solar Effect Damage of Fusion Grenades.\n\nUpon scoring a kill with the aforementioned grenades:\nSpawns 4 homing Kinetic Micro-Missiles over the Enemy Death Location.\nMicro-missiles track the closest enemy within 30 meters.\n\nMicro-Missiles deal 216 [?] Kinetic Damage on impact.\nThey're identical in behavior to Ancillary Ordinance's missiles."
+          }
+        ]
+      ]
+    },
+    {
+      "name": "Implement of Curiosity",
+      "season": "Reclamation",
+      "focus": "Kinetic | Solar | Stasis | Strand ⯁ Bow | Sword | Micro-Missiles",
+      "tiers": [
+        [
+          {
+            "name": "Fever and Chill",
+            "text": "Upon scoring multiple Precision Hits within 3 seconds of each:\nSolar Weapons | Grants Radiant for 10+5 seconds.\nStasis Weapons: Grants a stack of Frost Armor.\nIncurs a 1.5s cooldown between triggers.\nAdditional hits during this time do not count.\n\nPrecision Hits trigger:\n (25% of Magazine Size) + 1, rounded down\n\nMag to Crits Requirement: \nBows = 3 Crits | 3 Mag = 1 Crit\n4–7 Mag = 2 Crits | 8–11 Mag = 3 Crits\n 12–15 Mag = 4 Crits | 16–19 Mag = 5 Crits\n20–23 Mag = 6 Crits | 24-27 Mag = 7 Crits\n28–31 Mag = 8 Crits | 32–35 Mag = 9 Crits\n36–39 Mag = 10 Crits | 40–43 Mag = 11 Crits"
+          },
+          {
+            "name": "Elemental Benevolence",
+            "text": "Upon bestowing an Elemental Buff to allies:\n\n~15?% Class Ability Energy.\n\nIncurs a ? second cooldown PER ALLY after activation."
+          },
+          {
+            "name": "Frost Renewal",
+            "text": "On Shield Break from Combatant Damage, while Frost Armor is active:\n\nReleases a Stasis Burst over 10 meters.\nStasis Burst freezes enemies and grants a stack of Frost Armor to the user and allies in range."
+          },
+          {
+            "name": "Horde Shuttle",
+            "text": "Dealing Weapon Damage equal to 10% [100? HP] of an Unraveled Enemy's Combined Health + Shields spawns a Threadling.\nIncurs a 0.5 second cooldown between Threadlings.\n\nThreadlings inflict Sever upon dealing damage."
+          },
+          {
+            "name": "Refresh Threads",
+            "text": "Upon picking up a Super-Matching Elemental Pickup:\n\n25% Ability Energy to the least-charged Ability.\nAlso triggers with Tangles on Strand.\n\nIncurs a 0.3 second cooldown between triggers. \nDoes not trigger on Abilities that have at least 1 Charge ready.\n\nDoes not work while Acrobat Dodge is equipped on Prismatic."
+          },
+          {
+            "name": "Pack Tactics",
+            "text": "Dealing Threadling Damage grants a stack of Pack Tactic for 10 seconds, up to a maximum of 2 stacks.\nDealing additional Threadling damage refreshes the buff duration.\n\nPack Tactics x1 | 15% increased Threadling Damage.\n\nPack Tactics x2 | 30% Increased Threadling Damage.\nThreadling Damage stuns Unstoppable Champions.\n\nEach Threadling hit while at x2 stacks will increase Threadling Damage by 1.03x until buff expires."
+          },
+          {
+            "name": "Semi-Auto Striker",
+            "text": "While at <2 Armor Charges:\n\nUpon scoring multiple Precision Hits within 3 seconds of each with Bows, Sniper Rifles, or Scout Rifles:\n\nGrants an Armor Charge.\n\nPrecision Hit Requirement:\nScouts = 5 | Bows = 3 | Snipers = 2"
+          }
+        ],
+        [
+          {
+            "name": "Threaded Blast",
+            "text": "Upon destroying a Tangle with Strand Damage:\n\nExplosion has an additional damage instance that deals 288 [?] damage, down to 75% damage over a 17 meter radius.\nAdditional damage counts as Tangle Damage for all interactions."
+          },
+          {
+            "name": "Cauterized Darkness",
+            "text": "Upon inflicting a Darkness Debuff on a Non-Boss Combatants:\n\n75% Increased Solar Damage dealt.\nIndicated by getting Yellow Numbers on Solar Damage.\nStacks with other Weaken sources.\n\nIncurs a 2? second cooldown between additional Darkness Debuffs inflicting the Cauterized Darkness debuff."
+          },
+          {
+            "name": "Elemental Daze",
+            "text": "Upon stunning a Champion with an Elemental Weapon:\n\nTriggers an Elemental-Matching Explosion that deals up to 315 Elemental Damage and inflicts an Elemental Debuff over 5 meters, down to 0% damage.\n\nArc: Jolt | Solar: Ignition | Void: Volatile\nStasis: Freeze | Strand: Sever\n\nHas no effect on Kinetic Weapons."
+          },
+          {
+            "name": "Shoulder to Shoulder",
+            "text": "Upon dealing sustained Precision Damage while within 15 meters of 2 allies:\n\n25% Damage Resist (Resist x2) for 10? seconds"
+          },
+          {
+            "name": "Elemental Coalescence",
+            "text": "Upon scoring a random, Pickup-based amount of kills:\nSpawns a Super-Matching Elemental Pickup.\n\nKills needed to trigger vary per Elemental Pickup.\nFiresprites, Void Breaches: 4–7 kills.\nIonic Trace, Stasis Shards, Tangles: 9–11 kills.\n\nTriggers the global cooldown for Firesprites, Void Breaches, and Tangles.\nKills scored during the cooldown do not count for the next pickup.\n\nMatching the Damage Type to the Super Element has no bonus effects."
+          },
+          {
+            "name": "That Fresh Bullets Smell",
+            "text": "On Ammo Brick Pickup:\n\nGrants Kinetic Weapon Surge for 11 seconds.\nSpecial Brick = x2 Kinetic Weapon Surge.\nHeavy Brick = x3 Kinetic Weapon Surge.\n\nDoes not overwrite stronger Weapon Surges."
+          },
+          {
+            "name": "Energy Acceleration",
+            "text": "Upon scoring 2 non-simultaneous Micro-Missile damage instances within 3 seconds of each or a Micro-Missile Kill:\n\nTarget releases a Kinetic Shockwave that deals 120 [20] Kinetic Damage and stuns Unstoppable Champions over 7 meters.\nShockwave has no falloff.\nIncurs a 2 second cooldown between activations."
+          }
+        ],
+        [
+          {
+            "name": "Radiant Shrapnel",
+            "text": "Upon dealing Weapon Damage equal to 10% of an Enemy's Combined Health+Shields while Radiant, or upon killing a Scorched Combatant with a Weapon:\n\nTarget releases 1 Solar Shrapnel that deals 54 [?] Impact Damage and up to 289 [20] Explosive Damage, inflicting x20+0 Scorch over ? meters.\n\nIncurs a 1 second cooldown between Shrapnel spawns.\n\nShrapnel is slightly homing, and often misses the enemy it spawns on."
+          },
+          {
+            "name": "Shieldcrush",
+            "text": "While Frost Armor, Void Overshield, or Woven Mail are active:\n?% [?%] Additional Base Melee Recharge Rate\n 50% [5%] Increased Powered Melee Damage.\nAlso increases Super Melee Damage and Ignition Damage.\n\nWhile Amplified or Radiant are active:\n?% [?%] Additional Base Grenade Recharge Rate\n25% [5%] Increased Grenade Damage.\n\nGrapple Melee instead receives 12% Increased Damage for each half of the perk.\nShieldcrush will not buff Grapple Melee while Combination Blow is active."
+          },
+          {
+            "name": "Elemental Overdrive",
+            "text": "Upon picking up a Elemental Pickup:\n\n22% [?%] increased Pickup-Matching Weapon Damage for 7 seconds.\nDisplays as Weapon Surge despite stacking multiplicatively with it."
+          },
+          {
+            "name": "Tangled Web",
+            "text": "Upon killing a Strand-Debuffed Combatant:\n\nTriggers a Suspending Blast.\nOnly triggers when a Tangle is created."
+          },
+          {
+            "name": "Frigid Glare",
+            "text": "Upon scoring a Precision Kill with a Stasis Weapon while Frost Armor is active:\n\nTriggers a Freezing Burst on Enemy Death Location.\nFreezing Burst affects enemies within 7 meters."
+          },
+          {
+            "name": "Iron Lord's Vigor",
+            "text": "Upon scoring 3 Sword Kills within 3 seconds of each:\nGrants +3 Ammo.\nPraxic Blade and Ergo Sum receive +1 Ammo instead.\n\nDoes not grant any Damage Resist, contrary to description."
+          },
+          {
+            "name": "Argent Quiver",
+            "text": "Reloading a bow consumes an Armor Charge to grant 3 stacks of Godslayer Broadheads.\nCannot consume Armor Charge or grant stacks while buff is active.\n\nWhile Godslayer Broadhead is active:\nGrants increased damage and +? Reload Speed.\nFiring consumes a stack. Stowing removes all stacks.\n\nPrimary = 35% increased damage to Combatants.\nHeavy = 25% increased damage to Combatants.\nStacks with everything."
+          }
+        ]
+      ]
+    },
+    {
+      "name": "Tablet of Ruin",
+      "season": "Heresy",
+      "focus": "Arc | Void | Strand | Prismatic ⯁ Fusion Rifles | Glaives | Trace Rifles",
+      "tiers": [
+        [
+          {
+            "name": "Hold the Line",
+            "text": "While within 15 meters of 3 enemies, while a Glaive or Machine Gun is readied:\n \n+? Stability and +30 Reload Speed for Glaives and Machine Guns.\nGlaive Projectile/Melee and Machine Gun Kills restore 55 HP.\n\nStat Bonus persist for 5 seconds once criteria isn''t met. \nHealing on Kill does not persist."
+          },
+          {
+            "name": "Dielectric",
+            "text": "On Arc-Debuffed Enemy Kill:\n\nGrants x1 Bolt Charge.\n\nUnlike Data Disk's version, this does NOT spawn Orbs nor restore health on Arc Debuffed Rapid Kills."
+          },
+          {
+            "name": "Volatile Marksman",
+            "text": "Upon scoring multiple Precision Hits within 3 seconds of each, or upon scoring 3 kills within 3 seconds of each with Void Weapons:\n\nGrants Volatile Rounds for 10 [6] seconds.\n\nPrecision Hits trigger for Volatile Rounds: \n (25% of Magazine Size) + 1, rounded down.\nBows: 2\n\nTriggering a Volatile detonation grants 10% Class Ability Energy."
+          },
+          {
+            "name": "Unraveling Orbs",
+            "text": "On Orb of Power or Tangle Throw:\n\nUnraveling Rounds for 14 [?] seconds."
+          },
+          {
+            "name": "Photonic Flare",
+            "text": "Upon killing an Exhausted or Severed Enemy with Arc Damage:\n\nTriggers a blinding burst, blinding enemies within 5? meters.\nIncurs a 6? second cooldown between activations."
+          },
+          {
+            "name": "Elemental Siphon",
+            "text": "Upon scoring 3 kills within 3 seconds of each using a Kinetic Weapon or a Super-Element Matching Weapon:\n\nCreates an Elemental Pickup that matches the equipped Super Ability's element.\n\nUpon collecting an Elemental Pickup:\nGrants 5% [1%] Element-Matching Super Ability.\nIncurs a 2 second cooldown between additional Ability gains."
+          },
+          {
+            "name": "Perpetual Destruction",
+            "text": "Non-Exotic Rocket Launcher Kills within 2-3? seconds of each progress a counter.\nRank-and-File = 25% | Elite = 34% | Miniboss = 100%\n\nUpon reaching 100% Counter Progress:\nRocket Launchers are granted +1 Ammo.\nPrecision/High-Impact Rockets (or Bipod RLs) receive +2 Ammo.\n+? Reload Speed and 0.?x Reload Duration Multiplier for 10 seconds.\nNot affected by Scavenger Mods."
+          }
+        ],
+        [
+          {
+            "name": "Vile Weave",
+            "text": "Tangles inflict sever for 10+5 seconds upon dealing damage.\n\nOn Tangle Pickup:\nDecreases the Tangle Cooldown by 4 second.\n\nCan trigger from Moirai's Threaded Spike hitting a Tangle.\nCan trigger from harvesting a Tangle from Luzaku's Teeming Nest."
+          },
+          {
+            "name": "Maligned Harvest",
+            "text": "Upon inflicting Volatile 4 times within 5 seconds of each: \n\nThe next Void Damage Instance within 10 seconds releases a weakening burst, affecting enemies within 7 metres.\n\nUpon inflicting Weaken on a Non-Weakened Enemy:\n+25 Void Overshield HP for 10+5 seconds.\nOnly triggers once per source of weaken. \nEg: Smoke Bomb won't repeatedly trigger it.\n\nDoes not grant Void Overshield with Fafnir or Tractor Cannon."
+          },
+          {
+            "name": "Flashover",
+            "text": "Upon reaching x10 Bolt Charge:\nAmplified for 15 seconds.\n\nBolt Discharges deal 50% increased damage against Combatants.\n405 Impact + 270 Splash = 675 Base\n608 Impact + 406 Splash = 1014 Flashover"
+          },
+          {
+            "name": "Horde Shuttle",
+            "text": "Dealing Weapon Damage equal to 10% [100? HP] of an Unraveled Enemy's Combined Health + Shields spawns a Threadling.\nIncurs a 0.5 second cooldown between Threadlings.\n\nThreadlings inflict sever upon dealing damage."
+          },
+          {
+            "name": "No Bell",
+            "text": "Upon scoring 2 Glaive Melee Kills within 3 seconds of each:\n+2 Reserve Ammo to Special Ammo Glaives.\n\nUpon blocking damage with a Glaive Shield:\n85% [?%] increased Glaive Melee Damage for 6 seconds.\nAlso triggers if an Ally shoots the shield."
+          },
+          {
+            "name": "Harsh Refraction",
+            "text": "Upon scoring 3 Trace Rifle hits against enemies affected by Element-Matching Debuffs:\nGrants increased Trace Rifle damage for 4 seconds.\n\nLegendary Trace Rifles = 50% increased damage\nExotic Special Traces / Lodestar = 35% increased damage\n\nMicrocosm deals 20% increased damage after scoring 4 hits against enemies affected by ANY Elemental Debuff.\n\nArc = ↓Blind ↓Jolt\nSolar = ↓Scorch ↓Ignition\nVoid = ↓Suppression ↓Volatile ↓Weaken\nStasis = ↓Slow ↓Freeze ↓Shatter\nStrand = ↓Sever ↓Suspend ↓Unravel"
+          },
+          {
+            "name": "Gold from Lead",
+            "text": "Upon picking up 5–6 Special Ammo Bricks:\nGenerates 8% Heavy Ammo, rounded up.\nPickup Counter is reset on death.\nNot affected by Scavenger Mods.\n\nDoes not function in the Crucible."
+          }
+        ],
+        [
+          {
+            "name": "Particle Reconstruction",
+            "text": "(Linear) Fusion Rifle hits inflict an unique stacking weaken that increases (Linear) Fusion Rifle damage.\n5% | 10.25% | 15.8% | 21.6% | 27.6%\n30% Weaken overrides Particle Reconstruction weaken.\nDivinity's Cage also overrides it down to 15%.\n\nScoring multiple direct hits refills 10% of Magazine, rounded up.\nFusion Rifles: Every bolt in the magazine generally. \nAggressive Fusion Rifles (+Cull's Shadow) uniquely trigger every other burst. \n\nPrecision Linear Fusion Rifles: Magazine + 2\nAdaptive Burst Linear Fusion Rifles: 3 x (Magazine + 4)\n\nBastion triggers every 7 bursts.\nEuphony Threadlings count for hits, otherwise 30 hits. (Triggers in 8 bursts)\nDelicate Tomb triggers every 3 full bursts. Jotunn triggers after 8 shots.\nMythoclast triggers every 25 hits"
+          },
+          {
+            "name": "Elemental Supercharger",
+            "text": "On Exhausted or Severed Enemy Kill with Super-Matching Weapons:\n\nGrants 2?% Additional Super Ability Energy."
+          },
+          {
+            "name": "Heavy Ordnance Regeneration",
+            "text": "Upon scoring 8 Machine Gun damage instances, or 2 Rocket Launcher damage instances within 7 seconds of each:\n25% [5%] Damage Resist (Resist x2) for 15.5 seconds\n85% Additional Base Grenade and Melee Ability Regeneration Rate for 10 seconds.\n\nWhile Heavy Ordnance is active:\nElite+ Combatants Kills disorient Rank-and-File Combatants within 10 meters."
+          },
+          {
+            "name": "Defibrillating Blast",
+            "text": "Upon stunning a Champion:\nGrants x10 Bolt Charge.\n\nBolt Discharge's Bolt Splash damage portion now inflicts Jolt.\n\nUpon triggering a Bolt Discharge:\nRestores ~55 HP.\nBegins Critical Health regeneration\nDoes not begin recharging Shields."
+          },
+          {
+            "name": "Void Flux",
+            "text": "On Weakened Enemy Kill with a Void Weapon:\n\nInflicts Volatile to enemies within ? meters.\nElite+? Combatants and Guardians? increase the radius to ? meters."
+          },
+          {
+            "name": "Limit Break",
+            "text": "On Super Cast, while at Critical Health or affected by an Element-Matching Buff:\n\n15% Increased Super Ability Damage.\nOne-Off Supers are only buffed for 8 seconds.\nRoaming Supers are buffed until it runs out.\n\nArc = ↑Amplified ↑Bolt Charge\nSolar = ↑Cure ↑Radiant ↑Restoration\nVoid = ↑Devour ↑Invisibility ↑Void Overshield\nStasis = ↑Frost Armor\nStrand = ↑Woven Mail"
+          },
+          {
+            "name": "To Shreds",
+            "text": "Upon scoring 6 weapon damage instances against Severed Enemies:\nInflicts Unravel.\n\nOn Severed Enemy Kill:\nReleases 3 healing pulses on Enemy Death Location, restoring 15 HP and granting Woven Mail for 10 seconds to the user and allies within 10? metres every 2 seconds."
+          }
+        ]
+      ]
+    },
+    {
+      "name": "Slayer Baron Apothecary Satchel",
+      "season": "Revenant",
+      "focus": "Arc | Void | Stasis ⯁ Grenade Launchers | Shotguns",
+      "tiers": [
+        [
+          {
+            "name": "Wind Chill",
+            "text": "Upon scoring multiple non-simultaneous Stasis Weapon Damage instances within 3 seconds of each:\nGrants a stack of Frost Armor.\nIncurs a 0.45s cooldown between triggers. Additional hits during this time do not count.\nCounter resets on stow.\n\nInstances to trigger Frost Armor:\nBows: 3 | Breech GL, Swords: 2\n(35% of Magazine, rounded down) +2\nDoesn't require a Stasis Weapon to be readied, instead using the current weapon's magazine for calculations.\n\nUpon scoring multiple Stasis Weapon Damage instances within 3 seconds of each on Slowed Enemies:\nBows: 3 | Breech GLs, Swords: 2\n(25% of Magazine, rounded down) +2\nSpawns a Stasis Shard on top of the enemy."
+          },
+          {
+            "name": "Crystalline Converter",
+            "text": "Picking up Stasis Shards progresses the Crystalline Converter Counter.\n\nUpon dealing Stasis Melee Damage or Diamond Lance Damage: \nConsumes the Crystalline Converter Counter.\nSpawns Crystals based on the amount of Shards picked up.\n8 | 12 | 15 Shards Pickups\n1 | 2 | 3 Crystals Spawned\n\nOn Class Ability Usage:\nThe next Stasis Weapon Kill spawns a Stasis Shard."
+          },
+          {
+            "name": "Total Carnage",
+            "text": "Upon finishing an Elite+ Combatant:\n\nRestores 100 HP.\nBegins Health Regeneration.\n25% Damage Resist (Resist x2) for 11 seconds."
+          },
+          {
+            "name": "Power from Pain",
+            "text": "Upon scoring 3 Consecutive Weakened Enemy Kills within 4 seconds of each:\n\nGrants Devour for 5+2.5 seconds.\nSpawns a Void Breach.\n\nHits that would've inflicted Weaken will also count even if they instantly kill an enemy."
+          },
+          {
+            "name": "Trace Evidence",
+            "text": "Upon scoring 2 Precision Hits within 1 second of each against Arc-Debuffed Enemies, OR upon scoring 3 Arc-Debuffed Enemy Kills within 3 seconds of each:\n\nSpawns an Ionic Trace.\nIncurs a 4 second cooldown between Ionic Trace spawns.\n\nOn Ionic Trace Pickup:\nGrants a stack of Armor Charge."
+          },
+          {
+            "name": "The Thick of It",
+            "text": "While within 15 meters of 3 enemies:\n\n+35? Handling and +? Charge Rate.\nScoring 3 Kills grants a stack of Armor Charge.\n\n Condition lingers for 1.5 seconds once criteria isn't met."
+          },
+          {
+            "name": "Killing Breeze",
+            "text": "Upon scoring 3 Weapon Kills within 3 seconds of each:\n\n+50? Mobility for 7 seconds.\n\nBuff can be refreshed by retriggering it."
+          }
+        ],
+        [
+          {
+            "name": "Frost Renewal",
+            "text": "On Shield Break from Combatant Damage, while Frost Armor is active:\n\nReleases a Stasis Burst over 10 meters.\nStasis Burst freezes enemies and grants a stack of Frost Armor to the user and allies in range."
+          },
+          {
+            "name": "Hail The Storm",
+            "text": "Upon shattering a Stasis Crystal:\n\nReleases 5 Homing Ice Shards in a * pattern, each dealing 46 damage and inflicting x? [x10] Slow for ? seconds.\nShards are spread uniformally, with one shard going towards the closest enemy and the others spreading.\n\nEnemy Shatters deal 12.5% [?%] increased damage.\nCrystal Shatters deal 25% [?%] increased damage."
+          },
+          {
+            "name": "Debilitating Wave",
+            "text": "Upon finishing a Combatant:\n\nTriggers a wave, dealing 180 Super-Element Matching Damage up to 20 meters away.\nWave travels in the direction of the finisher and tracks enemies.\nWave damage ignores Power Delta, always dealing 180.\n\nEquipping an Arc, Void, or Stasis Super makes the wave inflict a Super-Matching Elemental Debuff.\n\nArc = Blind\nVoid = Weaken\nStasis = Slow"
+          },
+          {
+            "name": "Weakened Clear",
+            "text": "Upon damaging a Boss, Champion, or breaking a Combatant's Shield with a Grenade Launcher:\n\nInflicts Weaken for 20 seconds and refills stowed weapons.\nIncurs a 10 second cooldown before inflicting Weaken or refilling again.\nWeaken can be refreshed, except with Weakened Clear."
+          },
+          {
+            "name": "Retinal Burn",
+            "text": "Upon scoring 2 Arc Weapon Precision Hits against Non-Blinded Combatants within 2 seconds of each while Armor Charge is active:\n\nConsumes x1 Armor Charge.\nInflicts blind to enemies within 7 meters for ~8.5 seconds."
+          },
+          {
+            "name": "Curative Orbs",
+            "text": "Upon first breaking a Combatant Shield, or a Supering Guardian's Shield:\n\nCreates an Orb of Power that grants 7.15% Super Energy.\nPerforming a Finisher on a Combatant that didn't trigger the effect will also spawn an Orb of Power.\n\nUpon picking up an Orb of Power, an Elemental Pickup, or destroying a Tangle:\nRestores 40 HP."
+          },
+          {
+            "name": "Void Renewal",
+            "text": "While Devour is active:\n\nVoid Weapon Kills progress a counter that spawns a Void Breach upon reaching 100%.\nRnF = 16.7% | Elite = 34% | Miniboss+ = 50% | Guardians = ?%\n\nOn Void Breach Pickup:\n+? Handling and +? Reload Speed for ? seconds.\nRefills Shotguns and Grenade Launchers."
+          }
+        ],
+        [
+          {
+            "name": "Brain Freeze",
+            "text": "Frozen Enemies inflict x? Slow to enemies within 4? meters that aren't affected by Stasis Debuffs."
+          },
+          {
+            "name": "Supernova",
+            "text": "On Void Breach Pickup: \n\nThe next Void Damage Instance within 10 seconds releases a weakening burst, inflicting Weaken to enemies within 5? metres."
+          },
+          {
+            "name": "Conductive Cosmic Crystal",
+            "text": "Against Stasis-Debuffed Enemies:\n\nArc and Void Ability Damage is increased by 5%."
+          },
+          {
+            "name": "Served Cold",
+            "text": "Stasis Shards additionally grant 10% Class Energy.\n\nVoid Breaches additionally grant 10?% Melee Energy."
+          },
+          {
+            "name": "Kinetic Impacts",
+            "text": "Releases a single Unstoppable-staggering Shockwave underneath the enemy.\nShockwave deals 227x2 = 454 Kinetic Damage over 7 meters.\nShockwaves from Primary and Special GLs only deal 150x2 Damage.\nShockwave has no damage falloff.\nIncurs a 1 second cooldown upon triggering before hits count again.\n\nTriggering Kinetic Impacts:\nBy scoring 3 non-simultaneous Power GL damage instances within 3 seconds of each.\nBy scoring a single non-lethal non-DoT Primary/Special GL damage instance.\nBy scoring a total of 5 DoT damage instances, counted up to once every 0.5 seconds.\n\n-------------------------------------------\n\nUpon dealing Grenade Launcher Damage:\nGrants a stack of Rapid Impacts for 5 seconds, up to a maximum of 5 stacks.\n\n+5 | +10 | +15? | +20? | +30 Reload Speed\n0.99x | 0.99x | 0.98x | 0.96x | 0.94x Duration Multiplier"
+          },
+          {
+            "name": "Arc Compounding",
+            "text": "15% [7.5%] increased Arc Damage against Blinded Enemies.\nStacks with everything."
+          },
+          {
+            "name": "Old God's Rite",
+            "text": "On Void Breach Pickup: \n\nThe next Void Weapon Damage Instance within 10 seconds creates a Void Portal.\n\nVoid Portal:\nReleases 8 Homing Void Orbs towards enemies within ~10 meters.\nVoid Orbs deal up to 334 [?] Splash Damage over ~3? meters.\nRank-and-File Combatants take 540 Damage per Orb.\nMiniboss+ take 180 Damage per Orb."
+          }
+        ]
+      ]
+    },
+    {
+      "name": "Hunter's Journal",
+      "season": "Echoes",
+      "focus": "Solar | Arc | Void | Prismatic ⯁ Auto Rifles | Sniper Rifles | Swords",
+      "tiers": [
+        [
+          {
+            "name": "Elemental Siphon",
+            "text": "Upon scoring 3 kills within 3 seconds of each using a Kinetic Weapon or a Super-Element Matching Weapon:\n\nCreates an Elemental Pickup that matches the equipped Super Ability's element.\n\nUnlike Tablet of Ruin's version, this does NOT grant Super Energy."
+          },
+          {
+            "name": "Energy Diffusion Substrate",
+            "text": "5%? Damage Resist against Combatants."
+          },
+          {
+            "name": "Creeping Chill",
+            "text": "Upon scoring a Stasis Kill against a Stasis-Debuffed Enemy:\nTriggers a Slowing Burst over 6 meters.\n\nSlowing Burst\nInflicts x20 Slow for 2?+? seconds to enemies.\nGrants x? Frost Armor to the user and allies.\n\nHas no effect."
+          },
+          {
+            "name": "Press The Advantage",
+            "text": "Upon breaking a Combatant's Shield:\n\n+20 Stability, +20? Handling, and +20 Reload Speed for 10 seconds.\nSwords receive +20 Guard Resistance."
+          },
+          {
+            "name": "Threaded Blast",
+            "text": "Upon destroying a Tangle with Strand Damage:\n\nExplosion has an additional damage instance that deals 288 [?] damage, down to 75% damage over a 17 meter radius.\nAdditional damage counts as Tangle Damage for all interactions."
+          },
+          {
+            "name": "Incendiary Rifle Rounds",
+            "text": "Upon scoring a Solar Sniper Rifle Precision Hit:\nInflicts x30+15 Scorch.\n\nUnaffected by Weapon Frame or Ammo Type."
+          },
+          {
+            "name": "Sustained Fire",
+            "text": "Upon scoring 10 Auto Rifle Hits within 1.5 seconds of each against a single Combatant:\n\nResist x2 (25% DR) for 6 seconds.\n Buff is refreshable and persists through stow.\nSupport Autos can also trigger the buff by healing injured allies."
+          }
+        ],
+        [
+          {
+            "name": "Counter Energy",
+            "text": "Whenever a Champion gets stunned:\n\n25% Ability Energy to the least-charged Ability.\nExcludes Super Abilities, obviously."
+          },
+          {
+            "name": "Blade Stamina",
+            "text": "Upon scoring 3 Combatant Kills within 5 seconds of each with a Sword:\n\nGenerates +3 Ammo.\nPraxic Blade and Ergo Sum receive +2 Ammo instead."
+          },
+          {
+            "name": "Void Hegemony",
+            "text": "While a Void or Prismatic Subclass is equipped:\n\nKilling Weakened Enemies grants 15 Overshield HP."
+          },
+          {
+            "name": "Radiant Orbs",
+            "text": "While a Solar or Prismatic Subclass is equipped:\n\nOrbs of Power grant Radiant for 10+5 seconds."
+          },
+          {
+            "name": "Bad Amplitude",
+            "text": "Upon dealing Arc Ability Damage to a Champion:\nInflicts Jolt to the Champion."
+          },
+          {
+            "name": "Solar Fulmination",
+            "text": "Ignitions deal an additional damage instance.\n\nFulmination deal 171 [30] Solar Damage in a 12? meter radius. \nFulminations count as an Ignition and don't [do] have damage falloff.\nFulmination Damage can be scaled by Ignition buffs (Dawn Chorus)\n\nWhile Ember of Char is equipped:\nFulminations inflict an additional x40+20 Scorch.\nAllows chain-ignitions when paired with Ember of Ashes."
+          },
+          {
+            "name": "Targeting Autoloader",
+            "text": "Auto Rifle Combatant Kills progress a Counter.\nKills grant 50% Counter Progress.\nKills while within 15 meters of 3 enemies grants 100% Progress.\nKills while at 5 stacks grant 100% Progress.\nCounter Progress persists through stow.\n\nUpon reaching 100% Counter Progress:\nGrants a stack of Targeting Autoloader for 15 seconds, up to a maximum of 5 stacks.\nBuff is refreshable.\n\nTargeting Autoloader:\nRefills 20% | 20% | 30% | 40% | 40% of Magazine\n10% | 13% | 16% | 18% | 20% Increased Auto Rifle Damage.\nStacks with other buffs.\nBuff is removed upon readying a non-Auto Rifle Weapon."
+          }
+        ],
+        [
+          {
+            "name": "Prismatic Transfer",
+            "text": "On Super Cast:\n\nAllies within 15 meters with a Super Element different from the caster's receive 20% [10%] increased damage for 10 [5] seconds.\nDamage buff is not refreshable.\n\nDoesn't stack with Radiant or other similar empowering buffs."
+          },
+          {
+            "name": "Argent Blade",
+            "text": "Dealing Sword Damage consumes an Armor Charge to grant Argent Blade for 5 seconds.\n\nArgent Blade:\n15% Increased Sword Damage\n+100 Charge Rate.\nStacks with other buffs.\n\nDoes not consume additional Armor Charges while Argent Blade is active"
+          },
+          {
+            "name": "Expanding Abyss",
+            "text": "User deals increased Void Damage towards Weakened Enemies.\n\n7.5% -> 10% (2.3% increased damage)\n15% -> 25% (8.7% increased damage)\n30% -> 35% (3.8% increased damage)\n35% -> 40% (3.7% increased damage)\n\nDivinity's Weaken is unaffected."
+          },
+          {
+            "name": "Shieldcrush",
+            "text": "While Frost Armor, Void Overshield, or Woven Mail are active:\n?% [?%] Additional Base Melee Recharge Rate\n 50% [5%] Increased Powered Melee Damage.\nAlso increases Super Melee Damage and Ignition Damage.\n\nWhile Amplified or Radiant are active:\n?% [?%] Additional Base Grenade Recharge Rate\n25% [5%] Increased Grenade Damage.\n\nGrapple Melee instead receives 12% Increased Damage for each half of the perk.\nShieldcrush will not buff Grapple Melee while Combination Blow is active."
+          },
+          {
+            "name": "Transference",
+            "text": "While Transcendent:\n10% Increased Grenade and Melee Damage.\n\nAfter Transcendence ends:\nEach Weapon Kill scored grants 4.2% Light and Darkness Energy.\nGrants up to 50% Light/Dark Energy after 12 kills."
+          },
+          {
+            "name": "Sniper's Meditation",
+            "text": "On Sniper Rifle Direct Hit:\nGrant a stack of Sniper's Meditation for 7 seconds.\nHeavy Sniper Rifle hits grant 2 stacks.\nSniper's Meditation Buff persists through stow.\n\nSniper's Meditation \nIncreased Damage, Stability, and Reload Speed.\n2.8% | 5.7% | 9% | 12% | 15% Increased Damage\n+? | +? | +? | +? | +? Stability\n+15 | +30 | +35 | +40 | +45 Reload Speed"
+          },
+          {
+            "name": "Shock and Awe",
+            "text": "While an Arc or Prismatic Subclass is equipped, while Amplified: \n\nArc Kills trigger a lightning burst, dealing up to 126 [?] Arc Damage and jolting in a 8 metre radius.\n\nIncurs a 5 second cooldown between activations."
+          }
+        ]
+      ]
+    },
+    {
+      "name": "Queensfoil Censer",
+      "season": "Wish",
+      "focus": "Solar | Stasis | Strand ⯁ Rocket Launcher | Grenade Launchers",
+      "tiers": [
+        [
+          {
+            "name": "Fever and Chill",
+            "text": "Upon scoring multiple Precision Hits within 3 seconds of each:\nSolar Weapons | Grants Radiant for 10+5 seconds.\nStasis Weapons: Grants a stack of Frost Armor.\nIncurs a 1.5s cooldown between triggers.\nAdditional hits during this time do not count.\n\nPrecision Hits trigger:\n (25% of Magazine Size) + 1, rounded down\n\nMag to Crits Requirement: \nBows = 3 Crits | 3 Mag = 1 Crit\n4–7 Mag = 2 Crits | 8–11 Mag = 3 Crits\n 12–15 Mag = 4 Crits | 16–19 Mag = 5 Crits\n20–23 Mag = 6 Crits | 24-27 Mag = 7 Crits\n28–31 Mag = 8 Crits | 32–35 Mag = 9 Crits\n36–39 Mag = 10 Crits | 40–43 Mag = 11 Crits"
+          },
+          {
+            "name": "Torch",
+            "text": "While Radiant:\n\n5% Increased Weapon Damage against Non-Boss Combatants that are affected by Strand or Stasis debuffs.\n\nStrand Debuffs: Unraveled, Severed, Suspended\nStasis Debuffs: Slowed, or Frozen."
+          },
+          {
+            "name": "Heart of the Flame",
+            "text": "On Solar Super Cast:\nCaster and Allies within 15 meters are granted Radiant.\nGrants an Ally-Amount based Increased Super Damage.\nCaster counts as an ally. \n\nIncreased Super Damage:\n6% | ?% | ?% | ?% | ?% | 15?%\nWell of Radiance Caster benefits for 5 seconds."
+          },
+          {
+            "name": "Armorsmith",
+            "text": "Upon breaking a Combatant's Shield or performing a Finisher:\n\n10% [2.5%] Damage Resist (Resist x1) for 6 seconds.\n100% Increased Melee Damage for 6 seconds.\nIncreases Super Melee Damage as well."
+          },
+          {
+            "name": "Wished Into Being",
+            "text": "While Super Energy is above 60% but not fully charged:\n\nAbility Kills spawn 3 Orbs of Power.\nOrbs of Power grant 7.15% Super Energy each.\nIncurs a 30 second cooldown between spawning orbs.\n\nWorks with Roaming Supers as long as Super Energy is above 60%."
+          },
+          {
+            "name": "Kindling Trigger",
+            "text": "While Radiant:\n\nSolar Weapon Damage inflicts x30+15 Scorch to Combatants without Scorch stacks.\n\nSolar Effects initially triggered by Kindling Trigger do not benefit from Weapon nor Ability Damage increases.\n\nDoes not work while within a Well of Radiance."
+          },
+          {
+            "name": "Blast Radius",
+            "text": "Upon scoring 2 Kills within ? seconds of each with Grenade Launchers or Rocket Launchers:\n\nGrants a stack of Armor Charge."
+          }
+        ],
+        [
+          {
+            "name": "Unraveling Orbs",
+            "text": "On Orb of Power or Tangle Throw:\n\nUnraveling Rounds for 14 [?] seconds."
+          },
+          {
+            "name": "Pillar of Ice",
+            "text": "Upon killing a Frozen Enemy:\n\nSpawns 1 Stasis Crystals.\nBosses spawn 2 Stasis Crystals.\n\nCrystals are spawned close to where the enemy dies."
+          },
+          {
+            "name": "Revitalizing Blast",
+            "text": "Upon stunning a Champion:\nChampion triggers an ignition."
+          },
+          {
+            "name": "Anti-Champion Nosecone",
+            "text": "For Rocket Launchers:\n33% Increased Damage against Champions."
+          },
+          {
+            "name": "Dragon's Bite",
+            "text": "For every THIRD Combatant Shield broken with a Strand or Stasis Weapon:\n\nStrand inflicts Suspend.\nStasis inflicts Freeze."
+          },
+          {
+            "name": "Creeping Chill",
+            "text": "Upon scoring a Stasis Kill against a Stasis-Debuffed Enemy:\nTriggers a Slowing Burst over 6 meters.\n\nSlowing Burst\nInflicts x20 Slow for 2?+? seconds to enemies.\nGrants x? Frost Armor to the user and allies.\n\nHas no effect."
+          },
+          {
+            "name": "Perpetual Destruction",
+            "text": "Non-Exotic Rocket Launcher Kills within 2-3? seconds of each progress a counter.\nRank-and-File = 25% | Elite = 34% | Miniboss = 100%\n\nUpon reaching 100% Counter Progress:\nRocket Launchers are granted +1 Ammo.\nPrecision/High-Impact Rockets (or Bipod RLs) receive +2 Ammo.\n+? Reload Speed and 0.?x Reload Duration Multiplier for 10 seconds.\nNot affected by Scavenger Mods."
+          }
+        ],
+        [
+          {
+            "name": "Horde Shuttle",
+            "text": "Dealing Weapon Damage equal to 10% [100? HP] of an Unraveled Enemy's Combined Health + Shields spawns a Threadling.\nIncurs a 0.5 second cooldown between Threadlings.\n\nThreadlings inflict Sever upon dealing damage."
+          },
+          {
+            "name": "Hail The Storm",
+            "text": "Upon shattering a Stasis Crystal:\n\nReleases 5 Homing Ice Shards in a * pattern, each dealing 46 damage and inflicting x? [x10] Slow for ? seconds.\nShards are spread uniformally, with one shard going towards the closest enemy and the others spreading.\n\nEnemy Shatters deal 12.5% [?%] increased damage.\nCrystal Shatters deal 25% [?%] increased damage."
+          },
+          {
+            "name": "Rays of Precision",
+            "text": "While Radiant:\n\nSolar Precision Kills on Combatants cause an Ignition."
+          },
+          {
+            "name": "Solo Operative",
+            "text": "While Solo:\n\nPrecision Kills grant a stack of Damage Boost, up to ∞ stacks.\nAll stacks are lost on death.\n\n1.2% Increased Weapon Damage against Combatants per stack.\nGrants up to 30% Increased Weapon Damage at x25 stacks.\nWeapon Damage Buff stacks with everything."
+          },
+          {
+            "name": "Argent Ordnance",
+            "text": "Firing a Rocket Launcher consumes x1 Armor Charge to grant Godslayer Warheads for 4.5 seconds:\n\nGodslayer Warheads:\n15% Increased Damage. Stacks with everything.\n+? Reload Speed and 0.?x Reload Duration Multiplier.\n\nDoes not consume additional Armor Charges while the buff is active."
+          },
+          {
+            "name": "Frigid Glare",
+            "text": "Upon scoring a Precision Kill with a Stasis Weapon while Frost Armor is active:\n\nTriggers a Freezing Burst on Enemy Death Location.\nFreezing Burst affects enemies within 7 meters."
+          },
+          {
+            "name": "To Shreds",
+            "text": "Upon scoring 6 weapon damage instances against Severed Enemies:\nInflicts Unravel.\n\nOn Severed Enemy Kill:\nReleases 3 healing pulses on Enemy Death Location, restoring 15 HP and granting Woven Mail for 10 seconds to the user and allies within 10? metres every 2 seconds."
+          }
+        ]
+      ]
+    },
+    {
+      "name": "NPA Repulsion Regulator",
+      "season": "Deep",
+      "focus": "Arc | Void | Strand ⯁ Glaive | Auto Rifles",
+      "tiers": [
+        [
+          {
+            "name": "Improved Unraveling",
+            "text": "Unraveling Threads deal 15% increased damage."
+          },
+          {
+            "name": "Volatile Flow",
+            "text": "On Orb of Power or Void Breach Pickup:\nVolatile Rounds for 9 [?] seconds."
+          },
+          {
+            "name": "Unto the Breach",
+            "text": "On Void Debuffed Enemy Kill while on a Void or Prismatic Subclass:\n\n Spawns a Void Breach."
+          },
+          {
+            "name": "Amped Up",
+            "text": "While on Arc or Prismatic Subclass: \n\nAmplified duration is increased to 20 seconds."
+          },
+          {
+            "name": "Thunderous Retort",
+            "text": "While at Critical Health or Amplified:\n\n30% increased Arc Super Damage.\n\nOnly affects damage while in the Super Animation, resulting in lowered bonuses for Thundercrash and Gathering Storm."
+          },
+          {
+            "name": "Sustained Fire",
+            "text": "Upon scoring 10 Auto Rifle Hits within 1.5 seconds of each against a single Combatant:\n\nResist x2 (25% DR) for 6 seconds.\n Buff is refreshable and persists through stow.\nSupport Autos can also trigger the buff by healing allies."
+          },
+          {
+            "name": "Shatter Orbs",
+            "text": "Upon first breaking a Combatant Shield:\n\nCreates an Orb of Power that grants 7.15% Super Energy.\nPerforming a Finisher on a Combatant that didn't trigger the effect will also spawn an Orb of Power.\n\nOnly works once per enemy."
+          }
+        ],
+        [
+          {
+            "name": "Strand Soldier",
+            "text": "Upon receiving Woven Mail, while on a Strand or Prismatic Subclass:\n\n Grants Unraveling Rounds for 8 seconds."
+          },
+          {
+            "name": "Suppressing Glaive",
+            "text": "Upon dealing a Glaive Damage Instance against Combatants:\nInflicts Suppression for 10 seconds.\n\nGlaive Melee inflicts Suppression at the cost of 10% Glaive Energy.\nDoes not drain Glaive Energy if the enemy is suppressed."
+          },
+          {
+            "name": "Protective Breach",
+            "text": "On Void Breach Pickup:\n\n+45 Void Overshield for 10+5 seconds."
+          },
+          {
+            "name": "Counter Charge",
+            "text": "Upon stunning a Champion:\n\nGrants a stack of Armor Charge."
+          },
+          {
+            "name": "Bricks from Beyond",
+            "text": "Every 3? Elite+ Void Weapon Kills:\n\n50?% Heavy Ammo Progress to the user and allies within ? meters."
+          },
+          {
+            "name": "Overload Grenades",
+            "text": "Void Grenade Ability Damage inflicts disruption."
+          },
+          {
+            "name": "Targeting Autoloader",
+            "text": "Auto Rifle Combatant Kills progress a Counter.\nKills grant 50% Counter Progress.\nKills while within 15 meters of 3 enemies grants 100% Progress.\nKills while at 5 stacks grant 100% Progress.\nCounter Progress persists through stow.\n\nUpon reaching 100% Counter Progress:\nGrants a stack of Targeting Autoloader for 15 seconds, up to a maximum of 5 stacks.\nBuff is refreshable.\n\nTargeting Autoloader:\nRefills 20% | 20% | 30% | 40% | 40% of Magazine\n10% | 13% | 16% | 18% | 20% Increased Auto Rifle Damage.\nStacks with other buffs.\nBuff is removed upon readying a non-Auto Rifle Weapon."
+          }
+        ],
+        [
+          {
+            "name": "Conductive Cosmic Needle",
+            "text": "Against Strand-Debuffed Combatants while an Arc or Void Super Ability is equipped:\n\n 5% Increased Arc and Void Ability Damage per Strand Debuff.\n\n1x = 5% | 2x = 10.25% | 3x = 15.76%"
+          },
+          {
+            "name": "Shock and Awe",
+            "text": "While an Arc or Prismatic Subclass is equipped, while Amplified: \n\nArc Kills trigger a lightning burst, dealing up to 126 [?] Arc Damage and jolting in a 8 metre radius.\n\nIncurs a 5 second cooldown between activations."
+          },
+          {
+            "name": "Supernova",
+            "text": "On Void Breach Pickup: \n\nThe next Void Damage Instance within 10 seconds releases a weakening burst, inflicting Weaken to enemies within 5? metres for 8 seconds."
+          },
+          {
+            "name": "Squad Goals",
+            "text": "On Finisher:\nAllies within ? metres are bestowed an Elemental Buff:\n\nWhile Amplified is active: Amplified for 15 seconds.\nWhile Devour is active: Devour for 5 seconds.\nWhile Woven Mail is active: Woven Mail for 10 seconds.\n\nCan only bestow 1 buff to Allies, prioritized from top to bottom."
+          },
+          {
+            "name": "Lightning Strikes Twice",
+            "text": "On Arc Grenade Ability Usage:\n\n130% Additional Grenade Base Recharge Rate for 5 seconds.\n\nArc Kills increase the buff duration by +3? seconds, up to 20 seconds."
+          },
+          {
+            "name": "Passive Aggressive Guard",
+            "text": "While a Glaive is readied:\n\n50% Damage Resist against Combatants within ? meters."
+          },
+          {
+            "name": "Void Weapon Channeling",
+            "text": "Upon scoring a Void Weapon Kill while having at least 1 charged Void Ability:\n\nGrants Weapon Surge stacks equal to the amount of Void Grenade, Melee, Class, and Super Ability Charges for 11 seconds.\n\nUp to x4 Weapon Surge by having 4 Void Ability Charges.\n2 Grenade + 2 Melee = x4 | Grenade + Melee + Class + Super = x4\n\nBuff can only be refreshed if the stack amount is less or equal (≤) to the amount of Void Ability Charges.\n\nWorks as expected on Prismatic!"
+          }
+        ]
+      ]
+    }
+  ]
+}

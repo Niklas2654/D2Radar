@@ -1,0 +1,66 @@
+# The website on Vercel: built with the newest release's version and
+# installer size (read from the public D2Radar repo) and uploaded.
+# Runs after each release (called by release.yml), when something the site
+# shows changes on master (its own code, or the app it runs as its demo),
+# and by hand (Actions → Website → Run workflow).
+#
+# Secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID (skipped without them).
+name: Website
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ["website/**", "src/**", "public/**", "index.html", ".github/workflows/website.yml"]
+
+jobs:
+  website:
+    # Only from the private repo (the public copy has this file too, without the secrets).
+    if: github.repository != 'Niklas2654/D2Radar'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # What the download button says: the newest release and its installer.
+      - id: release
+        if: env.VERCEL_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo Niklas2654/D2Radar --json tagName --jq .tagName)
+          bytes=$(gh release view --repo Niklas2654/D2Radar --json assets --jq '.assets[] | select(.name == "Radar-setup.exe") | .size')
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "size=$(( (bytes + 500000) / 1000000 )) MB" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        if: env.VERCEL_TOKEN != ''
+        env:
+          VITE_RADAR_VERSION: ${{ steps.release.outputs.version }}
+          VITE_INSTALLER_SIZE: ${{ steps.release.outputs.size }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --dir website install --frozen-lockfile
+          pnpm --dir website build
+          cp website/vercel.json website/dist/vercel.json
+
+      # From a folder outside the repository: Vercel then reads no commit from
+      # it (it blocks commits whose author it can't match to the account; the
+      # token already says who uploads).
+      - name: Upload to Vercel
+        if: env.VERCEL_TOKEN != ''
+        run: |
+          cp -r website/dist "$RUNNER_TEMP/site"
+          cd "$RUNNER_TEMP"
+          npx --yes vercel deploy site --prod --archive=tgz --token "$VERCEL_TOKEN"

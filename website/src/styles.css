@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Radar's look, restrained: dark, flat surfaces, hairlines, one accent (the
+   app's Void, as in the pictures). No glows, no lines on buttons. */
+:root {
+  color-scheme: dark;
+  --accent: #b47dff;
+  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent) 38%, transparent);
+  --accent-text: color-mix(in oklab, var(--accent) 62%, white);
+  --surface: rgb(255 255 255 / 0.035);
+  --hairline: rgb(255 255 255 / 0.07);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: #05060a;
+  /* The scrollbar's room is kept while the page can't scroll (the tour's
+     big app view): the page, its header with it, doesn't widen and shift. */
+  scrollbar-gutter: stable;
+}
+body {
+  margin: 0;
+  background: #05060a;
+  color: rgb(238 240 246);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+::selection {
+  background: var(--accent-soft);
+}
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.14) padding-box;
+}
+
+/* A faint field of colour at the top, nothing moving. */
+.site-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(60rem 30rem at 50% -8rem, color-mix(in oklab, var(--accent) 9%, transparent), transparent 70%);
+}
+
+@layer components {
+  /* A flat panel: a slightly lighter field and a hairline. */
+  .glass {
+    position: relative;
+    border-radius: var(--r, 20px);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+  }
+}
+
+.headline {
+  color: white;
+  text-wrap: balance;
+}
+.accent-word {
+  color: var(--accent-text);
+}
+.neon-title {
+  color: rgb(255 255 255 / 0.85);
+}
+
+/* ---------- Buttons: flat fills ---------- */
+
+.btn-primary,
+.btn-ghost {
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #0b0710;
+}
+.btn-primary:hover {
+  background: color-mix(in oklab, var(--accent) 86%, white);
+}
+.btn-ghost {
+  background: rgb(255 255 255 / 0.06);
+  color: rgb(255 255 255 / 0.85);
+}
+.btn-ghost:hover {
+  background: rgb(255 255 255 / 0.1);
+  color: white;
+}
+
+/* ---------- The tour's text: the next card's fades in ---------- */
+
+.tour-swap {
+  animation: tour-swap 0.45s ease both;
+}
+@keyframes tour-swap {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+/* ---------- Scroll reveal: a short fade up ---------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s ease;
+  transition-delay: var(--delay, 0s);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-swap {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
