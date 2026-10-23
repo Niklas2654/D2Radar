@@ -1,11 +1,15 @@
-// Radar's own Bungie app (API key, OAuth client) is built into the binary,
-// so players don't register one themselves. From the environment (GitHub
-// Actions: the repo's secrets) or, locally, from bungie.local.json next to
-// this file (not in git). Without them the app asks for its own, as before.
-const KEYS: [(&str, &str); 3] = [
+// Radar's own Bungie app (API key, OAuth client id) is built into the
+// binary, so players don't register one themselves. From the environment
+// (GitHub Actions: the repo's secrets) or, locally, from bungie.local.json
+// next to this file (not in git). Without them the app asks for its own.
+// The client secret is never in a released build: its logins go through the
+// website's token service (oauth.rs). Only a local build may have it, to log
+// in without the service (clientSecret in bungie.local.json).
+const KEYS: [(&str, &str); 4] = [
     ("RADAR_BUNGIE_API_KEY", "apiKey"),
     ("RADAR_BUNGIE_CLIENT_ID", "clientId"),
     ("RADAR_BUNGIE_CLIENT_SECRET", "clientSecret"),
+    ("RADAR_TOKEN_SERVICE", "tokenService"),
 ];
 
 fn main() {

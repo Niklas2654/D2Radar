@@ -216,9 +216,18 @@ function Privacy() {
 
       <Card title="3. The Radar app">
         <p>
-          Radar is a desktop application that runs on your computer. There is no Radar server: Radar sends no data to me and has no analytics,
-          tracking or user account. Settings, caches (e.g. game and weapon data) and login data are stored only locally on your computer and are
-          removed when you uninstall Radar or delete its app folder.
+          Radar is a desktop application that runs on your computer. It has no analytics, tracking or user account. Settings, caches (e.g. game
+          and weapon data) and login data are stored only locally on your computer and are removed when you uninstall Radar or delete its app
+          folder.
+        </p>
+
+        <H3>Bungie login</H3>
+        <p>
+          When you log in with Bungie, Radar passes the one-time login code from Bungie (and, about once an hour while you use it, the token that
+          keeps you logged in) through a small function on this website (d2radar.vercel.app/api/token, hosted by Vercel, see above). It adds
+          Radar's app credentials, which must not be in the app itself, sends the request on to Bungie and returns Bungie's answer to Radar. It
+          stores nothing and logs no tokens; Vercel processes the technically necessary request data as described under “Hosting”. Legal basis:
+          Art. 6(1)(b) GDPR (the login you asked for).
         </p>
 
         <H3>Screen recognition</H3>
@@ -413,10 +422,18 @@ function Datenschutz() {
 
       <Card title="3. Die App „Radar“">
         <p>
-          Radar ist eine Desktop-Anwendung, die auf Ihrem Rechner läuft. Es gibt keinen Radar-Server: Radar übermittelt keine Daten an mich, enthält
-          keine Analyse- oder Tracking-Funktionen und kein Benutzerkonto. Einstellungen, Zwischenspeicher (z. B. Spiel- und Waffendaten) und
-          Anmeldedaten werden ausschließlich lokal auf Ihrem Rechner gespeichert und mit der Deinstallation bzw. dem Löschen des App-Ordners
-          entfernt.
+          Radar ist eine Desktop-Anwendung, die auf Ihrem Rechner läuft. Sie enthält keine Analyse- oder Tracking-Funktionen und kein
+          Benutzerkonto. Einstellungen, Zwischenspeicher (z. B. Spiel- und Waffendaten) und Anmeldedaten werden ausschließlich lokal auf Ihrem
+          Rechner gespeichert und mit der Deinstallation bzw. dem Löschen des App-Ordners entfernt.
+        </p>
+
+        <H3>Bungie-Anmeldung</H3>
+        <p>
+          Wenn Sie sich mit Bungie anmelden, reicht Radar den einmaligen Anmeldecode von Bungie (und, während Sie Radar nutzen, etwa stündlich den
+          Token, der Sie angemeldet hält) über eine kleine Funktion dieser Website weiter (d2radar.vercel.app/api/token, gehostet bei Vercel, siehe
+          oben). Sie ergänzt die Zugangsdaten der Radar-App, die nicht in der App selbst stehen dürfen, schickt die Anfrage an Bungie und gibt
+          Bungies Antwort an Radar zurück. Sie speichert nichts und protokolliert keine Tokens; Vercel verarbeitet die technisch nötigen
+          Anfragedaten wie unter „Hosting“ beschrieben. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (die von Ihnen gewünschte Anmeldung).
         </p>
 
         <H3>Bildschirmerkennung</H3>

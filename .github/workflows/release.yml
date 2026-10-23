@@ -11,7 +11,9 @@
 # Secrets of this repo:
 #   RELEASES_TOKEN              token with "Contents: read and write" on D2Radar
 #   TAURI_SIGNING_PRIVATE_KEY   the updater's private key (its public one is in tauri.conf.json)
-#   RADAR_BUNGIE_API_KEY, RADAR_BUNGIE_CLIENT_ID, RADAR_BUNGIE_CLIENT_SECRET
+#   RADAR_BUNGIE_API_KEY, RADAR_BUNGIE_CLIENT_ID (the client secret is not
+#                               in the app: it's a Vercel environment variable
+#                               of the website's /api/token)
 #   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID (website; optional)
 name: Release
 
@@ -30,6 +32,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Else git pushes with this repo's own token (it set it up for
+          # every github.com address), which can't write to D2Radar.
+          persist-credentials: false
       - name: Publish the source to D2Radar
         env:
           TOKEN: ${{ secrets.RELEASES_TOKEN }}
@@ -73,7 +79,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
           RADAR_BUNGIE_API_KEY: ${{ secrets.RADAR_BUNGIE_API_KEY }}
           RADAR_BUNGIE_CLIENT_ID: ${{ secrets.RADAR_BUNGIE_CLIENT_ID }}
-          RADAR_BUNGIE_CLIENT_SECRET: ${{ secrets.RADAR_BUNGIE_CLIENT_SECRET }}
         with:
           owner: Niklas2654
           repo: D2Radar

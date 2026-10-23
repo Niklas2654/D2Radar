@@ -62,5 +62,7 @@ jobs:
         if: env.VERCEL_TOKEN != ''
         run: |
           cp -r website/dist "$RUNNER_TEMP/site"
+          # The server part: /api/token (Radar's Bungie login).
+          cp -r website/api "$RUNNER_TEMP/site/api"
           cd "$RUNNER_TEMP"
           npx --yes vercel deploy site --prod --archive=tgz --token "$VERCEL_TOKEN"

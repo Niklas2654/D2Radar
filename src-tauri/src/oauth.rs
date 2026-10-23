@@ -38,13 +38,18 @@ struct OAuthStore {
     refresh_expires: i64,
 }
 
-/// Radar's own OAuth client (id, secret), built in (see build.rs); None in a
-/// build without it, where the player enters their Bungie app's.
-const BUILT_IN_CLIENT: Option<(&str, &str)> =
-    match (option_env!("RADAR_BUNGIE_CLIENT_ID"), option_env!("RADAR_BUNGIE_CLIENT_SECRET")) {
-        (Some(id), Some(secret)) => Some((id, secret)),
-        _ => None,
-    };
+/// Radar's own OAuth client id, built in (see build.rs); None in a build
+/// without it, where the player enters their Bungie app's id and secret.
+const BUILT_IN_CLIENT_ID: Option<&str> = option_env!("RADAR_BUNGIE_CLIENT_ID");
+/// Its secret, only in a local build that has it (bungie.local.json): the
+/// released app has none, its token requests go through TOKEN_SERVICE.
+const BUILT_IN_CLIENT_SECRET: Option<&str> = option_env!("RADAR_BUNGIE_CLIENT_SECRET");
+/// Where the released app trades codes and refresh tokens: the website's
+/// /api/token, which adds the client secret (kept there, never in the app).
+const TOKEN_SERVICE: &str = match option_env!("RADAR_TOKEN_SERVICE") {
+    Some(url) => url,
+    None => "https://d2radar.vercel.app/api/token",
+};
 
 static STORE: Mutex<Option<OAuthStore>> = Mutex::new(None);
 /// Hands the authorization code from the login window to the waiting login.
@@ -68,9 +73,10 @@ fn store(app: &AppHandle) -> OAuthStore {
                 .unwrap_or_default()
         })
         .clone();
-    if let Some((id, secret)) = BUILT_IN_CLIENT {
+    if let Some(id) = BUILT_IN_CLIENT_ID {
         s.client_id = Some(id.to_string());
-        s.client_secret = Some(secret.to_string());
+        // (Not kept in oauth.json: one saved by an older version goes.)
+        s.client_secret = BUILT_IN_CLIENT_SECRET.map(String::from);
     }
     s
 }
@@ -89,7 +95,7 @@ fn save(app: &AppHandle, s: OAuthStore) -> Result<(), String> {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OAuthStatus {
-    /// Client id and secret are set.
+    /// Client id and secret are set (or Radar's own client, see TOKEN_SERVICE).
     configured: bool,
     logged_in: bool,
     client_id: Option<String>,
@@ -99,10 +105,10 @@ pub struct OAuthStatus {
 
 fn status_of(s: &OAuthStore) -> OAuthStatus {
     OAuthStatus {
-        configured: s.client_id.is_some() && s.client_secret.is_some(),
+        configured: s.client_id.is_some() && (s.client_secret.is_some() || BUILT_IN_CLIENT_ID.is_some()),
         logged_in: s.refresh_token.is_some() && s.refresh_expires > Utc::now().timestamp_millis(),
         client_id: s.client_id.clone(),
-        built_in: BUILT_IN_CLIENT.is_some(),
+        built_in: BUILT_IN_CLIENT_ID.is_some(),
     }
 }
 
@@ -117,23 +123,28 @@ fn encode(value: &str) -> String {
         .collect()
 }
 
-/// Token request (authorization code or refresh) with client credentials.
+/// Token request (authorization code or refresh): with the client's secret
+/// straight to Bungie when the app has one (a player's own Bungie app, a
+/// local build), else through Radar's token service, which has it.
 async fn token_request(app: &AppHandle, form: &[(&str, &str)]) -> Result<(), String> {
     let mut s = store(app);
-    let (Some(id), Some(secret)) = (s.client_id.clone(), s.client_secret.clone()) else {
-        return Err(tr("Client-ID und Secret fehlen", "Client id and secret missing").into());
-    };
-    let body = form.iter().map(|(k, v)| format!("{k}={}", encode(v))).collect::<Vec<_>>().join("&");
-    let basic = base64::engine::general_purpose::STANDARD.encode(format!("{id}:{secret}"));
     let http = app.state::<BungieState>().http.clone();
-    let res = http
-        .post(TOKEN_URL)
-        .header("Authorization", format!("Basic {basic}"))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+    let request = match (s.client_id.clone(), s.client_secret.clone()) {
+        (Some(id), Some(secret)) => {
+            let body = form.iter().map(|(k, v)| format!("{k}={}", encode(v))).collect::<Vec<_>>().join("&");
+            let basic = base64::engine::general_purpose::STANDARD.encode(format!("{id}:{secret}"));
+            http.post(TOKEN_URL)
+                .header("Authorization", format!("Basic {basic}"))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(body)
+        }
+        (Some(_), None) if BUILT_IN_CLIENT_ID.is_some() => {
+            let body: serde_json::Map<String, Value> = form.iter().map(|(k, v)| (k.to_string(), Value::from(*v))).collect();
+            http.post(TOKEN_SERVICE).json(&body)
+        }
+        _ => return Err(tr("Client-ID und Secret fehlen", "Client id and secret missing").into()),
+    };
+    let res = request.send().await.map_err(|e| format!("{}: {e}", tr("Netzwerkfehler", "Network error")))?;
     let v: Value = res.json().await.map_err(|e| e.to_string())?;
     let Some(access) = v["access_token"].as_str() else {
         let reason = v["error_description"].as_str().or(v["error"].as_str()).unwrap_or("?");

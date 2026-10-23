@@ -22,8 +22,9 @@ Radar updates itself (Settings → About → Check for updates).
 - It looks at the screen (like a screenshot) and reads it with the text recognition built into
   Windows – only on your PC.
 - It talks to **Bungie's official API**, like DIM and other companion apps.
-- There is **no Radar server**: no account, no analytics, no tracking in the app.
-  Your settings and your Bungie login stay on your PC.
+- **No account, no analytics, no tracking** in the app. Your settings and your Bungie login
+  stay on your PC; the only server part is a small function that completes the Bungie login
+  (it adds Radar's client secret and stores nothing).
 
 This is all in the code here, for anyone to check. Details on every connection the app makes
 are in the [privacy policy](https://d2radar.vercel.app/privacy).
@@ -50,7 +51,10 @@ Radar talks to Bungie with its own registered app. To build with yours, register
 { "apiKey": "…", "clientId": "…", "clientSecret": "…" }
 ```
 
-Without it, the app asks for an API key (Overview) and an OAuth client (Settings).
+The released app has no client secret in it: its logins go through the website's
+`/api/token` (`website/api/token.ts`), which holds the secret as a Vercel environment
+variable. A local build with `clientSecret` logs in straight with Bungie instead.
+Without any of it, the app asks for an API key (Overview) and an OAuth client (Settings).
 
 The website (with a demo of the app running on sample data) is in `website/`:
 

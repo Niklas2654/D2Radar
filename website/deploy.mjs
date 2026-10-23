@@ -9,6 +9,8 @@ const run = (cmd) => execSync(cmd, { stdio: "inherit" });
 
 run("pnpm build");
 cpSync("vercel.json", "dist/vercel.json");
+// The server part: /api/token (Radar's Bungie login).
+cpSync("api", "dist/api", { recursive: true });
 if (existsSync(".vercel")) cpSync(".vercel", "dist/.vercel", { recursive: true });
 run("npx --yes vercel deploy dist --prod --archive=tgz");
 // The first deploy links the project inside dist/: keep that link.
