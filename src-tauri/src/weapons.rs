@@ -1558,17 +1558,18 @@ fn name_part(read: &str) -> Option<String> {
 const GUARDIAN_AGAIN: Duration = Duration::from_secs(60);
 
 /// The name on a character screen: the big line right above the one
-/// starting "Season <number>" ("Saison" in German).
+/// starting "Season <number>" ("Saison" in German and French, "Temporada",
+/// "Stagione", "Sezon", "Сезон" in the game's other languages).
 /// A character screen's "Season N" line (under the guardian's name).
 fn season_line(lines: &[screen::TextLine]) -> Option<&screen::TextLine> {
     lines.iter().find(|l| {
         let n = normalize(&l.text);
         let mut words = n.split(' ');
-        let read = matches!(words.next(), Some("SEASON" | "SAISON")) && words.next().is_some_and(|w| w.starts_with(|c: char| c.is_ascii_digit()));
+        let read = matches!(words.next(), Some("SEASON" | "SAISON" | "TEMPORADA" | "STAGIONE" | "SEZON" | "СЕЗОН")) && words.next().is_some_and(|w| w.starts_with(|c: char| c.is_ascii_digit()));
         // Read garbled over the banner ("SeasonP8 • 11 550", "Seas C) n
         // 28"): its start and a number, short.
         let compact: String = l.text.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect();
-        let garbled = (compact.starts_with("seas") || compact.starts_with("sais"))
+        let garbled = ["seas", "sais", "temp", "stag", "sezo", "сезо"].iter().any(|p| compact.starts_with(p))
             && compact.chars().any(|c| c.is_ascii_digit())
             && compact.chars().count() <= 24;
         read || garbled

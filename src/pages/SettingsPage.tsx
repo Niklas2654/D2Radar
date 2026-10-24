@@ -2,7 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
 import { cx, GlassPanel, GlassSwitch, PanelHeader } from "../components/glass";
 import { IconCheck, IconGlobe, IconLayers, IconRadar, Logo } from "../components/icons";
-import { LANGUAGES, translate, useT } from "../lib/i18n";
+import { LANGUAGES, languageName, translate, useT } from "../lib/i18n";
 import { WeaponDetectSetup } from "../components/WeaponDetectSetup";
 import { JOIN_VERBS } from "./DiscordPage";
 import { BungieLoginPanel } from "../components/BungieLoginPanel";
@@ -113,7 +113,7 @@ export function SettingsPage() {
                   )}
                 >
                   <span className="font-display text-[16px] font-semibold">{lang.label}</span>
-                  <span className="text-[12px] text-white/45">{lang.hint}</span>
+                  <span className="text-[12px] text-white/45">{languageName(lang.id, settings.language)}</span>
                   {/* A sample in that language, so the choice is obvious either way. */}
                   <span className="mt-2 text-[12.5px] text-white/70">
                     {translate(lang.id, "nav.dashboard")} · {translate(lang.id, "nav.fireteam")} ·{" "}

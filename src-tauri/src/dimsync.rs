@@ -191,6 +191,12 @@ pub(crate) fn invalidate_loadouts() {
     *DETAILS_CACHE.lock().unwrap() = None;
 }
 
+/// Forget everything that holds item names (the language changed).
+pub(crate) fn forget_names() {
+    invalidate_loadouts();
+    *ARTIFACT_LAYOUT.lock().unwrap() = None;
+}
+
 /// The character (id, class) picked for an id, per requested id.
 static CHARACTER_CACHE: Mutex<Option<std::collections::HashMap<String, (Instant, (String, i64))>>> = Mutex::new(None);
 

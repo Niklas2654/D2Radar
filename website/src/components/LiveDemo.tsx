@@ -10,6 +10,8 @@ const APP_H = 800;
 const GROW_MS = 650;
 
 interface Props {
+  /** Its texts in the site's language. */
+  labels: { demo: string; clickToTry: string; backToTour: string };
   /** The demo app (the app's web build with ?demo). */
   src: string;
   /** The autopilot's scene for each carousel item. */
@@ -32,7 +34,7 @@ type Rect = { x: number; y: number; w: number; h: number };
  *  in the document, so it scrolls with the page by itself (placed by script
  *  on each scroll it would trail a frame behind); fixed in the window only
  *  while big. */
-export function LiveDemo({ src, scenes, front, control, opener, onReady }: Props) {
+export function LiveDemo({ labels, src, scenes, front, control, opener, onReady }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [open, setOpen] = useState(false);
@@ -259,7 +261,7 @@ export function LiveDemo({ src, scenes, front, control, opener, onReady }: Props
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 18l-6-6 6-6" />
         </svg>
-        Back to the tour
+        {labels.backToTour}
       </button>
       <div
         ref={box}
@@ -275,12 +277,12 @@ export function LiveDemo({ src, scenes, front, control, opener, onReady }: Props
         }}
         className={`overflow-hidden bg-[#05060a] opacity-0 ${open ? "z-[60] rounded-[14px]" : "z-40 rounded-[18px]"}`}
         style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, transition: "opacity 300ms", cursor: open ? "auto" : "pointer" }}
-        title={open ? undefined : "Click to try it yourself"}
+        title={open ? undefined : labels.clickToTry}
       >
         <iframe
           ref={frame}
           src={src}
-          title="Radar demo"
+          title={labels.demo}
           className="absolute top-0 left-0 block border-0"
           style={{ width: APP_W, height: APP_H, transformOrigin: "0 0" }}
         />

@@ -28,12 +28,16 @@ function A({ href, children }: { href: string; children: ReactNode }) {
 type Lang = "en" | "de";
 const LANG_KEY = "radar.site.legal-lang";
 
+/** The one picked here before; else German if the site is in German, else
+ *  English (the site's other languages have no legal text of their own). */
 function savedLang(): Lang {
   try {
-    return localStorage.getItem(LANG_KEY) === "de" ? "de" : "en";
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === "de" || saved === "en") return saved;
   } catch {
-    return "en";
+    // Storage blocked: from the site's language.
   }
+  return document.documentElement.lang === "de" ? "de" : "en";
 }
 
 /** Legal notice (Impressum) and privacy policy, in English like the site,

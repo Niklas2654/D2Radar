@@ -40,6 +40,8 @@ export interface PrismItem {
 }
 
 interface Props {
+  /** What the carousel shows, for screen readers. */
+  label?: string;
   items: PrismItem[];
   /** Width / height of the picture in front. */
   aspect?: number;
@@ -119,6 +121,7 @@ export function PrismCarousel({
   captions = true,
   onChange,
   className = "",
+  label,
 }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const cards = useRef<(HTMLDivElement | null)[]>([]);
@@ -465,7 +468,7 @@ export function PrismCarousel({
         tabIndex={0}
         role="region"
         aria-roledescription="carousel"
-        aria-label="Pictures of the app"
+        aria-label={label ?? "Pictures of the app"}
         className="relative min-h-0 flex-1 cursor-grab touch-pan-y overflow-hidden outline-none select-none active:cursor-grabbing"
       >
         {items.map((item, i) => (
@@ -544,11 +547,11 @@ export function PrismCarousel({
   );
 }
 
-export function Arrow({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+export function Arrow({ side, label, onClick }: { side: "left" | "right"; label?: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      aria-label={side === "left" ? "Previous" : "Next"}
+      aria-label={label ?? (side === "left" ? "Previous" : "Next")}
       className="grid size-10 place-items-center rounded-full bg-white/[0.06] text-white/75 transition-colors hover:bg-white/[0.12] hover:text-white"
     >
       <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

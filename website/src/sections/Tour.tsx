@@ -1,115 +1,29 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveDemo } from "../components/LiveDemo";
 import { RECORDED_ACCENT, recolor } from "../components/recolor";
 import { ACCENT_EVENT, savedAccent, type SiteAccent } from "../fx";
+import { useStrings } from "../i18n";
 import { Arrow, PrismCarousel, type CarouselControl, type FrontCard } from "../components/PrismCarousel";
 
 /** One snippet of the app: a short clip of it (public/clips, recorded in
- *  the real app, 16:10) with a still from it, the caption under it, and
- *  what to know about it. */
+ *  the real app, 16:10) with a still from it; its caption and what to know
+ *  about it are in the site's texts (tour.snippets, in the same order). */
 interface Snippet {
   src: string;
   video: string;
-  title: string;
-  subtitle: string;
-  points: string[];
 }
 
 const SNIPPETS: Snippet[] = [
-  {
-    src: "clips/fireteam.webp",
-    video: "clips/fireteam.mp4",
-    title: "Fireteam scanner",
-    subtitle: "Clears, ranks and best times of everyone you play with",
-    points: [
-      "Raid and dungeon full clears, counted from Bungie's own reports",
-      "The sum of your best times, per raid and dungeon",
-      "Your fireteam and the players of your last activities, one click away",
-    ],
-  },
-  {
-    src: "clips/lowman.webp",
-    video: "clips/lowman.mp4",
-    title: "Every lowman, tagged",
-    subtitle: "Solo, duo and trio flawless — with the class they were done on",
-    points: [
-      "Day one, contest and week one clears marked as such",
-      "Flawless, master and solo runs, with the feats that were on",
-      "The class symbols show every class a tag was earned on",
-    ],
-  },
-  {
-    src: "clips/runs.webp",
-    video: "clips/runs.mp4",
-    title: "The runs behind a tag",
-    subtitle: "One click shows the run — or one per class",
-    points: ["Kills, deaths and time for every player", "The weapons each of them used most", "A link to the full report on RaidHub"],
-  },
-  {
-    src: "clips/weapon.webp",
-    video: "clips/weapon.mp4",
-    title: "Every roll at a glance",
-    subtitle: "All perks a weapon can roll, and the copies you own",
-    points: [
-      "Every column of perks, enhanced ones included",
-      "Your copies marked in the list",
-      "Pick two perks and pull the matching copy from your vault",
-    ],
-  },
-  {
-    src: "clips/source.webp",
-    video: "clips/source.mp4",
-    title: "Search by where it drops",
-    subtitle: "source:vaultofglass lists everything a raid, dungeon or planet drops",
-    points: ["Weapons and armor in one search", "Names, armor set names and sources, with autocomplete", "Armor sorted by class and slot"],
-  },
-  {
-    src: "clips/meta.webp",
-    video: "clips/meta.mp4",
-    title: "What the playerbase uses",
-    subtitle: "The most used weapons and perks of the latest 1,000 completions",
-    points: ["Raids, dungeons, or both together", "The perks people pick on each weapon, with their share", "Kept up to date in the background"],
-  },
-  {
-    src: "clips/armor.webp",
-    video: "clips/armor.mp4",
-    title: "Armor sets with exact numbers",
-    subtitle: "Set bonuses with the real values, every copy you own",
-    points: [
-      "Two- and four-piece bonuses as they actually work",
-      "All your copies with their stats, vault included",
-      "Double click one to pull it from the vault",
-    ],
-  },
-  {
-    src: "clips/armor2.webp",
-    video: "clips/armor2.mp4",
-    title: "Mods and tuning",
-    subtitle: "Change mods and see your stats before you equip",
-    points: [
-      "Exact stats of every mod on hover",
-      "Only the mods you can actually insert, sorted by cost",
-      "Your stats with this piece against what you wear",
-    ],
-  },
-  {
-    src: "clips/loadouts.webp",
-    video: "clips/loadouts.mp4",
-    title: "All your loadouts",
-    subtitle: "In-game slots, DIM loadouts and presets side by side",
-    points: ["Equip a loadout with a hotkey, in game", "Save an in-game loadout to DIM with a name", "Presets that switch several loadouts at once"],
-  },
-  {
-    src: "clips/build.webp",
-    video: "clips/build.mp4",
-    title: "Any Guardian's build",
-    subtitle: "Subclass, weapons, armor and stats of anyone you look up",
-    points: [
-      "Every character of a player",
-      "Weapons with their perks, armor with mods and set bonuses",
-      "Look someone up by name, or straight from their character screen in game",
-    ],
-  },
+  { src: "clips/fireteam.webp", video: "clips/fireteam.mp4" },
+  { src: "clips/lowman.webp", video: "clips/lowman.mp4" },
+  { src: "clips/runs.webp", video: "clips/runs.mp4" },
+  { src: "clips/weapon.webp", video: "clips/weapon.mp4" },
+  { src: "clips/source.webp", video: "clips/source.mp4" },
+  { src: "clips/meta.webp", video: "clips/meta.mp4" },
+  { src: "clips/armor.webp", video: "clips/armor.mp4" },
+  { src: "clips/armor2.webp", video: "clips/armor2.mp4" },
+  { src: "clips/loadouts.webp", video: "clips/loadouts.mp4" },
+  { src: "clips/build.webp", video: "clips/build.mp4" },
 ];
 
 /** The app's own accent colours: each has pictures (clips/<scene>-<id>.webp). */
@@ -125,8 +39,9 @@ const SCENES = SNIPPETS.map((s) => s.video.replace(/^clips\/|\.mp4$/g, ""));
  *  hero. It fades in once the page is scrolled a little (its clips start
  *  only then). */
 export function Tour() {
+  const s = useStrings().tour;
   const [index, setIndex] = useState(0);
-  const shown = SNIPPETS[index] ?? SNIPPETS[0];
+  const shown = s.snippets[index] ?? s.snippets[0];
   const box = useRef<HTMLElement>(null);
   const [ready, setReady] = useState(false);
   // Wide screens with a mouse: the real app in front (LiveDemo), driven by
@@ -186,6 +101,8 @@ export function Tour() {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demoUp, live]);
+  // The pictures' alt texts in the site's language.
+  const titled = useMemo(() => items.map((item, i) => ({ ...item, title: s.snippets[i]?.title })), [items, s]);
   const control = useRef<CarouselControl | null>(null);
   const opener = useRef<(() => void) | null>(null);
 
@@ -287,8 +204,8 @@ export function Tour() {
             </ul>
           </div>
           <div className="mt-7 flex items-center gap-3">
-            <Arrow side="left" onClick={() => control.current?.prev()} />
-            <Arrow side="right" onClick={() => control.current?.next()} />
+            <Arrow side="left" label={s.previous} onClick={() => control.current?.prev()} />
+            <Arrow side="right" label={s.next} onClick={() => control.current?.next()} />
           </div>
           {live ? (
             // The tip that the app beside is the real one, to be used.
@@ -298,21 +215,20 @@ export function Tour() {
                 <path d="M5 5l2 2M12 3v2.5M3 12h2.5" />
               </svg>
               <span>
-                Click the app to try it yourself.
-                <span className="mt-1 block text-[12.5px] text-white/40">
-                  A demo with sample data – some features only work in the real app. Scroll on it or use the arrows for more.
-                </span>
+                {s.tryIt}
+                <span className="mt-1 block text-[12.5px] text-white/40">{s.tryItHint}</span>
               </span>
             </p>
           ) : (
-            <p className="mt-5 text-[12px] leading-relaxed text-white/30">Swipe, drag or use the arrows · clips from the real app</p>
+            <p className="mt-5 text-[12px] leading-relaxed text-white/30">{s.swipe}</p>
           )}
         </div>
 
         <div ref={stage} className="relative order-1 aspect-[1.85] w-full min-w-0 min-[900px]:order-2 min-[900px]:aspect-auto min-[900px]:h-[min(calc(100svh-120px),820px)] min-[900px]:flex-1">
           {ready && (
             <PrismCarousel
-              items={items}
+              items={titled}
+              label={s.pictures}
               onChange={setIndex}
               tilt={50}
               neighborScale={0.62}
@@ -330,7 +246,7 @@ export function Tour() {
               onFrontClick={() => opener.current?.()}
             />
           )}
-          {ready && live && <LiveDemo src={demoSrc(savedAccent()?.accent ?? "void")} scenes={SCENES} front={front} control={control} opener={opener} onReady={() => setDemoUp(true)} />}
+          {ready && live && <LiveDemo labels={s} src={demoSrc(savedAccent()?.accent ?? "void")} scenes={SCENES} front={front} control={control} opener={opener} onReady={() => setDemoUp(true)} />}
         </div>
       </div>
     </section>

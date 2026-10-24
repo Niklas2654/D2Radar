@@ -134,6 +134,12 @@ static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 /// The last result, when it was made and whether every category was full.
 static RESULT: Mutex<Option<(Instant, bool, Vec<UsageCategory>)>> = Mutex::new(None);
 
+/// Forget the summary (its names are in the old language); the reports
+/// stay, the next call names them anew.
+pub(crate) fn forget_summary() {
+    *RESULT.lock().unwrap() = None;
+}
+
 fn cache_path(app: &AppHandle) -> PathBuf {
     app.path().app_cache_dir().unwrap_or_else(|_| PathBuf::from(".")).join("weapon-usage-v4.json")
 }

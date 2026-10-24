@@ -52,7 +52,7 @@ struct Config {
     player: Option<Player>,
     /// "Session neu starten": activities that ended before this (ms) are ignored.
     session_reset_at: Option<i64>,
-    /// App language ("de" / "en"), so the first poll after start uses it.
+    /// App language ("de", "en", "fr", …), so the first poll after start uses it.
     language: Option<String>,
 }
 
@@ -208,7 +208,7 @@ impl BungieState {
             config.api_key = Some(key.to_string());
         }
 
-        crate::i18n::set_english(config.language.as_deref() == Some("en"));
+        crate::i18n::set_language(config.language.as_deref().unwrap_or("de"));
 
         // Only reuse cached data that belongs to the configured player.
         let cache_path = config_dir.join("bungie-cache.json");
@@ -1020,16 +1020,21 @@ pub fn bungie_reset_session(app: AppHandle, state: State<'_, BungieState>) {
 /// so activity names follow. Called by the frontend on start and on change.
 #[tauri::command]
 pub fn set_language(app: tauri::AppHandle, state: State<'_, BungieState>, language: String) -> Result<(), String> {
-    let english = language == "en";
     let config = {
         let mut i = state.inner.lock().unwrap();
-        if i.config.language.as_deref() == Some(language.as_str()) && crate::i18n::english() == english {
+        if i.config.language.as_deref() == Some(language.as_str()) && crate::i18n::language() == language {
             return Ok(());
         }
+        crate::i18n::set_language(&language);
         i.config.language = Some(language);
         i.config.clone()
     };
-    crate::i18n::set_english(english);
+    // What was named in the old language is looked up anew; open pages of
+    // the weapon statistic reload it.
+    crate::usage::forget_summary();
+    crate::dimsync::forget_names();
+    crate::fireteam::forget_names();
+    let _ = app.emit("weapon-usage-updated", ());
     crate::discord::push_language(&app);
     state.save(&config)?;
     state.wake.notify_one();

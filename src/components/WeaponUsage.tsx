@@ -46,9 +46,12 @@ function loadUsage(): Promise<UsageCategory[]> {
   return call<UsageCategory[]>("weapon_usage").then((u) => u ?? []);
 }
 
-function stored(): UsageCategory[] | null {
+/** The last answer, kept per language (its names are in it). */
+const storeKey = (language: string) => `${STORE_KEY}.${language}`;
+
+function stored(language: string): UsageCategory[] | null {
   try {
-    const raw = localStorage.getItem(STORE_KEY);
+    const raw = localStorage.getItem(storeKey(language));
     return raw ? (JSON.parse(raw) as UsageCategory[]) : null;
   } catch {
     return null;
@@ -71,8 +74,9 @@ const ELEMENT: Record<number, string> = { 2: "#79c8ff", 3: "#ff9447", 4: "#b58cf
  */
 export function WeaponUsage({ onOpen }: { onOpen: (hash: number, preview?: { name: string; icon: string | null }) => void }) {
   const t = useT();
-  const locale = LOCALES[useLanguage()];
-  const [data, setData] = useState<UsageCategory[] | null>(() => (hasBackend ? stored() : null));
+  const language = useLanguage();
+  const locale = LOCALES[language];
+  const [data, setData] = useState<UsageCategory[] | null>(() => (hasBackend ? stored(language) : null));
   const [error, setError] = useState<string | null>(null);
   // The picked category stays (opening a weapon and coming back, restarts).
   const [tab, setTabState] = useState<UsageCategory["key"]>(() => {
@@ -95,6 +99,8 @@ export function WeaponUsage({ onOpen }: { onOpen: (hash: number, preview?: { nam
   useEffect(() => {
     let alive = true;
     let timer = 0;
+    // Another language: what was kept in it, until the new answer is there.
+    setData((old) => (hasBackend ? (stored(language) ?? old) : old));
     const load = () =>
       loadUsage()
         .then((d) => {
@@ -103,7 +109,7 @@ export function WeaponUsage({ onOpen }: { onOpen: (hash: number, preview?: { nam
           if (d.some((c) => c.weapons.length > 0)) {
             setData(d);
             try {
-              localStorage.setItem(STORE_KEY, JSON.stringify(d));
+              localStorage.setItem(storeKey(language), JSON.stringify(d));
             } catch {
               // Storage unavailable: just not kept for the next start.
             }
@@ -127,7 +133,7 @@ export function WeaponUsage({ onOpen }: { onOpen: (hash: number, preview?: { nam
       window.clearTimeout(timer);
       off();
     };
-  }, []);
+  }, [language]);
 
   const category = data?.find((c) => c.key === tab);
   const number = (n: number) => n.toLocaleString(locale);

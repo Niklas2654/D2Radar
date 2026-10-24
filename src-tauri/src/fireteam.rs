@@ -1353,6 +1353,13 @@ pub struct PlayerCard {
     no_destiny: bool,
 }
 
+/// Forget the players' details and cards: their item and activity names are
+/// in the old language (the language changed).
+pub(crate) fn forget_names() {
+    *DETAILS.lock().unwrap() = None;
+    *CARDS.lock().unwrap() = None;
+}
+
 /// Cards of players (by membership id), reused for a minute.
 static CARDS: Mutex<Option<HashMap<String, (Instant, PlayerCard)>>> = Mutex::new(None);
 const CARD_TTL: Duration = Duration::from_secs(60);

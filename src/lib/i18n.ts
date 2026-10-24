@@ -1,15 +1,36 @@
 import { useCallback } from "react";
 import { useSettings, type Language } from "./settings";
+import es from "./locales/es";
+import fr from "./locales/fr";
+import it from "./locales/it";
+import pl from "./locales/pl";
+import pt from "./locales/pt";
+import ru from "./locales/ru";
 
 export type { Language };
 
-export const LANGUAGES: { id: Language; label: string; hint: string }[] = [
-  { id: "de", label: "Deutsch", hint: "German" },
-  { id: "en", label: "English", hint: "Englisch" },
+export const LANGUAGES: { id: Language; label: string }[] = [
+  { id: "de", label: "Deutsch" },
+  { id: "en", label: "English" },
+  { id: "fr", label: "Français" },
+  { id: "es", label: "Español" },
+  { id: "it", label: "Italiano" },
+  { id: "pt", label: "Português (Brasil)" },
+  { id: "pl", label: "Polski" },
+  { id: "ru", label: "Русский" },
 ];
 
 /** Locale for dates and times. */
-export const LOCALES: Record<Language, string> = { de: "de-DE", en: "en-US" };
+export const LOCALES: Record<Language, string> = {
+  de: "de-DE",
+  en: "en-US",
+  fr: "fr-FR",
+  es: "es-ES",
+  it: "it-IT",
+  pt: "pt-BR",
+  pl: "pl-PL",
+  ru: "ru-RU",
+};
 
 const de = {
   "nav.dashboard": "Übersicht",
@@ -1284,7 +1305,7 @@ const en: Record<TranslationKey, string> = {
     "Radar is a fan project and is not affiliated with Bungie. Destiny is a trademark of Bungie, Inc.",
 };
 
-const DICTIONARIES: Record<Language, Record<TranslationKey, string>> = { de, en };
+const DICTIONARIES: Record<Language, Record<TranslationKey, string>> = { de, en, fr, es, it, pt, pl, ru };
 
 export type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string;
 
@@ -1293,7 +1314,7 @@ export function translate(
   key: TranslationKey,
   params?: Record<string, string | number>,
 ): string {
-  const text = DICTIONARIES[language][key] ?? de[key];
+  const text = DICTIONARIES[language]?.[key] ?? en[key] ?? de[key];
   return params ? text.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? `{${name}}`)) : text;
 }
 
@@ -1301,6 +1322,17 @@ export function translate(
 export function useT(): Translate {
   const [{ language }] = useSettings();
   return useCallback<Translate>((key, params) => translate(language, key, params), [language]);
+}
+
+/** A language's name in another one ("Französisch" for fr in German). */
+export function languageName(id: Language, inLanguage: Language): string {
+  try {
+    // Without the region ("Englisch", not "Englisch (Vereinigte Staaten)"),
+    // but Brazil's for Portuguese: that's the one Radar speaks.
+    return new Intl.DisplayNames([LOCALES[inLanguage]], { type: "language" }).of(id === "pt" ? "pt-BR" : id) ?? id;
+  } catch {
+    return id;
+  }
 }
 
 export function useLanguage(): Language {

@@ -231,7 +231,12 @@ pub async fn loadout_item_sockets(
                 .filter(|p| p.icon_present() && !skipped(&p.plug_category) && !p.plug_category.ends_with("empty"))
                 .collect();
             // A socket's empty placeholder ("Empty Mod Socket") is the "none" choice.
-            options.retain(|p| !p.name.to_lowercase().contains("empty") && !p.name.to_lowercase().contains("leer"));
+            // Its name in each app language: "Empty", "Leer", "Vide", "Vacío", …
+            const EMPTY: [&str; 8] = ["empty", "leer", "vide", "vacío", "vuoto", "vazio", "pusty", "пуст"];
+            options.retain(|p| {
+                let name = p.name.to_lowercase();
+                !EMPTY.iter().any(|w| name.contains(w))
+            });
             let label = if label.is_empty() { current.as_ref().map(|c| c.type_name().to_string()).unwrap_or_default() } else { label };
             EditSocket { index, label, current, options, removable }
         }

@@ -13,7 +13,15 @@ export const ACCENTS = {
 
 /** An element color, or "custom" for the player's own (`customAccent`). */
 export type AccentId = keyof typeof ACCENTS | "custom";
-export type Language = "de" | "en";
+export type Language = "de" | "en" | "fr" | "es" | "it" | "pt" | "pl" | "ru";
+
+const LANGUAGE_IDS: Language[] = ["de", "en", "fr", "es", "it", "pt", "pl", "ru"];
+
+/** The system language, if Radar has it; else English. */
+function systemLanguage(): Language {
+  const code = navigator.language.toLowerCase().slice(0, 2) as Language;
+  return LANGUAGE_IDS.includes(code) ? code : "en";
+}
 
 export interface Settings {
   opacity: number;
@@ -60,7 +68,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ...(isDemo ? demoAccent() : {}),
   // Follow the system language on first start (the website's demo: English,
   // its autopilot finds buttons by their English text).
-  language: isDemo ? "en" : navigator.language.toLowerCase().startsWith("de") ? "de" : "en",
+  language: isDemo ? "en" : systemLanguage(),
   showInCapture: true,
   widgets: { session: true, stats: true, weapon: true },
   hud: { season: true, possiblePerks: true, exoticPerks: true, setBonuses: true, hoverDetails: true },
@@ -82,6 +90,7 @@ function load(): Settings {
         ...parsed,
         widgets: { ...DEFAULT_SETTINGS.widgets, ...parsed.widgets },
         hud: { ...DEFAULT_SETTINGS.hud, ...parsed.hud },
+        language: parsed.language && LANGUAGE_IDS.includes(parsed.language) ? parsed.language : DEFAULT_SETTINGS.language,
       };
     }
   } catch {
