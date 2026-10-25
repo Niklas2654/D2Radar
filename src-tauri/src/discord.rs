@@ -161,16 +161,14 @@ const SCRIPT: &str = r##"
       --modal-footer-background: #121419 !important;
     }
     html, body, div[class*="bg__"] { background: transparent !important; }
-    /* A dark, slightly see-through base (Radar's glass shows, but calm), cut
-       to the rounded corners of Radar's panel. */
     /* Radar's own window background (dark, a glow in the accent color, a
-       cool blue below), cut to the rounded corners of Radar's panel. */
+       cool blue below). Square: cut round, its corners showed the window
+       behind in another colour. */
     #app-mount {
       background:
         radial-gradient(60rem 40rem at 85% -10%, color-mix(in oklab, var(--radar-accent) 10%, transparent), transparent 60%),
         radial-gradient(40rem 30rem at -10% 110%, rgb(150 90 255 / 0.07), transparent 60%),
         #05070c !important;
-      clip-path: inset(0 round 14px);
     }
     /* The message box in Radar's glass look (Discord themes and Nitro
        colors would tint it otherwise). */
@@ -1108,8 +1106,8 @@ const GAME_SCRIPT: &str = r##"
     else document.addEventListener("DOMContentLoaded", apply, { once: true });
   };
   // Discord may replace <head> while starting: put it back once loaded.
-  addEventListener("load", () => window.__radarOpacity(window.__radarOpacityValue ?? 0.85), { once: true });
-  window.__radarOpacity(window.__radarOpacityValue ?? 0.85);
+  addEventListener("load", () => window.__radarOpacity(window.__radarOpacityValue ?? 0.8), { once: true });
+  window.__radarOpacity(window.__radarOpacityValue ?? 0.8);
 
   // The pinned channels in a bar on the left (Discord's own lists stay
   // hidden); a click switches channel through Discord's router.
@@ -1295,7 +1293,8 @@ const GAME_SCRIPT: &str = r##"
       const copy = document.createElement("button");
       copy.textContent = de ? "Kopieren" : "Copy";
       copy.addEventListener("click", () => {
-        navigator.clipboard.writeText((window.__radarJoinVerb || "/join") + " " + me).catch(() => {});
+        const done = () => (location.href = "radar://copied");
+        navigator.clipboard.writeText((window.__radarJoinVerb || "/join") + " " + me).then(done, done);
         copy.dataset.done = "";
         copy.textContent = de ? "✓ Kopiert" : "✓ Copied";
         setTimeout(() => {
@@ -1467,7 +1466,8 @@ fn game_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
                         let _ = window.hide();
                     }
                 }
-                if url.host_str() == Some("join") {
+                // Also the own join code, copied: back to the game to paste it.
+                if matches!(url.host_str(), Some("join" | "copied")) {
                     // The game first, while this window has the front.
                     crate::screen::focus_game();
                     if let Some(window) = handle.get_webview_window(GAME_LABEL) {

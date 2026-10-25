@@ -20,7 +20,7 @@ export interface HotkeyConfig {
   discordOpacity: number;
 }
 
-const DEFAULTS: HotkeyConfig = { overlay: "F8", edit: "F9", weapon: "F10", dim: "F7", discord: "F6", loadouts: [], dimOpacity: 0.5, discordOpacity: 0.85 };
+const DEFAULTS: HotkeyConfig = { overlay: "F8", edit: "F9", weapon: "F10", dim: "F7", discord: "F6", loadouts: [], dimOpacity: 0.9, discordOpacity: 0.8 };
 
 const loadoutSlot = (action: HotkeyAction) => (action.startsWith("loadout") ? Number(action.slice(7)) : null);
 

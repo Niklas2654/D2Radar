@@ -33,22 +33,10 @@ export interface Settings {
   /** Overlay visible in screen captures (streams, recordings). */
   showInCapture: boolean;
   widgets: { session: boolean; stats: boolean; weapon: boolean };
-  /** What the inspected weapon / armor widget shows. */
-  hud: HudContent;
+  /** Install updates by itself (never while Destiny runs). */
+  autoUpdate: boolean;
 }
 
-export interface HudContent {
-  /** The weapon version's season ("Season of the Wish · Version 1 of 3"). */
-  season: boolean;
-  /** Every perk a legendary weapon can roll. */
-  possiblePerks: boolean;
-  /** An exotic's intrinsic and catalyst, an exotic armor piece's perks. */
-  exoticPerks: boolean;
-  /** Armor set bonuses. */
-  setBonuses: boolean;
-  /** The perk / mod hovered in game, with its numbers. */
-  hoverDetails: boolean;
-}
 
 /** The website's demo: the colour the website passes (?accent=void or a
  *  "#rrggbb"), the one the visitor picked there last; else Void. */
@@ -71,7 +59,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: isDemo ? "en" : systemLanguage(),
   showInCapture: true,
   widgets: { session: true, stats: true, weapon: true },
-  hud: { season: true, possiblePerks: true, exoticPerks: true, setBonuses: true, hoverDetails: true },
+  autoUpdate: false,
 };
 
 const KEY = "radar.settings";
@@ -89,7 +77,6 @@ function load(): Settings {
         ...DEFAULT_SETTINGS,
         ...parsed,
         widgets: { ...DEFAULT_SETTINGS.widgets, ...parsed.widgets },
-        hud: { ...DEFAULT_SETTINGS.hud, ...parsed.hud },
         language: parsed.language && LANGUAGE_IDS.includes(parsed.language) ? parsed.language : DEFAULT_SETTINGS.language,
       };
     }
@@ -155,6 +142,11 @@ export function updateSettings(patch: Partial<Settings>, fromSite = false) {
 function subscribeStore(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+/** The settings as they are now (outside React). */
+export function getSettings(): Settings {
+  return current;
 }
 
 /** Settings shared between the control window and the overlay. */

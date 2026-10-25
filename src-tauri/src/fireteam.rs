@@ -1423,10 +1423,12 @@ pub struct PlayerSuggestion {
 /// search), those that play Destiny 2 only, at most `MAX_SUGGESTIONS`.
 #[tauri::command]
 pub async fn fireteam_suggest(app: AppHandle, prefix: String) -> Result<Vec<PlayerSuggestion>, String> {
-    const MAX_SUGGESTIONS: usize = 8;
-    // Bungie's name search goes page by page in no useful order; common
-    // names ("Guardian") need a few pages to find a given number.
-    const MAX_PAGES: u32 = 5;
+    const MAX_SUGGESTIONS: usize = 20;
+    // Bungie's name search goes page by page (about 25 a page) in no useful
+    // order and stops after 5 or 6 pages, however common the name: all it
+    // gives is read, at once. Who isn't in it is only found by the full
+    // name with its number (looked up exactly, below).
+    const MAX_PAGES: u32 = 8;
     // The search is by name; the code after "#" narrows the results here.
     let (name, code) = match prefix.trim().split_once('#') {
         Some((n, c)) => (n.trim().to_string(), c.trim().to_string()),
@@ -1436,27 +1438,37 @@ pub async fn fireteam_suggest(app: AppHandle, prefix: String) -> Result<Vec<Play
         return Ok(Vec::new());
     }
     let mut out: Vec<PlayerSuggestion> = Vec::new();
-    // A complete name: looked up exactly (always found, whatever the page).
-    if code.len() == 4 && code.chars().all(|c| c.is_ascii_digit()) {
-        if let Ok((id, membership_type)) = find_by_name(&app, &name, code.parse().unwrap_or(0)).await {
-            out.push(PlayerSuggestion { name: format!("{name}#{code}"), membership_id: id, membership_type });
+    // Looked up exactly (found whatever the pages hold): the complete name,
+    // or with 3 digits typed the 10 numbers it can still be.
+    if code.chars().all(|c| c.is_ascii_digit()) && (code.len() == 3 || code.len() == 4) {
+        let numbers: Vec<String> =
+            if code.len() == 4 { vec![code.clone()] } else { (0..10).map(|d| format!("{code}{d}")).collect() };
+        let found = join_all(numbers.iter().map(|n| find_by_name(&app, &name, n.parse().unwrap_or(0)))).await;
+        for (number, result) in numbers.iter().zip(found) {
+            if let Ok((id, membership_type)) = result {
+                out.push(PlayerSuggestion { name: format!("{name}#{number}"), membership_id: id, membership_type });
+            }
         }
     }
     let (http, key) = http(&app);
     let key = key?;
-    let pages = if code.is_empty() { 1 } else { MAX_PAGES };
-    for page in 0..pages {
-        if out.len() >= MAX_SUGGESTIONS {
-            break;
+    let pages = join_all((0..MAX_PAGES).map(|page| {
+        let (http, key, name) = (http.clone(), key.clone(), name.clone());
+        async move {
+            api(
+                &http,
+                &key,
+                Method::POST,
+                &format!("/User/Search/GlobalName/{page}/"),
+                Some(serde_json::json!({ "displayNamePrefix": name })),
+            )
+            .await
         }
-        let found = api(
-            &http,
-            &key,
-            Method::POST,
-            &format!("/User/Search/GlobalName/{page}/"),
-            Some(serde_json::json!({ "displayNamePrefix": name })),
-        )
-        .await?;
+    }))
+    .await;
+    'pages: for found in pages {
+        // A page past the end (or one Bungie didn't answer): skipped.
+        let Ok(found) = found else { continue };
         for user in found["searchResults"].as_array().into_iter().flatten() {
             let Some(global) = user["bungieGlobalDisplayName"].as_str() else { continue };
             let number = format!("{:04}", user["bungieGlobalDisplayNameCode"].as_u64().unwrap_or(0));
@@ -1478,11 +1490,8 @@ pub async fn fireteam_suggest(app: AppHandle, prefix: String) -> Result<Vec<Play
                 membership_type: card["membershipType"].as_i64().unwrap_or(0),
             });
             if out.len() == MAX_SUGGESTIONS {
-                break;
+                break 'pages;
             }
-        }
-        if found["hasMore"].as_bool() != Some(true) {
-            break;
         }
     }
     Ok(out)

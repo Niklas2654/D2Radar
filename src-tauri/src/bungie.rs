@@ -844,6 +844,14 @@ pub fn start(app: &AppHandle) {
     start_party_watch(app.clone());
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        // Logged in with Bungie but no player yet (logged in before Radar
+        // took the player from the login): the one logged in, once.
+        let needs_player = app.state::<BungieState>().inner.lock().unwrap().config.player.is_none();
+        if needs_player && crate::oauth::logged_in(&app) {
+            if let Err(e) = set_player_from_login(&app).await {
+                eprintln!("[bungie] player from login: {e}");
+            }
+        }
         // Failed polls in a row.
         let mut failures = 0u32;
         loop {
@@ -986,6 +994,44 @@ pub async fn bungie_find_player(
     state.update_config(|c| c.player = Some(player))?;
     publish(&app);
     Ok(state.snapshot())
+}
+
+/// The player is whoever logged in with Bungie: their Destiny membership (the
+/// Cross Save one, else the primary one) becomes the player, so their name
+/// needn't be typed in. Called right after a login.
+pub(crate) async fn set_player_from_login(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<BungieState>();
+    let key = state.api_key()?;
+    let token = crate::oauth::access_token(app)
+        .await
+        .ok_or(tr("Nicht mit Bungie eingeloggt", "Not logged in with Bungie"))?;
+    let me = api_as_user(&state.http, &key, &token, "/User/GetMembershipsForCurrentUser/").await?;
+    let cards = me["destinyMemberships"].as_array().cloned().unwrap_or_default();
+    let primary = me["primaryMembershipId"].as_str();
+    let card = cards
+        .iter()
+        .find(|c| c["crossSaveOverride"].as_i64().is_some_and(|o| o != 0 && c["membershipType"].as_i64() == Some(o)))
+        .or_else(|| cards.iter().find(|c| primary.is_some() && c["membershipId"].as_str() == primary))
+        .or_else(|| cards.first())
+        .ok_or(tr("Kein Destiny-Account an diesem Bungie-Konto", "No Destiny account on this Bungie account"))?;
+    let user = &me["bungieNetUser"];
+    let name = user["cachedBungieGlobalDisplayName"].as_str().or(card["bungieGlobalDisplayName"].as_str());
+    let code = user["cachedBungieGlobalDisplayNameCode"].as_u64().or(card["bungieGlobalDisplayNameCode"].as_u64());
+    let player = Player {
+        membership_type: card["membershipType"].as_i64().unwrap_or(-1),
+        membership_id: card["membershipId"].as_str().unwrap_or_default().to_string(),
+        display_name: match (name, code) {
+            (Some(n), Some(c)) => format!("{n}#{c:04}"),
+            _ => card["displayName"].as_str().unwrap_or_default().to_string(),
+        },
+    };
+    let changed = state.inner.lock().unwrap().config.player.as_ref().map(|p| p.membership_id.clone()) != Some(player.membership_id.clone());
+    state.update_config(|c| c.player = Some(player))?;
+    if changed {
+        state.wake.notify_one();
+    }
+    publish(app);
+    Ok(())
 }
 
 #[tauri::command]

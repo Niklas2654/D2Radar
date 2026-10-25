@@ -33,6 +33,14 @@ export interface ArmorCompare {
 }
 
 /** One of the player's copies of an armor piece (the vault's too). */
+/** The piece as `copy` rolled it: an exotic's perks (class items' spirits)
+ *  differ per copy. Unchanged without the copy's perks. */
+export function withCopyPerks(armor: ArmorDetail, copy: ArmorCopy | null): ArmorDetail {
+  const item = copy?.item;
+  if (!item?.exotic || !item.perks?.length) return armor;
+  return { ...armor, item: { ...armor.item, perks: item.perks } };
+}
+
 export interface ArmorCopy {
   instanceId: string;
   itemHash: number;

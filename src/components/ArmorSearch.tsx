@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { armorApi, type ArmorDetail, type ArmorHit } from "../lib/armor";
+import { armorApi, withCopyPerks, type ArmorDetail, type ArmorHit } from "../lib/armor";
 import { BUNGIE_ORIGIN } from "../lib/bungie";
 import { useT } from "../lib/i18n";
 import { cx, GlassInput, GlassPanel, PanelHeader } from "./glass";
@@ -115,7 +115,7 @@ export function ArmorSearch({ initial = null }: { initial?: ArmorDetail | null }
             {/* The set bonus with the picked copy under it, the copies beside. */}
             {selected.versions?.length ? (
               <ArmorCopies versions={selected.versions}>
-                <HudArmor armor={selected} wide />
+                {(copy) => <HudArmor armor={withCopyPerks(selected, copy)} wide />}
               </ArmorCopies>
             ) : (
               <HudArmor armor={selected} wide />

@@ -216,6 +216,20 @@ const INIT_SCRIPT: &str = r##"
       new KeyboardEvent("keydown", { key: "r", code: "KeyR", bubbles: true })
     );
   };
+
+  // DIM's login page: straight on to Bungie's (DIM's own button, so its
+  // sign-in state is set as usual), leaving only Bungie's consent. Once a
+  // minute at most: coming back to it (consent declined) stays there.
+  setInterval(() => {
+    if (location.pathname !== "/login") return;
+    const link = document.querySelector('a[href*="bungie.net/en/OAuth/Authorize"]');
+    if (!link) return;
+    let last = 0;
+    try { last = Number(sessionStorage.getItem("radar-dim-login")) || 0; } catch {}
+    if (Date.now() - last < 60000) return;
+    try { sessionStorage.setItem("radar-dim-login", String(Date.now())); } catch {}
+    link.click();
+  }, 500);
 })();
 "##;
 
@@ -413,7 +427,7 @@ const GAME_SCRIPT: &str = r##"
           linear-gradient(160deg, #0d1018, #07080c 70%);
       }`;
   };
-  const apply = () => window.__radarOpacity(window.__radarOpacityValue ?? 0.5);
+  const apply = () => window.__radarOpacity(window.__radarOpacityValue ?? 0.9);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
   else apply();
   // DIM's stylesheet may only be in place once everything has loaded.

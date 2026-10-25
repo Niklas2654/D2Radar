@@ -1,7 +1,8 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useEffect, useState } from "react";
-import { isTauri } from "./tauri";
+import { getSettings } from "./settings";
+import { call, isTauri } from "./tauri";
 
 /** Where Radar's updates stand. The newest release of the public D2Radar
  *  repo (its latest.json, see tauri.conf.json) is looked up at start and
@@ -63,14 +64,33 @@ export async function installUpdate() {
   }
 }
 
+/** With automatic updates on: how often to look again whether Destiny
+ *  has closed (an update never restarts Radar mid-game). */
+const GAME_CHECK_MS = 60_000;
+let waitingForGame = 0;
+
+/** Automatic updates on and one found: installed now, or once Destiny
+ *  isn't running. */
+export async function autoInstall() {
+  window.clearTimeout(waitingForGame);
+  if (!getSettings().autoUpdate || state.kind !== "available") return;
+  const overlay = await call<{ gameRunning: boolean }>("get_overlay_state").catch(() => null);
+  if (overlay?.gameRunning) {
+    waitingForGame = window.setTimeout(() => void autoInstall(), GAME_CHECK_MS);
+    return;
+  }
+  await installUpdate();
+}
+
 let started = false;
 
 /** The background checks; once, from the app's start. */
 export function startUpdateChecks() {
   if (!isTauri || started) return;
   started = true;
-  window.setTimeout(() => void checkForUpdate(true), FIRST_CHECK_MS);
-  window.setInterval(() => void checkForUpdate(true), CHECK_EVERY_MS);
+  const look = () => void checkForUpdate(true).then(autoInstall);
+  window.setTimeout(look, FIRST_CHECK_MS);
+  window.setInterval(look, CHECK_EVERY_MS);
 }
 
 export function useUpdate(): UpdateState {

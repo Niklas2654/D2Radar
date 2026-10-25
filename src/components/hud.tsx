@@ -1,13 +1,9 @@
 import type { ReactNode } from "react";
-import { BUNGIE_ORIGIN } from "../lib/bungie";
 import type { ArmorDetail } from "../lib/armor";
 import type { ItemInfo } from "../lib/fireteam";
 import { useClarity, useClarityItems, type ClarityText } from "../lib/clarity";
 import { useT } from "../lib/i18n";
-import { useSettings } from "../lib/settings";
-import { useSeasonName, type Perk, type WeaponDetail } from "../lib/weapons";
 import { ClarityLines } from "./Clarity";
-import { MATCHED } from "./WeaponView";
 import { cx } from "./glass";
 
 /*
@@ -16,9 +12,6 @@ import { cx } from "./glass";
  * upper-case headers with a rule, a colored bar on top by rarity. It only
  * shows what the game doesn't (exact numbers, every rollable perk).
  */
-
-/** Bungie's tier type of exotic items. */
-const EXOTIC = 6;
 
 export type HudTone = "exotic" | "legendary" | "plain";
 
@@ -127,7 +120,6 @@ export function HudArmor({
   wide?: boolean;
 }) {
   const t = useT();
-  const [{ hud: show }] = useSettings();
   const { item, sets } = armor;
   const perks = item.exotic ? (item.perks ?? []) : [];
   const clarity = useClarity([...perks.map((p) => p.hash), ...(hovered ? [hovered.hash] : [])]);
@@ -145,7 +137,7 @@ export function HudArmor({
     <HudPanel tone={item.exotic ? "exotic" : "legendary"} className={wide ? "w-full" : "w-[420px]"}>
       <div className="flex flex-col gap-3 px-3.5 pt-2.5 pb-3">
         {/* Hovered in game (a mod, an exotic perk): its exact numbers on top. */}
-        {show.hoverDetails && hovered && (
+        {hovered && (
           <HudSection title={hovered.typeName || t("hud.hovered")}>
             <HudPerk
               name={hovered.name}
@@ -156,7 +148,7 @@ export function HudArmor({
             />
           </HudSection>
         )}
-        {show.exoticPerks && (perks.length > 0 || byItem.length > 0) && (
+        {(perks.length > 0 || byItem.length > 0) && (
           <HudSection title={t("hud.exoticPerk")}>
             {perks.map((p) => (
               <HudPerk key={p.hash} name={p.name} clarity={clarity.get(p.hash)} exact={p.exact} description={p.description} gold />
@@ -166,7 +158,7 @@ export function HudArmor({
             ))}
           </HudSection>
         )}
-        {show.setBonuses && sets.map((s) => (
+        {sets.map((s) => (
           <HudSection key={s.name} title={s.name} right={t("hud.setBonus")}>
             <div className={wide ? "grid grid-cols-2 items-start gap-x-6" : "contents"}>
               {s.perks.map((p) => (
@@ -176,144 +168,6 @@ export function HudArmor({
           </HudSection>
         ))}
         <HudCredit sources={sources} />
-      </div>
-    </HudPanel>
-  );
-}
-
-/**
- * The inspected weapon. Exotic: what its intrinsic perk and catalyst do,
- * exact (its perks are on screen anyway). Legendary: every perk each column
- * can roll, the inspected copy's own marked.
- */
-export function HudWeapon({ weapon, hovered = null }: { weapon: WeaponDetail; hovered?: number | null }) {
-  const t = useT();
-  const [{ hud: show }] = useSettings();
-  const exotic = weapon.tier === EXOTIC;
-  // The perk whose tooltip the game shows right now (see "perk-hover").
-  const all = [
-    ...(weapon.frame ? [weapon.frame] : []),
-    ...weapon.origins,
-    ...(weapon.catalyst ? [weapon.catalyst] : []),
-    ...weapon.columns.flatMap((c) => c.perks.flatMap((p) => (p.enhanced ? [p, p.enhanced] : [p]))),
-  ];
-  const hoveredPerk = hovered === null ? null : (all.find((p) => p.hash === hovered) ?? null);
-  // The base perk a hovered enhanced one belongs to (its row in a column).
-  const hoveredRow = hoveredPerk ? (all.find((p) => p.enhanced?.hash === hoveredPerk.hash)?.hash ?? hoveredPerk.hash) : null;
-  // Shown as the base perk with its enhanced version below (whichever of
-  // the two the tooltip is for).
-  const hoveredBase = hoveredRow === null ? null : (all.find((p) => p.hash === hoveredRow) ?? hoveredPerk);
-  const hoveredEnhanced = hoveredBase?.enhanced ?? null;
-  const hoverClarity = useClarity(
-    hoveredBase ? [hoveredBase.hash, ...(hoveredEnhanced ? [hoveredEnhanced.hash] : [])] : [],
-  );
-  const season = useSeasonName(weapon.watermark);
-  const blocks = exotic
-    ? [
-        weapon.frame && { label: t("weapons.intrinsic"), perk: weapon.frame },
-        weapon.catalyst && { label: t("weapons.catalyst"), perk: weapon.catalyst },
-      ].filter((b): b is { label: string; perk: Perk } => !!b)
-    : [];
-  const clarity = useClarity(blocks.map((b) => b.perk.hash));
-  const rolled = new Set(weapon.rolled);
-  const owned = new Set(weapon.copies.flatMap((c) => c.enhanced ?? []));
-
-  return (
-    <HudPanel tone={exotic ? "exotic" : "legendary"} className={exotic ? "w-[420px]" : "w-[560px]"}>
-      <div className="flex flex-col gap-3 px-3.5 pt-2.5 pb-3">
-        {/* Which season's version it is: its watermark (the game shows the
-            same in the icon's corner), and of how many. */}
-        {show.season && (season || weapon.versions.length > 1) && (
-          <div className="-mb-1 flex items-center gap-2 text-[0.875em] text-white/55">
-            <span>
-              {season && <span className="font-semibold text-white/80">{season}</span>}
-              {season && weapon.versions.length > 1 && " · "}
-              {weapon.versions.length > 1
-                ? t("weapons.version", {
-                    i: Math.max(1, weapon.versions.findIndex((v) => v.hash === weapon.hash) + 1),
-                    n: weapon.versions.length,
-                  })
-                : null}
-              {weapon.versions.length > 1 && <span className="text-white/35"> · {t(MATCHED[weapon.matchedBy])}</span>}
-            </span>
-          </div>
-        )}
-        {weapon.seasonNeedsSetup && <p className="text-[0.958em] text-amber-200/90">{t("weapons.seasonSetup")}</p>}
-        {/* Hovered in game: that perk's exact numbers on top (not for an
-            exotic's intrinsic / catalyst, shown below anyway). */}
-        {show.hoverDetails && hoveredBase && !(exotic && blocks.some((b) => b.perk.hash === hoveredBase.hash)) && (
-          <HudSection title={hoveredBase.typeName || t("hud.hovered")}>
-            <HudPerk
-              name={hoveredBase.name}
-              clarity={hoverClarity.get(hoveredBase.hash)}
-              description={hoveredBase.description}
-            />
-            {/* Its enhanced version: what it adds (Clarity lists that on its own). */}
-            {hoveredEnhanced && (
-              <div
-                className={cx(
-                  "mt-1 border-l-2 pl-2.5",
-                  hoveredPerk?.hash === hoveredEnhanced.hash ? "border-[#e8cf6a]" : "border-[#e8cf6a]/35",
-                )}
-              >
-                <div className="text-[0.833em] font-semibold tracking-[0.08em] text-[#e8cf6a] uppercase">
-                  {t("hud.enhanced")}
-                  {hoveredPerk?.hash === hoveredEnhanced.hash && <span className="ml-1.5 text-white/45 normal-case">· {t("hud.hoveredThis")}</span>}
-                </div>
-                <HudPerk
-                  name={hoveredEnhanced.name}
-                  clarity={hoverClarity.get(hoveredEnhanced.hash)}
-                  description={hoveredEnhanced.description}
-                />
-              </div>
-            )}
-          </HudSection>
-        )}
-        {exotic ? (
-          show.exoticPerks && (
-          <>
-            {blocks.map(({ label, perk }) => (
-              <HudSection key={label} title={hoveredPerk?.hash === perk.hash ? `▸ ${label}` : label}>
-                <HudPerk name={perk.name} clarity={clarity.get(perk.hash)} description={perk.description} gold />
-              </HudSection>
-            ))}
-            <HudCredit sources={clarity.size > 0 ? ["Clarity"] : []} />
-          </>
-          )
-        ) : (
-          show.possiblePerks && (
-          <HudSection title={t("hud.possibleRolls")} right={rolled.size > 0 ? t("hud.rolledMarked") : undefined}>
-            <div
-              className="grid gap-x-3"
-              style={{ gridTemplateColumns: `repeat(${weapon.columns.length}, minmax(0, 1fr))` }}
-            >
-              {weapon.columns.map((column, i) => (
-                <div key={i} className="min-w-0">
-                  <div className="mb-1 truncate text-[0.833em] tracking-[0.08em] text-white/40 uppercase">{column.label}</div>
-                  {column.perks.map((p, j) => {
-                    const on = rolled.has(p.hash);
-                    const hover = hoveredRow === p.hash;
-                    return (
-                      <div
-                        key={`${p.hash}-${j}`}
-                        className={cx(
-                          "flex min-w-0 items-center gap-1.5 py-[3px] pl-1.5 text-[0.958em]",
-                          on ? "border-l-2 border-white bg-white/[0.07] font-semibold text-white" : "border-l-2 border-transparent text-white/60",
-                          hover && "outline outline-1 -outline-offset-1 outline-(--accent-text) text-white",
-                        )}
-                      >
-                        {p.icon && <img src={BUNGIE_ORIGIN + p.icon} alt="" className="size-4 shrink-0" />}
-                        <span className={cx("min-w-0 leading-tight break-words", owned.has(p.hash) && "text-[#e8cf6a]")}>{p.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </HudSection>
-          )
-        )}
-        {!exotic && hoverClarity.size > 0 && <HudCredit sources={["Clarity"]} />}
       </div>
     </HudPanel>
   );

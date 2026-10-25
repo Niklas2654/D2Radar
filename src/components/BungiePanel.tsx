@@ -89,8 +89,20 @@ function PlayerStep() {
   const t = useT();
   const [name, setName] = useState("");
   const { busy, error, run } = useAction();
+  const status = useOAuth();
+  // Logging in sets the player too (the one logged in): first, when it can.
+  const login = useAction();
 
   return (
+    <>
+      {status.configured && (
+        <div className="mb-4 border-b border-white/[0.07] pb-4">
+          <GlassButton variant="primary" onClick={() => void login.run(oauth.login)} disabled={login.busy}>
+            {login.busy ? t("login.waiting") : t("login.login")}
+          </GlassButton>
+          <ErrorText>{login.error}</ErrorText>
+        </div>
+      )}
     <form
       onSubmit={(e) => {
         e.preventDefault();
@@ -111,6 +123,7 @@ function PlayerStep() {
       </div>
       <ErrorText>{error}</ErrorText>
     </form>
+    </>
   );
 }
 

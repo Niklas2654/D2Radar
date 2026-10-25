@@ -45,7 +45,14 @@ const STAT_MAX = 45;
  * total). A click opens one as DIM inspects it: its stats as bars, its
  * energy, archetype and mods (to change).
  */
-export function ArmorCopies({ versions, children }: { versions: number[]; children?: ReactNode }) {
+export function ArmorCopies({
+  versions,
+  children,
+}: {
+  versions: number[];
+  /** Above the copy's card; given the picked copy (an exotic's perks are that copy's). */
+  children?: (copy: ArmorCopy | null) => ReactNode;
+}) {
   const t = useT();
   const [copies, setCopies] = useState<ArmorCopy[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +108,7 @@ export function ArmorCopies({ versions, children }: { versions: number[]; childr
   if (copies === null || copies.length === 0)
     return (
       <>
-        {children}
+        {children?.(null)}
         <p className="mt-4 px-1 text-[12px] text-white/40">
           {copies === null ? t("copies.loading") : (error ?? t("copies.none"))}
         </p>
@@ -129,7 +136,7 @@ export function ArmorCopies({ versions, children }: { versions: number[]; childr
         }
       />
       <div className="min-w-0">
-        {children}
+        {children?.(copy)}
         {copy && <CopyCard key={copy.instanceId} copy={copy} versions={versions} where={where(copy)} />}
       </div>
       <div className="sticky top-0 flex max-h-[calc(100vh-9vh-2.5rem)] flex-col rounded-2xl border border-white/[0.06] bg-white/[0.03] p-2.5">

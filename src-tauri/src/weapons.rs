@@ -1263,6 +1263,11 @@ fn icon_box_from_name(name: &screen::TextLine, screen_height: f64) -> (f64, f64,
 /// Margin (in icon sizes) cropped around the derived icon box, so the icon
 /// is fully inside even when the estimate is a bit off.
 const ICON_PAD: f64 = 0.25;
+/// An icon decides against the better-read name only this much closer.
+const ICON_CLEARLY_CLOSER: f64 = 0.9;
+/// A weapon and an armor name both fitting a line compete (the icon
+/// decides) only when their scores are this close.
+const RIVAL_GAP: f64 = 0.05;
 
 /// Crop a square box (x, y, size in pixels) plus `pad` icon sizes on each
 /// side out of a screenshot.
@@ -2239,8 +2244,12 @@ fn read_any(db: &WeaponDb, shot: &image::RgbaImage, region: Region) -> Result<Op
         (None, Some(_)) => true,
         _ => false,
     };
-    let weapon_rival = weapon.as_ref().map(|(i, _, _)| Named::Weapon(**i));
-    let armor_rival = armor.as_ref().map(|(h, _, _)| Named::Armor((*h).clone()));
+    // The other kind only competes when its name fits about as well
+    // ("DREAMBANE ROE" is the Robes, not the fusion rifle "Dream Breaker").
+    let (w_score, a_score) = (weapon.as_ref().map_or(0.0, |w| w.2), armor.as_ref().map_or(0.0, |a| a.2));
+    let close = (w_score - a_score).abs() < RIVAL_GAP;
+    let weapon_rival = weapon.as_ref().filter(|_| close).map(|(i, _, _)| Named::Weapon(**i));
+    let armor_rival = armor.as_ref().filter(|_| close).map(|(h, _, _)| Named::Armor((*h).clone()));
     let found = if armor_wins {
         armor.map(|(hashes, line, score)| {
             log_once(format!("[armor] name '{}' {:.0} px ({score:.2})", line.text, line.h));
@@ -2575,11 +2584,13 @@ async fn icon_picks(
     })
     .await
     .unwrap_or_default();
-    let pick = distances
-        .iter()
-        .enumerate()
-        .min_by(|a, b| a.1.total_cmp(b.1))
-        .map_or(0, |(i, _)| i);
+    let best = distances.iter().enumerate().min_by(|a, b| a.1.total_cmp(b.1));
+    // Another than the best-read name only with an icon clearly closer
+    // (52.0 against 52.2 is a coin toss: the name decides then).
+    let pick = match (best, distances.first()) {
+        (Some((i, &d)), Some(&first)) if i != 0 && d < first * ICON_CLEARLY_CLOSER => i,
+        _ => 0,
+    };
     log_once(format!(
         "[detect] icon picks {} of {key}: {}",
         pick,

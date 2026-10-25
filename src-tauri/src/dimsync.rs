@@ -27,6 +27,9 @@ const ORIGIN: &str = "http://localhost:1430";
 #[serde(rename_all = "camelCase")]
 struct DimStore {
     api_key: Option<String>,
+    /// The Bungie API key it was registered with: DIM checks Bungie tokens
+    /// with that one, so a new Bungie app needs a new registration.
+    bungie_key: Option<String>,
 }
 
 static STORE: Mutex<Option<DimStore>> = Mutex::new(None);
@@ -37,19 +40,52 @@ fn path(app: &AppHandle) -> PathBuf {
     app.path().app_config_dir().unwrap_or_else(|_| PathBuf::from(".")).join("dim.json")
 }
 
+/// The DIM key, if registered with the Bungie key Radar uses now.
 fn api_key(app: &AppHandle) -> Option<String> {
-    STORE
-        .lock()
-        .unwrap()
-        .get_or_insert_with(|| {
-            std::fs::read_to_string(path(app)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
-        })
-        .api_key
-        .clone()
+    let bungie_key = app.state::<BungieState>().api_key().ok();
+    let mut store = STORE.lock().unwrap();
+    let store = store.get_or_insert_with(|| {
+        std::fs::read_to_string(path(app)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    });
+    if store.bungie_key.is_none() || store.bungie_key != bungie_key {
+        return None;
+    }
+    store.api_key.clone()
 }
 
-fn save_key(app: &AppHandle, key: &str) {
-    let store = DimStore { api_key: Some(key.into()) };
+/// The DIM key, registering (again) when there is none for this Bungie key.
+async fn ensure_key(app: &AppHandle) -> Result<String, String> {
+    // One registration at a time (at start and from the Loadouts tab alike).
+    static REGISTERING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let _guard = REGISTERING.lock().await;
+    match api_key(app) {
+        Some(key) => Ok(key),
+        None => register(app).await,
+    }
+}
+
+/// At start: a player connected to DIM whose registration is for another
+/// Bungie key (an update changed it) registers again now, in the
+/// background. DIM's servers take a new app on only after about a minute;
+/// by the time the Loadouts tab is opened it is mostly through.
+pub fn start(app: &AppHandle) {
+    let connected = {
+        let _ = api_key(app);
+        STORE.lock().unwrap().as_ref().is_some_and(|s| s.api_key.is_some())
+    };
+    if !connected || api_key(app).is_some() || !crate::oauth::logged_in(app) {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = ensure_key(&app).await {
+            println!("[dim-api] registering at start: {e}");
+        }
+    });
+}
+
+fn save_key(app: &AppHandle, key: &str, bungie_key: &str) {
+    let store = DimStore { api_key: Some(key.into()), bungie_key: Some(bungie_key.into()) };
     if let Some(dir) = path(app).parent() {
         let _ = std::fs::create_dir_all(dir);
     }
@@ -91,9 +127,15 @@ async fn register(app: &AppHandle) -> Result<String, String> {
         .or(res["dimApiKey"].as_str())
         .ok_or(tr("DIM hat keinen Schlüssel geschickt", "DIM sent no key"))?
         .to_string();
-    save_key(app, &key);
+    save_key(app, &key, &bungie_key);
+    // A token from the old registration is no good with the new key.
+    *TOKEN.lock().unwrap() = None;
     Ok(key)
 }
+
+/// Waiting for DIM to take on a newly registered app: how often, how long.
+const NEW_APP_TRIES: u32 = 12;
+const NEW_APP_WAIT: Duration = Duration::from_secs(15);
 
 /// A DIM access token for the logged-in player.
 async fn token(app: &AppHandle, s: &Session, key: &str) -> Result<String, String> {
@@ -111,7 +153,26 @@ async fn token(app: &AppHandle, s: &Session, key: &str) -> Result<String, String
         .ok_or(tr("Bungie.net-Konto nicht gefunden", "Bungie.net account not found"))?
         .to_string();
     let body = json!({ "bungieAccessToken": s.token(), "membershipId": bungie_net_id });
-    let res = send(http.post(format!("{BASE}/auth/token")).header("X-API-Key", key).json(&body)).await?;
+    // DIM's servers take a new app on about a minute after it registered
+    // (they reload their list of apps every minute): until then, quietly
+    // asked again (the list shows as loading meanwhile).
+    let mut tries = 0;
+    let res = loop {
+        match send(http.post(format!("{BASE}/auth/token")).header("X-API-Key", key).json(&body)).await {
+            Err(e) if e.contains("No app found") && tries < NEW_APP_TRIES => {
+                tries += 1;
+                tokio::time::sleep(NEW_APP_WAIT).await;
+            }
+            Err(e) if e.contains("No app found") => {
+                return Err(tr(
+                    "DIM richtet Radars Zugang noch ein – gleich nochmal aktualisieren",
+                    "DIM is still setting up Radar's access – refresh again shortly",
+                )
+                .to_string())
+            }
+            other => break other?,
+        }
+    };
     let token = res["accessToken"].as_str().ok_or("DIM: no token")?.to_string();
     let seconds = res["expiresInSeconds"].as_u64().unwrap_or(3600).saturating_sub(60);
     *TOKEN.lock().unwrap() = Some((token.clone(), Instant::now() + Duration::from_secs(seconds)));
@@ -120,7 +181,7 @@ async fn token(app: &AppHandle, s: &Session, key: &str) -> Result<String, String
 
 /// All DIM loadouts of the player (raw DIM shape).
 async fn raw_loadouts(app: &AppHandle, s: &Session) -> Result<Vec<Value>, String> {
-    let key = api_key(app).ok_or(tr("Erst „Mit DIM verbinden“ klicken", "Click “Connect DIM” first"))?;
+    let key = ensure_key(app).await?;
     let token = token(app, s, &key).await?;
     let http = app.state::<BungieState>().http.clone();
     let url = format!("{BASE}/profile?platformMembershipId={}&components=loadouts", s.membership_id());
@@ -228,7 +289,7 @@ pub(crate) async fn cached_raw(app: &AppHandle, s: &Session) -> Result<Vec<Value
 
 /// Create or replace a loadout in DIM.
 pub(crate) async fn save_loadout(app: &AppHandle, s: &Session, loadout: Value) -> Result<(), String> {
-    let key = api_key(app).ok_or(tr("Erst im Loadouts-Tab „Mit DIM verbinden“", "Connect DIM in the Loadouts tab first"))?;
+    let key = ensure_key(app).await?;
     let token = token(app, s, &key).await?;
     let http = app.state::<BungieState>().http.clone();
     let body = json!({
@@ -253,16 +314,15 @@ pub struct DimStatus {
 
 #[tauri::command]
 pub fn dim_status(app: AppHandle) -> DimStatus {
-    DimStatus { connected: api_key(&app).is_some() }
+    // Connected once is enough: a new Bungie key re-registers on the next read.
+    let _ = api_key(&app);
+    DimStatus { connected: STORE.lock().unwrap().as_ref().is_some_and(|s| s.api_key.is_some()) }
 }
 
 /// Register with DIM if needed and check that the loadouts can be read.
 #[tauri::command]
 pub async fn dim_connect(app: AppHandle) -> Result<DimStatus, String> {
     let s = session(&app).await?;
-    if api_key(&app).is_none() {
-        register(&app).await?;
-    }
     raw_loadouts(&app, &s).await?;
     Ok(DimStatus { connected: true })
 }

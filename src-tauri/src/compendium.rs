@@ -72,17 +72,32 @@ pub(crate) fn set_bonus(english_set: &str, pieces: u32) -> Option<String> {
 /// Scout", "Arc Weapon Surge"): those words are left off when needed.
 pub(crate) fn mod_exact(english_name: &str) -> Option<String> {
     const KINDS: [&str; 11] = ["heavy", "special", "primary", "kinetic", "arc", "solar", "void", "stasis", "strand", "harmonic", "prismatic"];
-    let mut name = key(english_name);
+    let get = |name: &str| TEXTS.perks.get(&format!("mod:{name}")).cloned();
+    let full = key(english_name);
+    let mut name = full.clone();
     loop {
-        if let Some(text) = TEXTS.perks.get(&format!("mod:{name}")) {
-            return Some(text.clone());
+        if let Some(text) = get(&name) {
+            return Some(text);
         }
         let first = name.split(' ').next().unwrap_or_default().to_string();
         if !KINDS.contains(&first.as_str()) || !name.contains(' ') {
-            return None;
+            break;
         }
         name = name[first.len() + 1..].to_string();
     }
+    // The kind in the middle ("Unflinching Arc Aim": "Unflinching Aim").
+    let without: Vec<&str> = full.split(' ').filter(|w| !KINDS.contains(w)).collect();
+    if let Some(text) = get(&without.join(" ")) {
+        return Some(text);
+    }
+    // Mods the sheet lists under one name: the chest's resistances, the
+    // helmet's two-element siphons ("Arc/Stasis Dual Siphon").
+    let group = match full.as_str() {
+        "sniper damage resistance" | "melee damage resistance" | "concussive dampener" => "resistance",
+        n if n.ends_with(" siphon") => "siphon",
+        _ => return None,
+    };
+    get(group)
 }
 
 /// The exact description of a perk (set bonus, exotic class spirit) by
@@ -97,6 +112,28 @@ pub(crate) fn artifacts() -> &'static [Artifact] {
 }
 
 /// Reading the sheets: only for making the copy (see the module docs).
+#[cfg(test)]
+mod mod_names {
+    use super::mod_exact;
+
+    #[test]
+    fn mods_named_otherwise_in_game() {
+        for name in [
+            "Sniper Damage Resistance",
+            "Melee Damage Resistance",
+            "Concussive Dampener",
+            "Unflinching Arc Aim",
+            "Unflinching Harmonic Aim",
+            "Arc/Stasis Dual Siphon",
+            "Thermodynamic Siphon",
+            "Heavy Ammo Finder",
+        ] {
+            assert!(mod_exact(name).is_some(), "{name}");
+        }
+        assert!(mod_exact("Empty Mod Socket").is_none());
+    }
+}
+
 #[cfg(test)]
 mod sheet {
     use super::*;

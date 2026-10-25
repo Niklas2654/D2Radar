@@ -247,7 +247,16 @@ pub async fn oauth_login(app: AppHandle) -> Result<OAuthStatus, String> {
         .map_err(|_| tr("Login abgelaufen", "Login timed out").to_string())?
         .map_err(|_| tr("Login abgebrochen", "Login cancelled").to_string())?;
     token_request(&app, &[("grant_type", "authorization_code"), ("code", &code)]).await?;
+    // The one who logged in is the player (no name to type in).
+    if let Err(e) = crate::bungie::set_player_from_login(&app).await {
+        eprintln!("[oauth] player from login: {e}");
+    }
     Ok(status_of(&store(&app)))
+}
+
+/// Logged in with Bungie (a refresh token that hasn't run out).
+pub(crate) fn logged_in(app: &AppHandle) -> bool {
+    status_of(&store(app)).logged_in
 }
 
 /// Called when the login window is closed, so a waiting login ends.

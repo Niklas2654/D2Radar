@@ -67,8 +67,8 @@ impl Default for HotkeyConfig {
             dim: "F7".into(),
             discord: "F6".into(),
             loadouts: Vec::new(),
-            dim_opacity: 0.5,
-            discord_opacity: 0.85,
+            dim_opacity: 0.9,
+            discord_opacity: 0.8,
         }
     }
 }

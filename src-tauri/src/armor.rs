@@ -455,7 +455,8 @@ pub struct ArmorCopy {
     energy: Option<i64>,
     stats: Vec<CopyStat>,
     total: i64,
-    /// The piece itself (icon, name, type) as this copy's version.
+    /// The piece itself (icon, name, type) as this copy's version; an
+    /// exotic's with the perks this copy rolled (class items' spirits).
     item: Option<ItemInfo>,
     /// Its archetype ("Gunner": which stats it favors), if it has one.
     archetype: Option<ItemInfo>,
@@ -536,13 +537,18 @@ pub async fn armor_copies(app: AppHandle, hashes: Vec<u32>) -> Result<Vec<ArmorC
         .collect();
     // Each copy's piece and archetype (a plug in one of its sockets).
     for copy in &mut copies {
-        copy.item = item(&app, copy.item_hash as u64).await;
-        let plugs: Vec<u64> = components["sockets"]["data"][&copy.instance_id]["sockets"]
+        // By socket index (an empty socket: 0), as item_with_plugs reads them.
+        let sockets: Vec<u64> = components["sockets"]["data"][&copy.instance_id]["sockets"]
             .as_array()
             .into_iter()
             .flatten()
-            .filter_map(|s| s["plugHash"].as_u64())
+            .map(|s| s["plugHash"].as_u64().unwrap_or(0))
             .collect();
+        copy.item = item(&app, copy.item_hash as u64).await;
+        if copy.item.as_ref().is_some_and(|i| i.exotic) {
+            copy.item = item_with_plugs(&app, copy.item_hash as u64, &sockets).await.or(copy.item.take());
+        }
+        let plugs: Vec<u64> = sockets.into_iter().filter(|&h| h != 0).collect();
         for plug in plugs {
             let Some(info) = item(&app, plug).await else { continue };
             let category = info.plug_category.clone();

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { armorApi, type ArmorDetail } from "../lib/armor";
+import { armorApi, withCopyPerks, type ArmorDetail } from "../lib/armor";
 import { BUNGIE_ORIGIN } from "../lib/bungie";
 import { useT } from "../lib/i18n";
 import { call, hasBackend } from "../lib/tauri";
@@ -350,7 +350,7 @@ export function GearPage({ initial, usage = false }: { initial: Shown | null; us
               </GlassPanel>
             ) : shown.armor.versions?.length ? (
               <ArmorCopies versions={shown.armor.versions}>
-                <HudArmor armor={shown.armor} wide />
+                {(copy) => <HudArmor armor={withCopyPerks(shown.armor, copy)} wide />}
               </ArmorCopies>
             ) : (
               <HudArmor armor={shown.armor} wide />

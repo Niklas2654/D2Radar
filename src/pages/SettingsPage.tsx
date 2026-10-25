@@ -8,6 +8,7 @@ import { JOIN_VERBS } from "./DiscordPage";
 import { BungieLoginPanel } from "../components/BungieLoginPanel";
 import { HotkeysPanel } from "../components/HotkeysPanel";
 import { UpdateControl } from "../components/UpdateButton";
+import { autoInstall } from "../lib/updater";
 import { useSettings } from "../lib/settings";
 import { call, isTauri } from "../lib/tauri";
 
@@ -140,27 +141,6 @@ export function SettingsPage() {
           />
         </GlassPanel>
 
-        <GlassPanel className="p-5">
-          <PanelHeader icon={<IconLayers />} title={t("hudContent.title")} subtitle={t("hudContent.subtitle")} />
-          {(
-            [
-              ["season", "hudContent.season", "hudContent.seasonHint"],
-              ["possiblePerks", "hudContent.possiblePerks", "hudContent.possiblePerksHint"],
-              ["exoticPerks", "hudContent.exoticPerks", "hudContent.exoticPerksHint"],
-              ["setBonuses", "hudContent.setBonuses", "hudContent.setBonusesHint"],
-              ["hoverDetails", "hudContent.hoverDetails", "hudContent.hoverDetailsHint"],
-            ] as const
-          ).map(([key, label, hint]) => (
-            <GlassSwitch
-              key={key}
-              label={t(label)}
-              description={t(hint)}
-              checked={settings.hud[key]}
-              onChange={(on) => update({ hud: { ...settings.hud, [key]: on } })}
-            />
-          ))}
-        </GlassPanel>
-
         <GameLanguagePanel />
 
         <StartupPanel />
@@ -181,6 +161,19 @@ export function SettingsPage() {
             </div>
             {isTauri && <UpdateControl />}
           </div>
+          {isTauri && (
+            <div className="mt-4">
+              <GlassSwitch
+                label={t("update.auto")}
+                description={t("update.autoHint")}
+                checked={settings.autoUpdate}
+                onChange={(autoUpdate) => {
+                  update({ autoUpdate });
+                  if (autoUpdate) void autoInstall();
+                }}
+              />
+            </div>
+          )}
           <p className="mt-4 text-[12px] leading-relaxed text-white/40">{t("settings.disclaimer")}</p>
         </GlassPanel>
       </div>

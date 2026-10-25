@@ -356,6 +356,7 @@ pub fn run() {
 
             app.manage(bungie::BungieState::load(handle));
             bungie::start(handle);
+            dimsync::start(handle);
             weapons::start_detection(handle);
             // DIM and Discord asleep while hidden a while.
             sleep::start(handle);
