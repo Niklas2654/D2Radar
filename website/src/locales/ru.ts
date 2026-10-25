@@ -202,7 +202,10 @@ const ru: Strings = {
     version: "Версия {version}",
     installer: "Установщик {size}",
     windows: "Windows 10 / 11",
-    free: "Бесплатно",
+    free: "Бесплатно",
+    downloads: "{n} загрузок",
+    downloadsLive: "Считается в реальном времени",
+    guardians: "{n} Стражей подключено",
   },
   footer: {
     legal: "Правовая информация",

@@ -200,7 +200,10 @@ const en = {
     version: "Version {version}",
     installer: "{size} installer",
     windows: "Windows 10 / 11",
-    free: "Free",
+    free: "Free",
+    downloads: "{n} downloads",
+    downloadsLive: "Counted live",
+    guardians: "{n} Guardians connected",
   },
   footer: {
     legal: "Legal notice",

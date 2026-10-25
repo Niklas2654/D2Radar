@@ -202,7 +202,10 @@ const pt: Strings = {
     version: "Versão {version}",
     installer: "Instalador de {size}",
     windows: "Windows 10 / 11",
-    free: "Grátis",
+    free: "Grátis",
+    downloads: "{n} downloads",
+    downloadsLive: "Contado ao vivo",
+    guardians: "{n} Guardiões conectados",
   },
   footer: {
     legal: "Aviso legal",

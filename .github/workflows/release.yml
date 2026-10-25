@@ -1,4 +1,8 @@
-# A new Radar version (a tag like v0.2.0, pushed by `pnpm release 0.2.0`).
+# A new Radar version: the commit "Release v0.2.0" on master, pushed by
+# `pnpm release 0.2.0` (with its tag). Run from master, not from the tag:
+# GitHub keeps a run's caches for its own branch or tag (and master's for
+# everyone), so a run per tag never found the last one's compiled Rust and
+# built everything again (half an hour); from master each reuses the last.
 # Development happens in the private repo; the public D2Radar repo gets
 # each released version:
 #  1. its source, as one commit on D2Radar's main (no development history),
@@ -19,7 +23,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [master]
   workflow_dispatch:
 
 env:
@@ -27,8 +31,11 @@ env:
 
 jobs:
   source:
-    # Only here, in the private repo (the public copy has this file too).
-    if: github.repository != 'Niklas2654/D2Radar'
+    # Only here, in the private repo (the public copy has this file too),
+    # and only for a release commit (or started by hand).
+    if: >-
+      github.repository != 'Niklas2654/D2Radar' &&
+      (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Release v'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

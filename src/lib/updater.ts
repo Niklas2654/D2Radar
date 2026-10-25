@@ -5,8 +5,8 @@ import { getSettings } from "./settings";
 import { call, isTauri } from "./tauri";
 
 /** Where Radar's updates stand. The newest release of the public D2Radar
- *  repo (its latest.json, see tauri.conf.json) is looked up at start and
- *  every few hours; installing downloads it, runs the installer (passive:
+ *  repo (its latest.json, see tauri.conf.json) is looked up at start, every
+ *  hour, and when Radar comes to the front again a while after the last look; installing downloads it, runs the installer (passive:
  *  just a progress bar) and starts Radar again. */
 export type UpdateState =
   | { kind: "idle" }
@@ -16,7 +16,12 @@ export type UpdateState =
   | { kind: "installing"; version: string; progress: number | null }
   | { kind: "error"; message: string };
 
-const CHECK_EVERY_MS = 6 * 3_600_000;
+const CHECK_EVERY_MS = 3_600_000;
+/** Back in front (or the PC awake again): looked up if the last look is this old. */
+const CHECK_AGAIN_AFTER_MS = 15 * 60_000;
+/** How often the clock is looked at: by the time of day, so a sleeping PC
+ *  (its timers stand still meanwhile) doesn't put the next look off. */
+const TICK_MS = 60_000;
 /** After the start, so the first check doesn't compete with loading. */
 const FIRST_CHECK_MS = 8_000;
 
@@ -31,8 +36,11 @@ function set(next: UpdateState) {
 
 /** Look for a newer version. Quiet: a failed background check leaves the
  *  state as it was (offline …); one asked for shows its error. */
+let lastCheck = 0;
+
 export async function checkForUpdate(quiet = false) {
   if (!isTauri || state.kind === "installing") return;
+  lastCheck = Date.now();
   if (!quiet) set({ kind: "checking" });
   try {
     pending = await check();
@@ -89,8 +97,15 @@ export function startUpdateChecks() {
   if (!isTauri || started) return;
   started = true;
   const look = () => void checkForUpdate(true).then(autoInstall);
+  const lookIfOlder = (ms: number) => {
+    if (Date.now() - lastCheck >= ms) look();
+  };
   window.setTimeout(look, FIRST_CHECK_MS);
-  window.setInterval(look, CHECK_EVERY_MS);
+  window.setInterval(() => lookIfOlder(CHECK_EVERY_MS), TICK_MS);
+  window.addEventListener("focus", () => lookIfOlder(CHECK_AGAIN_AFTER_MS));
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") lookIfOlder(CHECK_AGAIN_AFTER_MS);
+  });
 }
 
 export function useUpdate(): UpdateState {

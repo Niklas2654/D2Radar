@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconChevron, IconWindows, Logo } from "../components/icons";
-import { DOWNLOAD_URL, INSTALLER_SIZE, VERSION } from "../fx";
-import { fill, useStrings } from "../i18n";
+import { DOWNLOAD_URL, INSTALLER_SIZE, useDownloads, useGuardians, VERSION } from "../fx";
+import { fill, useSiteLang, useStrings } from "../i18n";
 import { SectionTitle } from "./Features";
 
 export function HowItWorks() {
@@ -70,6 +70,11 @@ export function Faq() {
 
 export function Download() {
   const s = useStrings().download;
+  const lang = useSiteLang();
+  const live = [
+    { n: useDownloads(), text: s.downloads },
+    { n: useGuardians(), text: s.guardians },
+  ];
   return (
     <section id="download" className="relative mx-auto max-w-6xl px-5 py-24">
       <div className="reveal glass px-6 py-16 text-center sm:px-16" style={{ ["--r" as string]: "24px" }}>
@@ -92,6 +97,18 @@ export function Download() {
               {t}
             </span>
           ))}
+          {/* Counted live (api/downloads.ts, api/stats.ts): a dot instead of the tick. */}
+          {live.map(
+            ({ n, text }) =>
+              !!n && (
+                <span key={text} className="inline-flex items-center gap-1.5" title={s.downloadsLive}>
+                  <span className="grid size-3.5 place-items-center">
+                    <span className="size-1.5 animate-pulse rounded-full bg-(--accent-text)" />
+                  </span>
+                  <span className="tabular-nums">{fill(text, { n: n.toLocaleString(lang) })}</span>
+                </span>
+              ),
+          )}
         </div>
       </div>
     </section>

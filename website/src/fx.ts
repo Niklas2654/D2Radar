@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 /** Sections and cards fade up into view as they are scrolled to (.reveal). */
 export function useReveal() {
@@ -32,6 +32,34 @@ export const DOWNLOAD_URL = "https://github.com/Niklas2654/D2Radar/releases/late
  *  (set by the release workflow, .github/workflows/release.yml). */
 export const VERSION: string = import.meta.env.VITE_RADAR_VERSION ?? "0.1.0";
 export const INSTALLER_SIZE: string = import.meta.env.VITE_INSTALLER_SIZE ?? "38 MB";
+
+/** A number from one of the site's functions, asked again every minute
+ *  while the page is open; null until known (or not to be had). */
+function useLiveNumber(url: string, field: string): number | null {
+  const [value, setValue] = useState<number | null>(null);
+  useEffect(() => {
+    let gone = false;
+    const ask = () =>
+      fetch(url)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: Record<string, unknown> | null) => {
+          if (!gone && typeof d?.[field] === "number") setValue(d[field] as number);
+        })
+        .catch(() => {});
+    void ask();
+    const id = window.setInterval(ask, 60_000);
+    return () => {
+      gone = true;
+      window.clearInterval(id);
+    };
+  }, [url, field]);
+  return value;
+}
+
+/** How often Radar was downloaded (api/downloads.ts). */
+export const useDownloads = () => useLiveNumber("/api/downloads", "downloads");
+/** How many different Bungie accounts were connected to Radar (api/stats.ts). */
+export const useGuardians = () => useLiveNumber("/api/stats", "guardians");
 
 /** The site's colour, picked in the demo's settings (Void until then),
  *  kept in this browser so the site always comes up in it. */

@@ -4,7 +4,7 @@
 //  - updates: the versioned installer, which the app's updater fetches (and
 //    whoever downloads it from the release page)
 //  - checks:  latest.json, read by every running Radar at start and every
-//    six hours (a rough idea of how many are in use)
+//    hour (a rough idea of how many are in use)
 const REPO = "Niklas2654/D2Radar";
 
 const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=100`, {
@@ -34,3 +34,13 @@ const total = rows.reduce((t, r) => ({ website: t.website + r.website, updates: 
 
 console.table([...rows, { version: "total", ...total }]);
 console.log(`\nDownloads (website + updates): ${total.website + total.updates}`);
+
+// Bungie accounts connected to Radar (counted by the website's /api/token).
+const stats = await fetch("https://d2radar.vercel.app/api/stats")
+  .then((r) => (r.ok ? r.json() : null))
+  .catch(() => null);
+if (stats) {
+  console.log(`Guardians connected: ${stats.guardians} · today: ${stats.activeToday} · logins: ${stats.logins}`);
+} else {
+  console.log("Guardians connected: not counted yet (Upstash database not connected?)");
+}

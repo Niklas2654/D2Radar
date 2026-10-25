@@ -230,8 +230,16 @@ function Privacy() {
           When you log in with Bungie, Radar passes the one-time login code from Bungie (and, about once an hour while you use it, the token that
           keeps you logged in) through a small function on this website (d2radar.vercel.app/api/token, hosted by Vercel, see above). It adds
           Radar's app credentials, which must not be in the app itself, sends the request on to Bungie and returns Bungie's answer to Radar. It
-          stores nothing and logs no tokens; Vercel processes the technically necessary request data as described under “Hosting”. Legal basis:
+          stores and logs no tokens; Vercel processes the technically necessary request data as described under “Hosting”. Legal basis:
           Art. 6(1)(b) GDPR (the login you asked for).
+        </p>
+        <p>
+          To know how many people use Radar, the function also counts: the number of logins, and how many different Bungie accounts use Radar
+          (in total and per day). For the latter it turns the account number in Bungie's answer into a salted, one-way hash and adds it to a
+          statistical estimate (HyperLogLog), which keeps neither account numbers nor hashes, only an approximate count. Nothing else is
+          stored, and the counts can't be traced back to anyone. They are kept with Upstash, Inc. (database service, through Vercel; stored in
+          the EU). The totals are shown on this website. Legal basis: Art. 6(1)(f) GDPR (our legitimate interest in knowing how much Radar is
+          used, with no personal data kept).
         </p>
 
         <H3>Screen recognition</H3>
@@ -436,8 +444,17 @@ function Datenschutz() {
           Wenn Sie sich mit Bungie anmelden, reicht Radar den einmaligen Anmeldecode von Bungie (und, während Sie Radar nutzen, etwa stündlich den
           Token, der Sie angemeldet hält) über eine kleine Funktion dieser Website weiter (d2radar.vercel.app/api/token, gehostet bei Vercel, siehe
           oben). Sie ergänzt die Zugangsdaten der Radar-App, die nicht in der App selbst stehen dürfen, schickt die Anfrage an Bungie und gibt
-          Bungies Antwort an Radar zurück. Sie speichert nichts und protokolliert keine Tokens; Vercel verarbeitet die technisch nötigen
+          Bungies Antwort an Radar zurück. Sie speichert und protokolliert keine Tokens; Vercel verarbeitet die technisch nötigen
           Anfragedaten wie unter „Hosting“ beschrieben. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (die von Ihnen gewünschte Anmeldung).
+        </p>
+        <p>
+          Um zu wissen, wie viele Menschen Radar nutzen, zählt die Funktion außerdem: die Anzahl der Anmeldungen und wie viele verschiedene
+          Bungie-Konten Radar nutzen (insgesamt und pro Tag). Dafür macht sie aus der Kontonummer in Bungies Antwort einen gesalzenen,
+          nicht umkehrbaren Hash und fügt ihn einer statistischen Schätzung (HyperLogLog) hinzu, die weder Kontonummern noch Hashes
+          aufbewahrt, sondern nur eine ungefähre Anzahl. Sonst wird nichts gespeichert, und die Zahlen lassen sich auf niemanden zurückführen.
+          Sie liegen bei Upstash, Inc. (Datenbankdienst, über Vercel; gespeichert in der EU). Die Gesamtzahlen werden auf dieser Website
+          angezeigt. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (unser berechtigtes Interesse zu wissen, wie viel Radar genutzt wird, ohne
+          dass personenbezogene Daten aufbewahrt werden).
         </p>
 
         <H3>Bildschirmerkennung</H3>
