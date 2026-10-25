@@ -357,11 +357,23 @@ function MemberRow({ entry, selected, onSelect }: { entry: ListEntry; selected: 
   );
 }
 
+/** "5 hours ago", "3 days ago" … in the app's language. */
+function playedAgo(iso: string, locale: string) {
+  const minutes = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (minutes < 60) return rtf.format(-minutes, "minute");
+  if (minutes < 48 * 60) return rtf.format(-Math.round(minutes / 60), "hour");
+  if (minutes < 60 * 24 * 60) return rtf.format(-Math.round(minutes / 1440), "day");
+  if (minutes < 60 * 24 * 730) return rtf.format(-Math.round(minutes / 43_200), "month");
+  return rtf.format(-Math.round(minutes / 525_600), "year");
+}
+
 /** How long typing has to pause before names are suggested. */
 const SUGGEST_DELAY_MS = 250;
 
 function SearchBox({ onFound }: { onFound: (id: string, name: string) => void }) {
   const t = useT();
+  const locale = LOCALES[useLanguage()];
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -514,11 +526,15 @@ function SearchBox({ onFound }: { onFound: (id: string, name: string) => void })
                       </span>
                       <span className="truncate">{base}</span>
                       <span className="text-white/40">#{code}</span>
-                      {cards[s.membershipId]?.online && (
+                      {cards[s.membershipId]?.online ? (
                         <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-emerald-300">
                           <span className="size-1.5 animate-pulse-dot rounded-full bg-emerald-400 shadow-[0_0_3px_rgb(52_211_153)]" />
                           {t("fireteam.online")}
                         </span>
+                      ) : (
+                        s.lastPlayed && (
+                          <span className="ml-auto shrink-0 text-[11px] text-white/40">{playedAgo(s.lastPlayed, locale)}</span>
+                        )
                       )}
                     </li>
                   );

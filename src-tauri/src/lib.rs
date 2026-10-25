@@ -20,6 +20,7 @@ mod raidtags;
 mod feats;
 mod runreport;
 mod compendium;
+mod crash;
 mod clears;
 mod dim;
 mod dimsync;
@@ -357,6 +358,7 @@ pub fn run() {
             app.manage(bungie::BungieState::load(handle));
             bungie::start(handle);
             dimsync::start(handle);
+            crash::watch(handle);
             weapons::start_detection(handle);
             // DIM and Discord asleep while hidden a while.
             sleep::start(handle);

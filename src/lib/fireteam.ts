@@ -179,6 +179,8 @@ export interface PlayerSuggestion {
   name: string;
   membershipId: string;
   membershipType: number;
+  /** When they played last (ISO time); the list is sorted by it. */
+  lastPlayed?: string | null;
 }
 
 export interface PlayerCard {

@@ -199,13 +199,25 @@ async fn raw_loadouts(app: &AppHandle, s: &Session) -> Result<Vec<Value>, String
     let edited = edited.get_or_insert_default();
     edited.retain(|_, (at, _)| at.elapsed() < Duration::from_secs(DELETED_FOR_SECS as u64));
     let stamp = |l: &Value| l["lastUpdatedAt"].as_i64().unwrap_or(0);
-    Ok(loadouts
+    // Saved in Radar and not listed by DIM yet (it lags behind): shown
+    // already, newest first.
+    let mut new: Vec<Value> = edited
+        .iter()
+        .filter(|(id, _)| !listed.contains(id.as_str()) && !deleted.contains_key(id.as_str()))
+        .map(|(_, (_, l))| l.clone())
+        .collect();
+    new.sort_by_key(|l| std::cmp::Reverse(stamp(l)));
+    Ok(new
         .into_iter()
-        .filter(|l| l["id"].as_str().is_none_or(|id| !deleted.contains_key(id)))
-        .map(|l| match l["id"].as_str().and_then(|id| edited.get(id)) {
-            Some((_, mine)) if stamp(mine) > stamp(&l) => mine.clone(),
-            _ => l,
-        })
+        .chain(
+            loadouts
+                .into_iter()
+                .filter(|l| l["id"].as_str().is_none_or(|id| !deleted.contains_key(id)))
+                .map(|l| match l["id"].as_str().and_then(|id| edited.get(id)) {
+                    Some((_, mine)) if stamp(mine) > stamp(&l) => mine.clone(),
+                    _ => l,
+                }),
+        )
         .collect())
 }
 
@@ -227,8 +239,8 @@ fn store_deleted(app: &AppHandle, deleted: &std::collections::HashMap<String, i6
     }
 }
 
-/// Loadouts changed in Radar, by id: DIM's list can still hold the old
-/// version for a while.
+/// Loadouts saved in Radar (new or changed), by id: DIM's list can still
+/// hold the old version, or none, for a while.
 static EDITED: Mutex<Option<std::collections::HashMap<String, (Instant, Value)>>> = Mutex::new(None);
 
 /// Keep a loadout just saved from Radar over DIM's (possibly older) copy.
@@ -299,6 +311,10 @@ pub(crate) async fn save_loadout(app: &AppHandle, s: &Session, loadout: Value) -
     });
     let res = send(http.post(format!("{BASE}/profile")).header("X-API-Key", &key).bearer_auth(token).json(&body)).await?;
     invalidate_loadouts();
+    // Shown as saved right away, DIM's list catching up meanwhile.
+    if res["results"][0]["status"].as_str() == Some("Success") {
+        remember_raw(&loadout);
+    }
     let result = &res["results"][0];
     match result["status"].as_str() {
         Some("Success") => Ok(()),

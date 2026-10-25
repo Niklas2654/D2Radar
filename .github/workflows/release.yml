@@ -31,7 +31,7 @@ jobs:
     if: github.repository != 'Niklas2654/D2Radar'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Else git pushes with this repo's own token (it set it up for
           # every github.com address), which can't write to D2Radar.
@@ -53,12 +53,12 @@ jobs:
     needs: source
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
         with:
           version: 12
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm

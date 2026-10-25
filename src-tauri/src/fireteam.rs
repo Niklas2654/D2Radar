@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use futures::future::join_all;
+use futures::StreamExt;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -1348,6 +1349,8 @@ async fn find_by_name(app: &AppHandle, display_name: &str, code: u32) -> Result<
 pub struct PlayerCard {
     emblem: Option<String>,
     online: bool,
+    /// When they played last (ISO time), for sorting suggestions.
+    last_played: Option<String>,
     /// No Destiny 2 profile (the name search finds those too): not shown.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     no_destiny: bool,
@@ -1369,12 +1372,16 @@ const CARD_TTL: Duration = Duration::from_secs(60);
 /// the player hides it).
 #[tauri::command]
 pub async fn fireteam_player_card(app: AppHandle, membership_type: i64, membership_id: String) -> Result<PlayerCard, String> {
+    player_card(&app, membership_type, membership_id).await
+}
+
+async fn player_card(app: &AppHandle, membership_type: i64, membership_id: String) -> Result<PlayerCard, String> {
     if let Some((at, card)) = CARDS.lock().unwrap().get_or_insert_default().get(&membership_id) {
         if at.elapsed() < CARD_TTL {
             return Ok(card.clone());
         }
     }
-    let (http, key) = http(&app);
+    let (http, key) = http(app);
     let profile = match api(
         &http,
         &key?,
@@ -1386,22 +1393,23 @@ pub async fn fireteam_player_card(app: AppHandle, membership_type: i64, membersh
     {
         Ok(profile) => profile,
         Err(e) if crate::bungie::no_destiny_account(&e) => {
-            return Ok(PlayerCard { emblem: None, online: false, no_destiny: true });
+            return Ok(PlayerCard { emblem: None, online: false, last_played: None, no_destiny: true });
         }
         Err(e) => return Err(e),
     };
-    let emblem = profile["characters"]["data"]
+    let last = profile["characters"]["data"]
         .as_object()
         .into_iter()
         .flatten()
-        .max_by_key(|(_, c)| c["dateLastPlayed"].as_str().unwrap_or("").to_string())
-        .and_then(|(_, c)| c["emblemPath"].as_str().map(String::from));
+        .max_by_key(|(_, c)| c["dateLastPlayed"].as_str().unwrap_or("").to_string());
+    let emblem = last.and_then(|(_, c)| c["emblemPath"].as_str().map(String::from));
+    let last_played = last.and_then(|(_, c)| c["dateLastPlayed"].as_str().map(String::from));
     let online = profile["characterActivities"]["data"]
         .as_object()
         .into_iter()
         .flatten()
         .any(|(_, a)| a["currentActivityHash"].as_u64().is_some_and(|h| h != 0));
-    let card = PlayerCard { emblem, online, no_destiny: false };
+    let card = PlayerCard { emblem, online, last_played, no_destiny: false };
     let mut cards = CARDS.lock().unwrap();
     let cards = cards.get_or_insert_default();
     cards.retain(|_, (at, _)| at.elapsed() < CARD_TTL);
@@ -1417,13 +1425,20 @@ pub struct PlayerSuggestion {
     name: String,
     membership_id: String,
     membership_type: i64,
+    /// When they played last (ISO time).
+    last_played: Option<String>,
 }
 
 /// Players whose Bungie name starts with `prefix` (Bungie's global name
-/// search), those that play Destiny 2 only, at most `MAX_SUGGESTIONS`.
+/// search), those that play Destiny 2 only, at most `MAX_SUGGESTIONS`:
+/// whoever played last first (Bungie lists them by number, so a common
+/// name's first page is mostly long-gone players).
 #[tauri::command]
 pub async fn fireteam_suggest(app: AppHandle, prefix: String) -> Result<Vec<PlayerSuggestion>, String> {
     const MAX_SUGGESTIONS: usize = 20;
+    // All the pages hold (6 × ~25), each player's profile asked a few at a time.
+    const MAX_CANDIDATES: usize = 160;
+    const PROFILES_AT_ONCE: usize = 64;
     // Bungie's name search goes page by page (about 25 a page) in no useful
     // order and stops after 5 or 6 pages, however common the name: all it
     // gives is read, at once. Who isn't in it is only found by the full
@@ -1446,7 +1461,7 @@ pub async fn fireteam_suggest(app: AppHandle, prefix: String) -> Result<Vec<Play
         let found = join_all(numbers.iter().map(|n| find_by_name(&app, &name, n.parse().unwrap_or(0)))).await;
         for (number, result) in numbers.iter().zip(found) {
             if let Ok((id, membership_type)) = result {
-                out.push(PlayerSuggestion { name: format!("{name}#{number}"), membership_id: id, membership_type });
+                out.push(PlayerSuggestion { name: format!("{name}#{number}"), membership_id: id, membership_type, last_played: None });
             }
         }
     }
@@ -1466,6 +1481,8 @@ pub async fn fireteam_suggest(app: AppHandle, prefix: String) -> Result<Vec<Play
         }
     }))
     .await;
+    // The full name typed: those first, whenever they played.
+    let exact = out.len();
     'pages: for found in pages {
         // A page past the end (or one Bungie didn't answer): skipped.
         let Ok(found) = found else { continue };
@@ -1488,13 +1505,37 @@ pub async fn fireteam_suggest(app: AppHandle, prefix: String) -> Result<Vec<Play
                 name: format!("{global}#{number}"),
                 membership_id: id.into(),
                 membership_type: card["membershipType"].as_i64().unwrap_or(0),
+                last_played: None,
             });
-            if out.len() == MAX_SUGGESTIONS {
+            if out.len() == MAX_CANDIDATES {
                 break 'pages;
             }
         }
     }
-    Ok(out)
+    // When each played last (their profiles; the cards the list shows come
+    // from the same, cached): the latest first, no Destiny 2 profile left out.
+    let jobs: Vec<_> = out
+        .iter()
+        .map(|s| {
+            let app = app.clone();
+            let (t, id) = (s.membership_type, s.membership_id.clone());
+            Box::pin(async move { player_card(&app, t, id).await.ok() })
+                as std::pin::Pin<Box<dyn std::future::Future<Output = Option<PlayerCard>> + Send>>
+        })
+        .collect();
+    let cards: Vec<Option<PlayerCard>> = futures::stream::iter(jobs).buffered(PROFILES_AT_ONCE).collect().await;
+    let mut out: Vec<(usize, PlayerSuggestion)> = out
+        .into_iter()
+        .zip(cards)
+        .enumerate()
+        .filter(|(_, (_, card))| !card.as_ref().is_some_and(|c| c.no_destiny))
+        .map(|(i, (mut s, card))| {
+            s.last_played = card.and_then(|c| c.last_played);
+            (i, s)
+        })
+        .collect();
+    out.sort_by(|(i, a), (j, b)| (*i >= exact).cmp(&(*j >= exact)).then(b.last_played.cmp(&a.last_played)));
+    Ok(out.into_iter().map(|(_, s)| s).take(MAX_SUGGESTIONS).collect())
 }
 
 /* ---------- A guardian of a character screen, by name and emblem ---------- */

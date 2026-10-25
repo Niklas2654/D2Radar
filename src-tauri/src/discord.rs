@@ -1293,8 +1293,7 @@ const GAME_SCRIPT: &str = r##"
       const copy = document.createElement("button");
       copy.textContent = de ? "Kopieren" : "Copy";
       copy.addEventListener("click", () => {
-        const done = () => (location.href = "radar://copied");
-        navigator.clipboard.writeText((window.__radarJoinVerb || "/join") + " " + me).then(done, done);
+        navigator.clipboard.writeText((window.__radarJoinVerb || "/join") + " " + me).catch(() => {});
         copy.dataset.done = "";
         copy.textContent = de ? "✓ Kopiert" : "✓ Copied";
         setTimeout(() => {
@@ -1466,8 +1465,7 @@ fn game_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
                         let _ = window.hide();
                     }
                 }
-                // Also the own join code, copied: back to the game to paste it.
-                if matches!(url.host_str(), Some("join" | "copied")) {
+                if url.host_str() == Some("join") {
                     // The game first, while this window has the front.
                     crate::screen::focus_game();
                     if let Some(window) = handle.get_webview_window(GAME_LABEL) {
