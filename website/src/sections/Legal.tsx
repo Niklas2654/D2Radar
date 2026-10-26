@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Logo } from "../components/icons";
 
-export type LegalPage = "impressum" | "datenschutz";
+export type LegalPage = "impressum" | "datenschutz" | "signing";
 
 /** A section on a pane of glass, like the site's panels. */
 function Card({ title, children }: { title: string; children: ReactNode }) {
@@ -78,7 +78,15 @@ export function Legal({ page }: { page: LegalPage }) {
         </div>
       </header>
       <main lang={lang} className="mx-auto max-w-3xl px-5 pt-10 pb-24 text-[14.5px] leading-relaxed text-white/70">
-        {page === "impressum" ? (lang === "de" ? <Impressum /> : <LegalNotice />) : lang === "de" ? <Datenschutz /> : <Privacy />}
+        {page === "impressum" ? (
+          lang === "de" ? <Impressum /> : <LegalNotice />
+        ) : page === "signing" ? (
+          lang === "de" ? <CodeSigningDe /> : <CodeSigning />
+        ) : lang === "de" ? (
+          <Datenschutz />
+        ) : (
+          <Privacy />
+        )}
       </main>
     </div>
   );
@@ -239,7 +247,8 @@ function Privacy() {
           statistical estimate (HyperLogLog), which keeps neither account numbers nor hashes, only an approximate count. Nothing else is
           stored, and the counts can't be traced back to anyone. They are kept with Upstash, Inc. (database service, through Vercel; stored in
           the EU). The totals are shown on this website. Legal basis: Art. 6(1)(f) GDPR (our legitimate interest in knowing how much Radar is
-          used, with no personal data kept).
+          used, with no personal data kept). You can turn the counting off in Radar under Settings → Privacy → “Count me anonymously”; the
+          function then counts nothing for you.
         </p>
 
         <H3>Screen recognition</H3>
@@ -251,8 +260,8 @@ function Privacy() {
 
         <H3>Updates</H3>
         <p>
-          At start and every six hours after, Radar asks GitHub whether a new version is out; you can also check yourself under Settings → About
-          Radar. An update you install is downloaded from GitHub. GitHub receives your IP address and the technically necessary request data
+          At start, every hour and when you bring Radar back to the front, Radar asks GitHub whether a new version is out; you can also check
+          yourself under Settings → About Radar. You can turn these checks off under Settings → Privacy → “Check for updates automatically”. An update you install is downloaded from GitHub. GitHub receives your IP address and the technically necessary request data
           (provider and data transfer as under “Download via GitHub” above).
         </p>
 
@@ -454,7 +463,8 @@ function Datenschutz() {
           aufbewahrt, sondern nur eine ungefähre Anzahl. Sonst wird nichts gespeichert, und die Zahlen lassen sich auf niemanden zurückführen.
           Sie liegen bei Upstash, Inc. (Datenbankdienst, über Vercel; gespeichert in der EU). Die Gesamtzahlen werden auf dieser Website
           angezeigt. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (unser berechtigtes Interesse zu wissen, wie viel Radar genutzt wird, ohne
-          dass personenbezogene Daten aufbewahrt werden).
+          dass personenbezogene Daten aufbewahrt werden). Sie können das Zählen in Radar unter Einstellungen → Datenschutz → „Anonym
+          mitzählen“ abschalten; die Funktion zählt Sie dann nicht mit.
         </p>
 
         <H3>Bildschirmerkennung</H3>
@@ -466,8 +476,9 @@ function Datenschutz() {
 
         <H3>Updates</H3>
         <p>
-          Beim Start und danach alle sechs Stunden fragt Radar bei GitHub nach, ob eine neue Version erschienen ist; unter Einstellungen → Über
-          Radar lässt sich das auch selbst anstoßen. Wird ein Update installiert, wird es von GitHub heruntergeladen. Dabei erhält GitHub Ihre
+          Beim Start, stündlich und wenn Sie Radar wieder in den Vordergrund holen, fragt Radar bei GitHub nach, ob eine neue Version erschienen
+          ist; unter Einstellungen → Über Radar lässt sich das auch selbst anstoßen. Abschalten lässt sich diese Abfrage unter Einstellungen →
+          Datenschutz → „Automatisch nach Updates suchen“. Wird ein Update installiert, wird es von GitHub heruntergeladen. Dabei erhält GitHub Ihre
           IP-Adresse und die technisch nötigen Anfragedaten (Anbieter und Datenübermittlung wie oben unter „Download über GitHub“).
         </p>
 
@@ -517,6 +528,100 @@ function Datenschutz() {
         </p>
       </Card>
 
+    </>
+  );
+}
+
+const REPO = "https://github.com/Niklas2654/D2Radar";
+
+/** The code signing policy SignPath Foundation asks for: who signs what,
+ *  how it is built, the team's roles, privacy. */
+function CodeSigning() {
+  return (
+    <>
+      <h1 className="headline font-display text-[36px] font-bold text-white">Code signing policy</h1>
+      <Card title="Signing">
+        <p>
+          Free code signing provided by <A href="https://signpath.io">SignPath.io</A>, certificate by{" "}
+          <A href="https://signpath.org">SignPath Foundation</A>.
+        </p>
+        <p className="mt-3">
+          Radar has applied for SignPath Foundation's free code signing for open source projects. Until it is approved, releases are not
+          signed; once it is, the Windows installer of every release is.
+        </p>
+      </Card>
+      <Card title="What is signed and how it is built">
+        <p>
+          Only Radar's own Windows installer, built from the source code in the public repository <A href={REPO}>{REPO.slice(8)}</A> (GPL-3.0)
+          by GitHub Actions — never on a personal computer. Every signing request is approved by hand before it is signed.
+        </p>
+      </Card>
+      <Card title="Team roles">
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>
+            Committers and reviewers: Niklas Kipper (<A href="https://github.com/Niklas2654">@Niklas2654</A>)
+          </li>
+          <li>
+            Approvers: Niklas Kipper (<A href="https://github.com/Niklas2654">@Niklas2654</A>)
+          </li>
+        </ul>
+      </Card>
+      <Card title="Privacy">
+        <p>
+          Radar connects to Bungie for your Destiny data and login, to its own login service (which also counts, anonymously, how many use
+          Radar) and to GitHub to look for updates. The installer shows this before installing, and both the counting and the update checks can
+          be turned off in Radar under Settings → Privacy. Details: <a href="/privacy" className="text-(--accent-text) underline-offset-2 hover:underline">privacy policy</a>.
+        </p>
+      </Card>
+      <Card title="Uninstalling">
+        <p>Windows Settings → Apps → Installed apps → Radar → Uninstall.</p>
+      </Card>
+    </>
+  );
+}
+
+function CodeSigningDe() {
+  return (
+    <>
+      <h1 className="headline font-display text-[36px] font-bold text-white">Code signing policy</h1>
+      <Card title="Signierung">
+        <p>
+          Free code signing provided by <A href="https://signpath.io">SignPath.io</A>, certificate by{" "}
+          <A href="https://signpath.org">SignPath Foundation</A>. (Kostenlose Codesignierung durch SignPath.io, Zertifikat der SignPath
+          Foundation.)
+        </p>
+        <p className="mt-3">
+          Radar hat sich für die kostenlose Codesignierung der SignPath Foundation für Open-Source-Projekte beworben. Bis zur Zusage sind die
+          Versionen nicht signiert; danach wird der Windows-Installer jeder Version signiert.
+        </p>
+      </Card>
+      <Card title="Was signiert wird und wie es gebaut wird">
+        <p>
+          Nur Radars eigener Windows-Installer, gebaut aus dem Quellcode im öffentlichen Repository <A href={REPO}>{REPO.slice(8)}</A> (GPL-3.0)
+          von GitHub Actions – nie auf einem privaten Rechner. Jede Signieranfrage wird vor dem Signieren von Hand freigegeben.
+        </p>
+      </Card>
+      <Card title="Rollen im Team">
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>
+            Committer und Reviewer: Niklas Kipper (<A href="https://github.com/Niklas2654">@Niklas2654</A>)
+          </li>
+          <li>
+            Freigabe (Approver): Niklas Kipper (<A href="https://github.com/Niklas2654">@Niklas2654</A>)
+          </li>
+        </ul>
+      </Card>
+      <Card title="Datenschutz">
+        <p>
+          Radar verbindet sich mit Bungie für Ihre Destiny-Daten und die Anmeldung, mit dem eigenen Login-Dienst (der außerdem anonym zählt, wie
+          viele Radar nutzen) und mit GitHub, um nach Updates zu suchen. Der Installer zeigt das vor der Installation, und sowohl das Zählen als
+          auch die Update-Suche lassen sich in Radar unter Einstellungen → Datenschutz abschalten. Einzelheiten:{" "}
+          <a href="/privacy" className="text-(--accent-text) underline-offset-2 hover:underline">Datenschutzerklärung</a>.
+        </p>
+      </Card>
+      <Card title="Deinstallieren">
+        <p>Windows-Einstellungen → Apps → Installierte Apps → Radar → Deinstallieren.</p>
+      </Card>
     </>
   );
 }

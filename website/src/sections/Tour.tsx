@@ -188,20 +188,17 @@ export function Tour() {
         className={`flex flex-col gap-6 transition-[opacity,translate] duration-1000 ease-out min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-0 min-[900px]:pl-[max(40px,calc((100vw-1440px)/2))] ${ready ? "" : "translate-y-8 opacity-0"}`}
       >
         <div className="order-2 px-5 min-[900px]:order-1 min-[900px]:w-[290px] min-[900px]:shrink-0 min-[900px]:px-0 xl:w-[320px]">
-          <div key={index} className="tour-swap">
-            <div className="text-[12.5px] text-white/40 tabular-nums">
-              {String(index + 1).padStart(2, "0")} / {String(SNIPPETS.length).padStart(2, "0")}
+          {/* As tall as the longest text (all of them there, unseen, in the
+              same spot): the arrows under it stay put from one to the next. */}
+          <div className="grid">
+            {s.snippets.map((snippet, i) => (
+              <div key={i} aria-hidden className="invisible col-start-1 row-start-1">
+                <SnippetText snippet={snippet} index={i} />
+              </div>
+            ))}
+            <div key={index} className="tour-swap col-start-1 row-start-1">
+              <SnippetText snippet={shown} index={index} />
             </div>
-            <h3 className="mt-2 font-display text-[26px] leading-tight font-semibold text-white">{shown.title}</h3>
-            <p className="mt-2 text-[15px] leading-snug text-white/60">{shown.subtitle}</p>
-            <ul className="mt-5 space-y-2.5">
-              {shown.points.map((p) => (
-                <li key={p} className="flex gap-2.5 text-[14px] leading-snug text-white/70">
-                  <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-(--accent)" />
-                  {p}
-                </li>
-              ))}
-            </ul>
           </div>
           <div className="mt-7 flex items-center gap-3">
             <Arrow side="left" label={s.previous} onClick={() => control.current?.prev()} />
@@ -250,5 +247,26 @@ export function Tour() {
         </div>
       </div>
     </section>
+  );
+}
+
+/** A picture's text: its number, title, subtitle and points. */
+function SnippetText({ snippet, index }: { snippet: { title: string; subtitle: string; points: readonly string[] }; index: number }) {
+  return (
+    <>
+      <div className="text-[12.5px] text-white/40 tabular-nums">
+        {String(index + 1).padStart(2, "0")} / {String(SNIPPETS.length).padStart(2, "0")}
+      </div>
+      <h3 className="mt-2 font-display text-[26px] leading-tight font-semibold text-white">{snippet.title}</h3>
+      <p className="mt-2 text-[15px] leading-snug text-white/60">{snippet.subtitle}</p>
+      <ul className="mt-5 space-y-2.5">
+        {snippet.points.map((p) => (
+          <li key={p} className="flex gap-2.5 text-[14px] leading-snug text-white/70">
+            <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-(--accent)" />
+            {p}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

@@ -34,8 +34,15 @@ const ORIGIN_PLUGS: &str = "origins";
 const ENHANCED_TIER: u8 = 3;
 
 /// How often the inspect screen is checked while Destiny 2 is in front
-/// (only the name's box is read, so this is cheap).
+/// (only the name's box is read, so this is cheap) …
 const DETECT_INTERVAL: Duration = Duration::from_millis(450);
+/// … and how often once nothing was there a while (playing, no menu open):
+/// each picture makes Windows copy the game's frame back from the
+/// graphics card, so in a fight there are only a few.
+const IDLE_INTERVAL: Duration = Duration::from_millis(2000);
+const IDLE_AFTER: Duration = Duration::from_secs(10);
+/// When a check last saw something (an item, a guardian, a heading).
+static LAST_SEEN: Mutex<Option<std::time::Instant>> = Mutex::new(None);
 /// Checks without a weapon name before the overlay hides it again (a name
 /// only covered on an unchanged screen does not count, see `same_scene`).
 const MISSES_TO_HIDE: u32 = 1;
@@ -840,40 +847,7 @@ pub struct WeaponDetail {
 }
 
 impl WeaponDetail {
-    /// Every perk the weapon can show (normalized name, hash): intrinsic,
-    /// origin traits, every column's perks and their enhanced versions,
-    /// the catalyst. What a hovered tooltip in the game is matched against.
-    fn perk_names(&self) -> Vec<(String, u32)> {
-        let mut out = Vec::new();
-        let mut add = |p: &Perk| {
-            out.push((normalize(&p.name), p.hash));
-            if let Some(e) = &p.enhanced {
-                out.push((normalize(&e.name), e.hash));
-            }
-        };
-        self.frame.iter().chain(&self.origins).chain(self.catalyst.iter()).for_each(&mut add);
-        self.columns.iter().flat_map(|c| &c.perks).for_each(&mut add);
-        out.retain(|(n, _)| n.chars().count() >= 3);
-        out
-    }
 
-    /// Every perk's icon (hash, path), like `perk_names`.
-    fn perk_icons(&self) -> Vec<(u32, String)> {
-        let mut out = Vec::new();
-        let mut add = |p: &Perk| {
-            if let Some(icon) = &p.icon {
-                out.push((p.hash, icon.clone()));
-            }
-            if let Some(e) = &p.enhanced {
-                if let Some(icon) = &e.icon {
-                    out.push((e.hash, icon.clone()));
-                }
-            }
-        };
-        self.frame.iter().chain(&self.origins).chain(self.catalyst.iter()).for_each(&mut add);
-        self.columns.iter().flat_map(|c| &c.perks).for_each(&mut add);
-        out
-    }
 }
 
 #[derive(Clone, Serialize)]
@@ -1926,9 +1900,6 @@ fn scene_alike(a: &[u8], b: &[u8]) -> bool {
 
 /// The inspect page is open over the game: no screen reading meanwhile.
 pub(crate) static PAUSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-/// Whether the perk under the pointer is read (for the overlay's weapon,
-/// which it no longer shows).
-const READ_HOVER: bool = false;
 static LAST_SHOT: Mutex<Option<image::RgbaImage>> = Mutex::new(None);
 
 /// The last item identified (key, when, what): reused when the same name is
@@ -2866,127 +2837,6 @@ fn set_hovered(app: &AppHandle, perk: Option<u32>) {
     }
 }
 
-/// While a weapon is shown: read the game's tooltip next to the pointer and
-/// match its title against that weapon's perks only (a few dozen names, so
-/// a part read or a misread letter still finds the right one).
-async fn check_hover(app: &AppHandle) {
-    let Some(key) = DETECTION.lock().unwrap().shown.clone() else {
-        set_hovered(app, None);
-        set_armor_hovered(app, None);
-        return;
-    };
-    let found = LAST_FOUND.lock().unwrap().as_ref().filter(|(k, _, _)| *k == key).map(|(_, _, f)| f.clone());
-    // What can be hovered: the weapon's perks, or the armor piece's mods
-    // (and an exotic's perks; loaded once per piece, on its first check).
-    let (names, icon_paths, armor_plugs): (Vec<(String, u32)>, Vec<(u32, String)>, Option<Arc<Vec<crate::fireteam::ItemInfo>>>) =
-        match found {
-            Some((Some(weapon), _)) => (weapon.perk_names(), weapon.perk_icons(), None),
-            Some((None, Some(armor))) => {
-                let cached = ARMOR_PLUGS.lock().unwrap().as_ref().filter(|(k, _)| *k == key).map(|(_, p)| p.clone());
-                let plugs = match cached {
-                    Some(plugs) => plugs,
-                    None => {
-                        let plugs = Arc::new(crate::armor::hover_plugs(app, &armor).await);
-                        *ARMOR_PLUGS.lock().unwrap() = Some((key.clone(), plugs.clone()));
-                        plugs
-                    }
-                };
-                // Text: the copy's plugs, and every mod there is (the piece
-                // inspected may not be the copy whose mods were read).
-                let mut names: Vec<(String, u32)> = plugs.iter().map(|p| (normalize(&p.name), p.hash() as u32)).collect();
-                if let Ok(db) = db(app).await {
-                    let mut by_name: HashMap<String, u32> = HashMap::new();
-                    for (&hash, name) in &db.index.mods {
-                        by_name.entry(normalize(name)).or_insert(hash);
-                    }
-                    for (name, hash) in by_name {
-                        if !names.iter().any(|(n, _)| *n == name) {
-                            names.push((name, hash));
-                        }
-                    }
-                }
-                // Icons: only the copy's (too many alike otherwise).
-                let icons = plugs.iter().filter_map(|p| Some((p.hash() as u32, p.icon()?.to_string()))).collect();
-                (names, icons, Some(plugs))
-            }
-            _ => {
-                set_hovered(app, None);
-                set_armor_hovered(app, None);
-                return;
-            }
-        };
-    let (Some((cx, cy)), Some((w, h))) = (screen::cursor_pos(), screen::primary_size()) else { return };
-    // The icons (downloaded once, kept), for the icon under the pointer.
-    let http = app.state::<BungieState>().http.clone();
-    let mut icons = Vec::new();
-    for (hash, path) in icon_paths {
-        if let Some(img) = bungie_image(&http, &path).await {
-            icons.push((hash, img));
-        }
-    }
-    // Perks and mods sit well below the name (under the type line and the
-    // flavor text): a pointer above that is on no icon. (Resting on the
-    // name, plain background there matched a perk's icon just enough.)
-    let below_text = SHOWN_NAME_BOTTOM
-        .lock()
-        .unwrap()
-        .is_none_or(|bottom| cy as f64 >= bottom + 0.11 * h as f64);
-    let found = tauri::async_runtime::spawn_blocking(move || {
-        // The icon under the pointer first (no tooltip text needed), else
-        // the tooltip's title.
-        below_text
-            .then(|| icon_under_pointer(&icons, (cx, cy), (w, h)))
-            .flatten()
-            .or_else(|| hovered_perk(&names, (cx, cy), (w, h)))
-    })
-    .await
-    .ok()
-    .flatten();
-    // Armor: the mod / perk itself goes to the overlay (it has no list of
-    // them); one that isn't the copy's is looked up.
-    let armor_item = match (&armor_plugs, found) {
-        (Some(plugs), Some(h)) => {
-            let item = match plugs.iter().find(|p| p.hash() as u32 == h).cloned() {
-                Some(p) => Some(p),
-                None => crate::fireteam::item(app, h as u64).await,
-            };
-            // A mod's exact numbers from the Compendium, by its English name.
-            match item {
-                Some(item) => {
-                    let english = crate::fireteam::definition_in(app, "DestinyInventoryItemDefinition", h as u64, "en")
-                        .await
-                        .and_then(|d| d["displayProperties"]["name"].as_str().map(String::from));
-                    Some(item.with_exact(english.and_then(|n| crate::compendium::mod_exact(&n))))
-                }
-                None => None,
-            }
-        }
-        _ => None,
-    };
-    let mut seen = HOVER_SEEN.lock().unwrap();
-    let show = |app: &AppHandle, hash: Option<u32>| match &armor_plugs {
-        Some(_) => set_armor_hovered(app, hash.and(armor_item.clone())),
-        None => set_hovered(app, hash),
-    };
-    match found {
-        Some(perk) => {
-            *seen = Some(std::time::Instant::now());
-            drop(seen);
-            show(app, Some(perk));
-        }
-        // A check that didn't read the tooltip doesn't drop the perk: only
-        // a while without it does (it flickered off and on otherwise).
-        None if seen.is_none_or(|at| at.elapsed() >= HOVER_HOLD) => {
-            *seen = None;
-            drop(seen);
-            show(app, None);
-        }
-        None => {}
-    }
-}
-
-/// The shown armor piece's hoverable mods and perks (key, list).
-static ARMOR_PLUGS: Mutex<Option<(String, Arc<Vec<crate::fireteam::ItemInfo>>)>> = Mutex::new(None);
 /// The hovered armor mod / perk (hash), sent as "armor-hover" with the
 /// item when it changes.
 static ARMOR_HOVERED: Mutex<Option<u64>> = Mutex::new(None);
@@ -3000,216 +2850,15 @@ fn set_armor_hovered(app: &AppHandle, plug: Option<crate::fireteam::ItemInfo>) {
     }
 }
 
-/// How often the tooltip is looked for, and how long a perk stays shown
-/// without its tooltip being read.
-const HOVER_INTERVAL: Duration = Duration::from_millis(250);
-const HOVER_HOLD: Duration = Duration::from_millis(1200);
-static HOVER_SEEN: Mutex<Option<std::time::Instant>> = Mutex::new(None);
-
-/// Side of the grid icons are compared on.
-const PERK_GRID: u32 = 32;
-
-/// An icon as a shape to compare: per pixel of the grid, its brightness
-/// where it is drawn (alpha-weighted), so only the glyph counts.
-fn perk_shape(icon: &image::RgbaImage) -> Vec<f64> {
-    let small = image::imageops::resize(icon, PERK_GRID, PERK_GRID, image::imageops::FilterType::Triangle);
-    small
-        .pixels()
-        .map(|p| {
-            let lum = (p[0] as f64 * 0.3 + p[1] as f64 * 0.6 + p[2] as f64 * 0.1) / 255.0;
-            lum * p[3] as f64 / 255.0
-        })
-        .collect()
-}
-
-/// Brightness of a screen patch on the grid.
-fn patch_shape(patch: &image::RgbaImage) -> Vec<f64> {
-    let small = image::imageops::resize(patch, PERK_GRID, PERK_GRID, image::imageops::FilterType::Triangle);
-    small
-        .pixels()
-        .map(|p| (p[0] as f64 * 0.3 + p[1] as f64 * 0.6 + p[2] as f64 * 0.1) / 255.0)
-        .collect()
-}
-
-/// How alike two shapes are (Pearson correlation, -1..1): brightness and
-/// background tint don't matter, the glyph's form does.
-/// Cells of `b` that are NaN (the game's pointer drawn over the icon) are
-/// left out.
-fn correlation(a: &[f64], b: &[f64]) -> f64 {
-    let pairs: Vec<(f64, f64)> = a.iter().zip(b).filter(|(_, y)| !y.is_nan()).map(|(x, y)| (*x, *y)).collect();
-    let n = pairs.len() as f64;
-    if n < 8.0 {
-        return 0.0;
-    }
-    let (ma, mb) = (pairs.iter().map(|p| p.0).sum::<f64>() / n, pairs.iter().map(|p| p.1).sum::<f64>() / n);
-    let (mut cov, mut va, mut vb) = (0.0, 0.0, 0.0);
-    for &(x, y) in &pairs {
-        cov += (x - ma) * (y - mb);
-        va += (x - ma) * (x - ma);
-        vb += (y - mb) * (y - mb);
-    }
-    if va <= 0.0 || vb <= 0.0 {
-        return 0.0;
-    }
-    cov / (va.sqrt() * vb.sqrt())
-}
-
-/// The perk whose icon is under the pointer at (cx, cy): patches of a few
-/// sizes around it (the pointer is anywhere on the icon) compared with each
-/// of `icons`. Only a clear best counts.
-fn icon_under_pointer(icons: &[(u32, Arc<image::RgbaImage>)], (cx, cy): (i32, i32), (w, h): (u32, u32)) -> Option<u32> {
-    if icons.is_empty() {
-        return None;
-    }
-    let s = h as f64 / 1080.0;
-    let reach = 70.0 * s;
-    let (x0, y0) = ((cx as f64 - reach).max(0.0), (cy as f64 - reach).max(0.0));
-    let (x1, y1) = ((cx as f64 + reach).min(w as f64), (cy as f64 + reach).min(h as f64));
-    if x1 - x0 < 20.0 || y1 - y0 < 20.0 {
-        return None;
-    }
-    let area = Region { x: x0 / w as f64, y: y0 / h as f64, w: (x1 - x0) / w as f64, h: (y1 - y0) / h as f64 };
-    let shot = screen::capture_primary_area(Some(area)).ok()?;
-    // One candidate per distinct icon (a perk and its enhanced version share
-    // one: they'd only ever tie with each other), named by its first perk.
-    let mut shapes: Vec<(u32, Vec<f64>)> = Vec::new();
-    let mut seen_icons: Vec<*const image::RgbaImage> = Vec::new();
-    for (hash, img) in icons {
-        let ptr = Arc::as_ptr(img);
-        if !seen_icons.contains(&ptr) {
-            seen_icons.push(ptr);
-            shapes.push((*hash, perk_shape(img)));
-        }
-    }
-    // Best correlation per perk over the patches tried.
-    let mut best_per: HashMap<u32, f64> = HashMap::new();
-    for size in [48.0, 58.0, 70.0, 84.0] {
-        let size = size * s;
-        let step = size / 6.0;
-        for dy in -3..=3 {
-            for dx in -3..=3 {
-                let (px, py) = (cx as f64 + dx as f64 * step - size / 2.0, cy as f64 + dy as f64 * step - size / 2.0);
-                if px < 0.0 || py < 0.0 || px + size > w as f64 || py + size > h as f64 {
-                    continue;
-                }
-                let patch = image::imageops::crop_imm(&shot, px as u32, py as u32, size as u32, size as u32).to_image();
-                let mut shape = patch_shape(&patch);
-                // The game draws its own (white) pointer into the picture,
-                // down and right from its tip: those cells don't count.
-                let cell = size / PERK_GRID as f64;
-                let (tx, ty) = ((cx as f64 - px) / cell, (cy as f64 - py) / cell);
-                let (tw, th) = (26.0 * s / cell, 36.0 * s / cell);
-                for gy in 0..PERK_GRID {
-                    for gx in 0..PERK_GRID {
-                        let (fx, fy) = (gx as f64, gy as f64);
-                        if fx + 1.0 > tx && fx < tx + tw && fy + 1.0 > ty && fy < ty + th {
-                            shape[(gy * PERK_GRID + gx) as usize] = f64::NAN;
-                        }
-                    }
-                }
-                for (hash, perk) in &shapes {
-                    let c = correlation(perk, &shape);
-                    let e = best_per.entry(*hash).or_insert(f64::MIN);
-                    if c > *e {
-                        *e = c;
-                    }
-                }
-            }
-        }
-    }
-    let mut ranked: Vec<(u32, f64)> = best_per.into_iter().collect();
-    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let (hash, top) = *ranked.first()?;
-    let second = ranked.get(1).map_or(0.0, |r| r.1);
-    // Clear enough: alike, and clearly more than any other perk.
-    let clear = top >= ICON_MATCH && top - second >= ICON_MARGIN;
-    log_once(format!(
-        "[hover] icon {hash} {top:.2} (next {second:.2}){}",
-        if clear { "" } else { " – not clear" }
-    ));
-    clear.then_some(hash)
-}
-
-/// How alike the icon under the pointer must be to a perk's, and by how
-/// much more than to any other perk.
-const ICON_MATCH: f64 = 0.6;
-const ICON_MARGIN: f64 = 0.06;
-
-/// The tooltip's title near the pointer at (cx, cy) on a w×h screen, as one
-/// of `names` (normalized name, hash).
-fn hovered_perk(names: &[(String, u32)], (cx, cy): (i32, i32), (w, h): (u32, u32)) -> Option<u32> {
-    let s = h as f64 / 1080.0;
-    // The tooltip opens beside the pointer (right of it, or left near the
-    // screen's edge), its title at about the pointer's height.
-    let (x0, x1) = ((cx as f64 - 700.0 * s).max(0.0), (cx as f64 + 700.0 * s).min(w as f64));
-    // Low on the screen the tooltip opens upwards: its title far above.
-    let (y0, y1) = ((cy as f64 - 450.0 * s).max(0.0), (cy as f64 + 300.0 * s).min(h as f64));
-    if x1 - x0 < 50.0 || y1 - y0 < 50.0 {
-        return None;
-    }
-    let area = Region { x: x0 / w as f64, y: y0 / h as f64, w: (x1 - x0) / w as f64, h: (y1 - y0) / h as f64 };
-    let shot = screen::capture_primary_area(Some(area)).ok()?;
-    let lines = screen::ocr_text_lines(&screen::crop(&shot, area)).ok()?;
-    // Tooltip titles: bigger than its text, about an item name's size at
-    // most (some tooltips' titles are big), and with the tooltip's type line
-    // right below ("ENHANCED TRAIT", "MAGAZINE", …): the inspect screen's own
-    // texts ("LIGHTWEIGHT FRAME" in its list) have none.
-    const TYPES: [&str; 24] = [
-        "TRAIT", "BARREL", "MAGAZINE", "INTRINSIC", "ORIGIN", "CATALYST", "SCOPE", "SIGHT", "GRIP", "STOCK",
-        "BOWSTRING", "ARROW", "BLADE", "GUARD", "HAFT", "BATTERY", "LAUNCHER", "ENHANCEMENT", "FRAME", "PERK",
-        "RAIL", "BOLT", "MOD", "ARMOR",
-    ];
-    let typed = |l: &screen::TextLine| {
-        lines.iter().any(|t| {
-            t.y > l.y + l.h * 0.4 && t.y < l.y + l.h * 3.0 && {
-                let text = normalize(&t.text);
-                TYPES.iter().any(|k| text.contains(k)) && text.chars().count() <= 30
-            }
-        })
-    };
-    let titles: Vec<String> = lines
-        .iter()
-        .filter(|l| l.h >= 16.0 * s && l.h <= 60.0 * s && typed(l))
-        .map(|l| normalize(&l.text))
-        .filter(|t| t.chars().count() >= 4)
-        .collect();
-    let mut best: Option<(f64, u32)> = None;
-    for title in &titles {
-        for (name, hash) in names {
-            // The whole name, or a title that is its start (cut off).
-            let start: String = name.chars().take(title.chars().count()).collect();
-            let score = strsim::jaro_winkler(title, name).max(if title.chars().count() >= 6 {
-                strsim::jaro_winkler(title, &start) - 0.02
-            } else {
-                0.0
-            });
-            if score >= 0.9 && best.is_none_or(|(b, _)| score > b) {
-                best = Some((score, *hash));
-            }
-        }
-    }
-    match best {
-        Some((score, hash)) => log_once(format!("[hover] perk {hash} ({score:.2}) from {titles:?}")),
-        // A tooltip whose title matched none of the weapon's perks (to see
-        // what is missing: masterwork, a mod, a name read differently).
-        None if !lines.is_empty() => {
-            let all: Vec<String> = lines.iter().map(|l| format!("'{}' {:.0}px", l.text, l.h)).collect();
-            log_once(format!("[hover] none of the weapon's perks in {}", all.join(", ")));
-        }
-        None => {}
-    }
-    best.map(|(_, hash)| hash)
-}
-
 /// Background loop: checks the inspect screen while Destiny 2 is in front.
 pub fn start_detection(app: &AppHandle) {
     crate::nameocr::warm_up();
     *LOG_FILE.lock().unwrap() = app.path().app_cache_dir().ok().map(|d| d.join("detect.log"));
-    let app2 = app.clone();
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         loop {
-            tokio::time::sleep(DETECT_INTERVAL).await;
+            let idle = LAST_SEEN.lock().unwrap().is_none_or(|at| at.elapsed() >= IDLE_AFTER);
+            tokio::time::sleep(if idle { IDLE_INTERVAL } else { DETECT_INTERVAL }).await;
             // Off, or the inspect page covers the game.
             if !config(&app).auto || PAUSED.load(std::sync::atomic::Ordering::SeqCst) {
                 continue;
@@ -3218,21 +2867,14 @@ pub fn start_detection(app: &AppHandle) {
             // screenshot tool) the shown item stays, like the other widgets.
             if screen::destiny_in_foreground() {
                 detect_tick(&app).await;
-            }
-        }
-    });
-    // The hovered perk on its own, quicker beat (only while a weapon is
-    // shown: a small picture around the pointer). Off while the overlay
-    // shows no weapon (the inspect page has the pointer itself).
-    tauri::async_runtime::spawn(async move {
-        loop {
-            tokio::time::sleep(HOVER_INTERVAL).await;
-            if READ_HOVER
-                && DETECTION.lock().unwrap().shown.is_some()
-                && !PAUSED.load(std::sync::atomic::Ordering::SeqCst)
-                && screen::destiny_in_foreground()
-            {
-                check_hover(&app2).await;
+                // Something on screen (shown, or a heading read): quick
+                // checks for a while, so moving on from it shows at once.
+                let seen = DETECTION.lock().unwrap().shown.is_some()
+                    || GUARDIAN_ON_SCREEN.lock().unwrap().0.is_some()
+                    || !BIG_LINES.lock().unwrap().is_empty();
+                if seen {
+                    *LAST_SEEN.lock().unwrap() = Some(std::time::Instant::now());
+                }
             }
         }
     });

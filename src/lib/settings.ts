@@ -35,6 +35,8 @@ export interface Settings {
   widgets: { session: boolean; stats: boolean; weapon: boolean };
   /** Install updates by itself (never while Destiny runs). */
   autoUpdate: boolean;
+  /** Look for updates on GitHub by itself (off: only when asked). */
+  updateChecks: boolean;
 }
 
 
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showInCapture: true,
   widgets: { session: true, stats: true, weapon: true },
   autoUpdate: false,
+  updateChecks: true,
 };
 
 const KEY = "radar.settings";

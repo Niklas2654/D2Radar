@@ -54,7 +54,8 @@ export default async function handler(req: Request, res: Response) {
   }).catch(() => null);
   if (!answer) return res.status(502).json({ error: "bungie_unreachable" });
   const json = await answer.json().catch(() => ({ error: "bungie_bad_answer" }));
-  if (answer.ok) await count(form.get("grant_type") === "authorization_code", json, secret);
+  // (Not when the player turned it off in Radar: Settings → Privacy.)
+  if (answer.ok && body.count !== false) await count(form.get("grant_type") === "authorization_code", json, secret);
   return res.status(answer.status).json(json);
 }
 

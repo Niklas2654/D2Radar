@@ -606,6 +606,13 @@ const ru: Record<TranslationKey, string> = {
   "update.progress": "Загрузка обновления … {percent} %",
   "update.auto": "Обновлять автоматически",
   "update.autoHint": "Устанавливает новые версии сам — никогда во время игры в Destiny.",
+  "privacy.title": "Конфиденциальность",
+  "privacy.subtitle": "Что Radar отправляет сам — и то и другое можно отключить",
+  "privacy.updates": "Автоматически искать обновления",
+  "privacy.updatesHint": "Спрашивает GitHub при запуске и каждый час, есть ли новая версия. Выключено: только через «Проверить обновления».",
+  "privacy.count": "Учитывать меня анонимно",
+  "privacy.countHint": "При входе через Bungie сервер Radar считает, сколько человек пользуются Radar, — без сохранения имён, ID и токенов.",
+  "privacy.policy": "Политика конфиденциальности",
   "settings.disclaimer":
     "Radar – фанатский проект, не связанный с Bungie. Destiny является товарным знаком Bungie, Inc.",
 };

@@ -639,6 +639,13 @@ const de = {
   "update.progress": "Update lädt … {percent} %",
   "update.auto": "Automatisch aktualisieren",
   "update.autoHint": "Installiert neue Versionen von selbst – nie, während Destiny läuft.",
+  "privacy.title": "Datenschutz",
+  "privacy.subtitle": "Was Radar von sich aus ins Internet schickt – beides lässt sich abschalten",
+  "privacy.updates": "Automatisch nach Updates suchen",
+  "privacy.updatesHint": "Fragt GitHub beim Start und stündlich, ob es eine neue Version gibt. Aus: nur noch über „Nach Updates suchen“.",
+  "privacy.count": "Anonym mitzählen",
+  "privacy.countHint": "Beim Bungie-Login zählt Radars Server, wie viele Radar nutzen – ohne Namen, IDs oder Tokens zu speichern.",
+  "privacy.policy": "Datenschutzerklärung",
   "settings.disclaimer":
     "Radar ist ein Fan-Projekt und steht in keiner Verbindung zu Bungie. Destiny ist eine Marke von Bungie, Inc.",
 } as const;
@@ -1251,6 +1258,13 @@ const en: Record<TranslationKey, string> = {
   "update.progress": "Downloading update … {percent} %",
   "update.auto": "Update automatically",
   "update.autoHint": "Installs new versions by itself – never while Destiny is running.",
+  "privacy.title": "Privacy",
+  "privacy.subtitle": "What Radar sends on its own – both can be turned off",
+  "privacy.updates": "Check for updates automatically",
+  "privacy.updatesHint": "Asks GitHub at start and every hour whether there is a new version. Off: only via “Check for updates”.",
+  "privacy.count": "Count me anonymously",
+  "privacy.countHint": "When you log in with Bungie, Radar's server counts how many use Radar – no names, ids or tokens stored.",
+  "privacy.policy": "Privacy policy",
   "settings.disclaimer":
     "Radar is a fan project and is not affiliated with Bungie. Destiny is a trademark of Bungie, Inc.",
 };

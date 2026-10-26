@@ -81,7 +81,7 @@ let waitingForGame = 0;
  *  isn't running. */
 export async function autoInstall() {
   window.clearTimeout(waitingForGame);
-  if (!getSettings().autoUpdate || state.kind !== "available") return;
+  if (!getSettings().autoUpdate || !getSettings().updateChecks || state.kind !== "available") return;
   const overlay = await call<{ gameRunning: boolean }>("get_overlay_state").catch(() => null);
   if (overlay?.gameRunning) {
     waitingForGame = window.setTimeout(() => void autoInstall(), GAME_CHECK_MS);
@@ -96,7 +96,10 @@ let started = false;
 export function startUpdateChecks() {
   if (!isTauri || started) return;
   started = true;
-  const look = () => void checkForUpdate(true).then(autoInstall);
+  // (Not at all when turned off: Settings → Privacy.)
+  const look = () => {
+    if (getSettings().updateChecks) void checkForUpdate(true).then(autoInstall);
+  };
   const lookIfOlder = (ms: number) => {
     if (Date.now() - lastCheck >= ms) look();
   };

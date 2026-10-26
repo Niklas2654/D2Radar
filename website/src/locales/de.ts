@@ -6,7 +6,7 @@ const de: Strings = {
     badge: "Kostenlos für Windows · v{version}",
     title: "Sieh, was dir das Spiel",
     titleAccent: "nicht verrät.",
-    text: "Alles über deinen Hüter, direkt neben dem Spiel. Radar erkennt die Waffe, Rüstung oder den Hüter, den du dir ansiehst, und zeigt, was das Spiel nicht zeigt: jeden Roll, exakte Zahlen, Clears, Lowmans und Builds. Dazu Loadouts, DIM und Discord nur einen Hotkey entfernt.",
+    text: "Alles über deinen Hüter, direkt neben dem Spiel. Radar erkennt die Waffe, Rüstung oder den Hüter, den du dir ansiehst, und zeigt, was das Spiel nicht zeigt: jeden Roll, exakte Zahlen, Clears, Lowmans und Builds. Dazu alle Loadouts an einem Ort und DIM und Discord nur einen Hotkey entfernt.",
     download: "Download für Windows",
     features: "Alle Funktionen ansehen",
     meta: "{size} · Windows 10/11 · Nicht mit Bungie verbunden",
@@ -77,7 +77,7 @@ const de: Strings = {
       {
         title: "Alle deine Loadouts",
         subtitle: "Ingame-Slots, DIM-Loadouts und Presets nebeneinander",
-        points: ["Ein Loadout per Hotkey ausrüsten, im Spiel", "Ein Ingame-Loadout mit Namen in DIM speichern", "Presets, die mehrere Loadouts auf einmal wechseln"],
+        points: ["Jedes Loadout mit einem Klick ausrüsten", "Ein Ingame-Loadout mit Namen in DIM speichern", "Presets, die mehrere Loadouts auf einmal wechseln"],
       },
       {
         title: "Der Build jedes Hüters",
@@ -117,8 +117,8 @@ const de: Strings = {
         text: "Auf dem Artefakt-Bildschirm listet Radar jeden Perk des Saison-Artefakts mit dem, was er wirklich tut.",
       },
       {
-        title: "Loadouts per Hotkey",
-        text: "Ingame- und DIM-Loadouts ausrüsten, ohne das Spiel zu verlassen – oder ein ganzes Preset auf einmal wechseln.",
+        title: "Alle Loadouts an einem Ort",
+        text: "Ingame- und DIM-Loadouts mit einem Klick ausrüsten, neue in DIM speichern – oder ein ganzes Preset auf einmal wechseln.",
       },
       {
         title: "DIM und Discord über dem Spiel",
@@ -148,6 +148,7 @@ const de: Strings = {
       "Liest nur, was auf deinem Bildschirm ist, wie ein Screenshot",
       "Deine Daten kommen von Bungies offizieller API, wie bei DIM",
       "Dein Bungie-Login bleibt auf deinem PC",
+      "Open Source: der komplette Code ist öffentlich auf GitHub",
     ],
   },
   how: {
@@ -170,7 +171,8 @@ const de: Strings = {
         q: "Kann ich für Radar gebannt werden?",
         a: "Radar injiziert nichts, liest nicht den Speicher des Spiels und schickt nie Eingaben an Destiny 2. Es liest, was auf deinem Bildschirm ist (wie ein Screenshot), und spricht mit Bungies offizieller API – genauso wie DIM und andere Companion-Apps.",
       },
-      { q: "Ist es kostenlos?", a: "Ja. Radar ist kostenlos herunterzuladen und zu benutzen." },
+      { q: "Ist es kostenlos?", a: "Ja. Radar ist kostenlos herunterzuladen und zu benutzen." },
+      { q: "Ist Radar Open Source?", a: "Ja. Der komplette Quellcode von Radar ist öffentlich auf GitHub – github.com/Niklas2654/D2Radar – unter der Lizenz GPL-3.0. Der Code jeder veröffentlichten Version steht dort." },
       {
         q: "Wofür ist der Bungie-Login?",
         a: "Du meldest dich auf Bungies eigener Seite an – Radar sieht dein Passwort nie. Damit kann Radar deinen Tresor und dein Inventar lesen und deine Ausrüstung verschieben oder anlegen. Der Login bleibt auf deinem PC.",
@@ -202,14 +204,17 @@ const de: Strings = {
     version: "Version {version}",
     installer: "{size} Installer",
     windows: "Windows 10 / 11",
-    free: "Kostenlos",
+    free: "Kostenlos",
+    openSource: "Open Source",
     downloads: "{n} Downloads",
     downloadsLive: "Live gezählt",
-    guardians: "{n} Guardians verbunden",
+    active: "{n} aktive Guardians",
+    activeLive: "Bungie-Konten, die Radar in den letzten 30 Tagen genutzt haben – live gezählt",
   },
   footer: {
     legal: "Impressum",
-    privacy: "Datenschutz",
+    privacy: "Datenschutz",
+    source: "Quellcode",
     disclaimer: "Nicht mit Bungie verbunden. Destiny 2 ist eine Marke von Bungie, Inc.",
   },
 };

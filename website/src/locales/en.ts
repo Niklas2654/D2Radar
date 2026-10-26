@@ -4,7 +4,7 @@ const en = {
     badge: "Free for Windows · v{version}",
     title: "See what the game",
     titleAccent: "won't tell you.",
-    text: "Everything about your Guardian, right next to the game. Radar recognises the weapon, armor or Guardian you're looking at and shows what the game doesn't: every roll, exact numbers, clears, lowmans and builds. Plus loadouts, DIM and Discord one hotkey away.",
+    text: "Everything about your Guardian, right next to the game. Radar recognises the weapon, armor or Guardian you're looking at and shows what the game doesn't: every roll, exact numbers, clears, lowmans and builds. Plus all your loadouts in one place, and DIM and Discord one hotkey away.",
     download: "Download for Windows",
     features: "See all features",
     meta: "{size} · Windows 10/11 · Not affiliated with Bungie",
@@ -75,7 +75,7 @@ const en = {
       {
         title: "All your loadouts",
         subtitle: "In-game slots, DIM loadouts and presets side by side",
-        points: ["Equip a loadout with a hotkey, in game", "Save an in-game loadout to DIM with a name", "Presets that switch several loadouts at once"],
+        points: ["Equip any loadout in one click", "Save an in-game loadout to DIM with a name", "Presets that switch several loadouts at once"],
       },
       {
         title: "Any Guardian's build",
@@ -115,8 +115,8 @@ const en = {
         text: "On the artifact screen Radar lists every perk of the season's artifact with what it actually does.",
       },
       {
-        title: "Loadouts on a hotkey",
-        text: "Equip in-game and DIM loadouts without leaving the game, or switch a whole preset at once.",
+        title: "All your loadouts in one place",
+        text: "Equip in-game and DIM loadouts in one click, save new ones to DIM, or switch a whole preset at once.",
       },
       {
         title: "DIM and Discord over the game",
@@ -146,6 +146,7 @@ const en = {
       "Reads only what's on your screen, like a screenshot",
       "Your data comes from Bungie's official API, as with DIM",
       "Your Bungie login stays on your PC",
+      "Open source: every line of code is public on GitHub",
     ],
   },
   how: {
@@ -168,7 +169,8 @@ const en = {
         q: "Can I get banned for using Radar?",
         a: "Radar doesn't inject anything, doesn't read the game's memory and never sends input to Destiny 2. It reads what is on your screen (like a screenshot) and talks to Bungie's official API — the same way DIM and other companion apps do.",
       },
-      { q: "Is it free?", a: "Yes. Radar is free to download and use." },
+      { q: "Is it free?", a: "Yes. Radar is free to download and use." },
+      { q: "Is Radar open source?", a: "Yes. Radar's full source code is public on GitHub – github.com/Niklas2654/D2Radar – under the GPL-3.0 license. The code of every released version is published there." },
       {
         q: "What does the Bungie login do?",
         a: "You log in on Bungie's own page – Radar never sees your password. It lets Radar read your vault and inventory and move or equip your gear. The login stays on your PC.",
@@ -200,14 +202,17 @@ const en = {
     version: "Version {version}",
     installer: "{size} installer",
     windows: "Windows 10 / 11",
-    free: "Free",
+    free: "Free",
+    openSource: "Open source",
     downloads: "{n} downloads",
     downloadsLive: "Counted live",
-    guardians: "{n} Guardians connected",
+    active: "{n} active Guardians",
+    activeLive: "Bungie accounts that used Radar in the last 30 days – counted live",
   },
   footer: {
     legal: "Legal notice",
-    privacy: "Privacy",
+    privacy: "Privacy",
+    source: "Source code",
     disclaimer: "Not affiliated with Bungie. Destiny 2 is a trademark of Bungie, Inc.",
   },
 };

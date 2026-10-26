@@ -1,0 +1,68 @@
+﻿RADAR – a companion app for Destiny 2
+
+Radar is free and open source (GPL-3.0):
+https://github.com/Niklas2654/D2Radar
+It is a fan project and not affiliated with Bungie. Destiny is a trademark of Bungie, Inc.
+
+
+PRIVACY – WHAT RADAR CONNECTS TO
+
+Radar reads parts of your screen while Destiny 2 runs to recognise what you look at. This stays on your PC: no pictures or recognised text are sent anywhere.
+
+Radar connects to:
+- Bungie (bungie.net): your Destiny data, and your Bungie login.
+- Radar's login service (d2radar.vercel.app): passes your Bungie login on to Bungie, because Radar's app credentials must not be in the app. It stores no tokens. It counts, anonymously, how many people use Radar (a one-way hash of your account number in a statistical estimate, no names or ids kept).
+  You can turn the counting off: Settings → Privacy → "Count me anonymously".
+- GitHub (github.com): looks for new versions at start and every hour.
+  You can turn this off: Settings → Privacy → "Check for updates automatically".
+- Community data for exact perk numbers (Clarity, on GitHub), loaded in the background.
+- DIM and Discord only if you open them in Radar; they are their own websites with their own privacy policies.
+
+Full privacy policy: https://d2radar.vercel.app/privacy
+
+
+UNINSTALLING
+
+Windows Settings → Apps → Installed apps → Radar → Uninstall.
+Your settings and caches stay in %APPDATA%\app.radar.overlay and %LOCALAPPDATA%\app.radar.overlay; delete those folders to remove them too.
+
+
+CODE SIGNING
+
+Code signing policy: https://d2radar.vercel.app/code-signing
+
+
+-----------------------------------------------------------------------
+
+RADAR – eine Begleit-App für Destiny 2
+
+Radar ist kostenlos und Open Source (GPL-3.0):
+https://github.com/Niklas2654/D2Radar
+Ein Fanprojekt, nicht mit Bungie verbunden. Destiny ist eine Marke der Bungie, Inc.
+
+
+DATENSCHUTZ – WOMIT SICH RADAR VERBINDET
+
+Radar liest, während Destiny 2 läuft, Teile deines Bildschirms, um zu erkennen, was du dir ansiehst. Das bleibt auf deinem PC: Bilder und erkannte Texte werden nirgendwohin geschickt.
+
+Radar verbindet sich mit:
+- Bungie (bungie.net): deine Destiny-Daten und dein Bungie-Login.
+- Radars Login-Dienst (d2radar.vercel.app): reicht dein Bungie-Login an Bungie weiter, weil Radars App-Zugangsdaten nicht in der App stehen dürfen. Er speichert keine Tokens. Er zählt anonym, wie viele Radar nutzen (ein nicht umkehrbarer Hash deiner Kontonummer in einer statistischen Schätzung, keine Namen oder IDs).
+  Das Zählen lässt sich abschalten: Einstellungen → Datenschutz → „Anonym mitzählen“.
+- GitHub (github.com): sucht beim Start und stündlich nach neuen Versionen.
+  Lässt sich abschalten: Einstellungen → Datenschutz → „Automatisch nach Updates suchen“.
+- Community-Daten für genaue Perk-Werte (Clarity, auf GitHub), im Hintergrund geladen.
+- DIM und Discord nur, wenn du sie in Radar öffnest; das sind eigene Websites mit eigenen Datenschutzerklärungen.
+
+Vollständige Datenschutzerklärung: https://d2radar.vercel.app/privacy
+
+
+DEINSTALLIEREN
+
+Windows-Einstellungen → Apps → Installierte Apps → Radar → Deinstallieren.
+Einstellungen und Zwischenspeicher bleiben in %APPDATA%\app.radar.overlay und %LOCALAPPDATA%\app.radar.overlay; lösche diese Ordner, um auch sie zu entfernen.
+
+
+CODESIGNIERUNG
+
+Code signing policy: https://d2radar.vercel.app/code-signing

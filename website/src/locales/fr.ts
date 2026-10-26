@@ -6,7 +6,7 @@ const fr: Strings = {
     badge: "Gratuit pour Windows · v{version}",
     title: "Vois ce que le jeu",
     titleAccent: "ne te dit pas.",
-    text: "Tout sur ton Gardien, juste à côté du jeu. Radar reconnaît l'arme, l'armure ou le Gardien que tu regardes et affiche ce que le jeu cache : chaque roll, des valeurs exactes, clears, lowmans et builds. Et en plus les équipements, DIM et Discord à un raccourci près.",
+    text: "Tout sur ton Gardien, juste à côté du jeu. Radar reconnaît l'arme, l'armure ou le Gardien que tu regardes et affiche ce que le jeu cache : chaque roll, des valeurs exactes, clears, lowmans et builds. Et en plus tous tes équipements au même endroit, DIM et Discord à un raccourci près.",
     download: "Télécharger pour Windows",
     features: "Voir toutes les fonctions",
     meta: "{size} · Windows 10/11 · Non affilié à Bungie",
@@ -77,7 +77,7 @@ const fr: Strings = {
       {
         title: "Tous tes équipements",
         subtitle: "Emplacements en jeu, équipements DIM et presets côte à côte",
-        points: ["Équipe un équipement avec un raccourci, en jeu", "Enregistre un équipement du jeu dans DIM avec un nom", "Des presets qui changent plusieurs équipements d'un coup"],
+        points: ["Équipe n'importe quel équipement en un clic", "Enregistre un équipement du jeu dans DIM avec un nom", "Des presets qui changent plusieurs équipements d'un coup"],
       },
       {
         title: "Le build de n'importe quel Gardien",
@@ -117,8 +117,8 @@ const fr: Strings = {
         text: "Sur l'écran de l'artefact, Radar liste chaque attribut de l'artefact de la saison avec ce qu'il fait vraiment.",
       },
       {
-        title: "Équipements sur un raccourci",
-        text: "Équipe les équipements du jeu et de DIM sans quitter la partie, ou change tout un preset d'un coup.",
+        title: "Tous tes équipements au même endroit",
+        text: "Équipe les équipements du jeu et de DIM en un clic, enregistre-en de nouveaux dans DIM, ou change tout un preset d'un coup.",
       },
       {
         title: "DIM et Discord par-dessus le jeu",
@@ -148,6 +148,7 @@ const fr: Strings = {
       "Lit seulement ce qui est à l'écran, comme une capture",
       "Tes données viennent de l'API officielle de Bungie, comme avec DIM",
       "Ta connexion Bungie reste sur ton PC",
+      "Open source : tout le code est public sur GitHub",
     ],
   },
   how: {
@@ -170,7 +171,8 @@ const fr: Strings = {
         q: "Puis-je être banni pour utiliser Radar ?",
         a: "Radar n'injecte rien, ne lit pas la mémoire du jeu et n'envoie jamais d'entrée à Destiny 2. Il lit ce qui est à l'écran (comme une capture) et utilise l'API officielle de Bungie — comme DIM et les autres applications compagnons.",
       },
-      { q: "C'est gratuit ?", a: "Oui. Radar est gratuit à télécharger et à utiliser." },
+      { q: "C'est gratuit ?", a: "Oui. Radar est gratuit à télécharger et à utiliser." },
+      { q: "Radar est-il open source ?", a: "Oui. Tout le code source de Radar est public sur GitHub – github.com/Niklas2654/D2Radar – sous licence GPL-3.0. Le code de chaque version publiée y est publié." },
       {
         q: "À quoi sert la connexion Bungie ?",
         a: "Tu te connectes sur la page de Bungie – Radar ne voit jamais ton mot de passe. Elle permet à Radar de lire ton coffre et ton inventaire et de déplacer ou équiper ton équipement. La connexion reste sur ton PC.",
@@ -202,14 +204,17 @@ const fr: Strings = {
     version: "Version {version}",
     installer: "Installateur de {size}",
     windows: "Windows 10 / 11",
-    free: "Gratuit",
+    free: "Gratuit",
+    openSource: "Open source",
     downloads: "{n} téléchargements",
     downloadsLive: "Compté en direct",
-    guardians: "{n} Gardiens connectés",
+    active: "{n} Gardiens actifs",
+    activeLive: "Comptes Bungie ayant utilisé Radar ces 30 derniers jours – compté en direct",
   },
   footer: {
     legal: "Mentions légales",
-    privacy: "Confidentialité",
+    privacy: "Confidentialité",
+    source: "Code source",
     disclaimer: "Non affilié à Bungie. Destiny 2 est une marque de Bungie, Inc.",
   },
 };

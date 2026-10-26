@@ -6,7 +6,7 @@ const pl: Strings = {
     badge: "Za darmo na Windows · v{version}",
     title: "Zobacz to, czego gra",
     titleAccent: "ci nie powie.",
-    text: "Wszystko o twoim Strażniku, tuż obok gry. Radar rozpoznaje broń, pancerz lub Strażnika, na którego patrzysz, i pokazuje to, czego gra nie pokazuje: każdy roll, dokładne wartości, ukończenia, lowmany i buildy. Do tego uzbrojenia, DIM i Discord pod jednym skrótem.",
+    text: "Wszystko o twoim Strażniku, tuż obok gry. Radar rozpoznaje broń, pancerz lub Strażnika, na którego patrzysz, i pokazuje to, czego gra nie pokazuje: każdy roll, dokładne wartości, ukończenia, lowmany i buildy. Do tego wszystkie uzbrojenia w jednym miejscu, a DIM i Discord pod jednym skrótem.",
     download: "Pobierz na Windows",
     features: "Zobacz wszystkie funkcje",
     meta: "{size} · Windows 10/11 · Niezwiązany z Bungie",
@@ -77,7 +77,7 @@ const pl: Strings = {
       {
         title: "Wszystkie twoje uzbrojenia",
         subtitle: "Sloty w grze, uzbrojenia DIM i presety obok siebie",
-        points: ["Załóż uzbrojenie skrótem, w grze", "Zapisz uzbrojenie z gry w DIM pod nazwą", "Presety, które zmieniają kilka uzbrojeń naraz"],
+        points: ["Załóż dowolne uzbrojenie jednym kliknięciem", "Zapisz uzbrojenie z gry w DIM pod nazwą", "Presety, które zmieniają kilka uzbrojeń naraz"],
       },
       {
         title: "Build dowolnego Strażnika",
@@ -117,8 +117,8 @@ const pl: Strings = {
         text: "Na ekranie artefaktu Radar pokazuje każdą cechę artefaktu sezonu z tym, co naprawdę robi.",
       },
       {
-        title: "Uzbrojenia pod skrótem",
-        text: "Zakładaj uzbrojenia z gry i z DIM bez wychodzenia z gry albo zmieniaj cały preset naraz.",
+        title: "Wszystkie uzbrojenia w jednym miejscu",
+        text: "Zakładaj uzbrojenia z gry i z DIM jednym kliknięciem, zapisuj nowe w DIM albo zmieniaj cały preset naraz.",
       },
       {
         title: "DIM i Discord nad grą",
@@ -148,6 +148,7 @@ const pl: Strings = {
       "Czyta tylko to, co jest na ekranie, jak zrzut ekranu",
       "Twoje dane pochodzą z oficjalnego API Bungie, tak jak w DIM",
       "Twoje logowanie Bungie zostaje na twoim PC",
+      "Open source: cały kod jest publiczny na GitHubie",
     ],
   },
   how: {
@@ -170,7 +171,8 @@ const pl: Strings = {
         q: "Czy mogę dostać bana za używanie Radaru?",
         a: "Radar niczego nie wstrzykuje, nie czyta pamięci gry i nigdy nie wysyła sterowania do Destiny 2. Czyta to, co jest na ekranie (jak zrzut ekranu), i korzysta z oficjalnego API Bungie — tak samo jak DIM i inne aplikacje towarzyszące.",
       },
-      { q: "Czy jest darmowy?", a: "Tak. Radar można pobrać i używać za darmo." },
+      { q: "Czy jest darmowy?", a: "Tak. Radar można pobrać i używać za darmo." },
+      { q: "Czy Radar jest open source?", a: "Tak. Cały kod źródłowy Radara jest publiczny na GitHubie – github.com/Niklas2654/D2Radar – na licencji GPL-3.0. Kod każdej wydanej wersji jest tam publikowany." },
       {
         q: "Do czego służy logowanie Bungie?",
         a: "Logujesz się na stronie Bungie – Radar nigdy nie widzi twojego hasła. Dzięki temu Radar może czytać schowek i ekwipunek oraz przenosić i zakładać twój sprzęt. Logowanie zostaje na twoim PC.",
@@ -202,14 +204,17 @@ const pl: Strings = {
     version: "Wersja {version}",
     installer: "Instalator {size}",
     windows: "Windows 10 / 11",
-    free: "Za darmo",
+    free: "Za darmo",
+    openSource: "Open source",
     downloads: "{n} pobrań",
     downloadsLive: "Liczone na żywo",
-    guardians: "{n} Strażników połączonych",
+    active: "{n} aktywnych Strażników",
+    activeLive: "Konta Bungie, które używały Radara w ostatnich 30 dniach – liczone na żywo",
   },
   footer: {
     legal: "Nota prawna",
-    privacy: "Prywatność",
+    privacy: "Prywatność",
+    source: "Kod źródłowy",
     disclaimer: "Niezwiązany z Bungie. Destiny 2 jest znakiem towarowym Bungie, Inc.",
   },
 };

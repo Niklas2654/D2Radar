@@ -28,6 +28,8 @@ export function useReveal() {
 /** Where the Windows installer is: the newest release of the public
  *  D2Radar repo (published by `pnpm release`, always under this name). */
 export const DOWNLOAD_URL = "https://github.com/Niklas2654/D2Radar/releases/latest/download/Radar-setup.exe";
+/** Radar's source code (public, GPL-3.0). */
+export const REPO_URL = "https://github.com/Niklas2654/D2Radar";
 /** The released version and the installer's size, as shown on the page
  *  (set by the release workflow, .github/workflows/release.yml). */
 export const VERSION: string = import.meta.env.VITE_RADAR_VERSION ?? "0.1.0";
@@ -58,8 +60,8 @@ function useLiveNumber(url: string, field: string): number | null {
 
 /** How often Radar was downloaded (api/downloads.ts). */
 export const useDownloads = () => useLiveNumber("/api/downloads", "downloads");
-/** How many different Bungie accounts were connected to Radar (api/stats.ts). */
-export const useGuardians = () => useLiveNumber("/api/stats", "guardians");
+/** How many different Bungie accounts used Radar in the last 30 days (api/stats.ts). */
+export const useActive = () => useLiveNumber("/api/stats", "activeMonth");
 
 /** The site's colour, picked in the demo's settings (Void until then),
  *  kept in this browser so the site always comes up in it. */

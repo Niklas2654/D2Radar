@@ -6,7 +6,7 @@ const es: Strings = {
     badge: "Gratis para Windows · v{version}",
     title: "Mira lo que el juego",
     titleAccent: "no te dice.",
-    text: "Todo sobre tu Guardián, justo al lado del juego. Radar reconoce el arma, la armadura o el Guardián que estás mirando y muestra lo que el juego no: cada roll, valores exactos, clears, lowmans y builds. Además, equipaciones, DIM y Discord a un atajo de distancia.",
+    text: "Todo sobre tu Guardián, justo al lado del juego. Radar reconoce el arma, la armadura o el Guardián que estás mirando y muestra lo que el juego no: cada roll, valores exactos, clears, lowmans y builds. Además, todas tus equipaciones en un solo lugar, y DIM y Discord a un atajo de distancia.",
     download: "Descargar para Windows",
     features: "Ver todas las funciones",
     meta: "{size} · Windows 10/11 · Sin afiliación con Bungie",
@@ -77,7 +77,7 @@ const es: Strings = {
       {
         title: "Todas tus equipaciones",
         subtitle: "Ranuras del juego, equipaciones de DIM y presets lado a lado",
-        points: ["Equipa una equipación con un atajo, en el juego", "Guarda una equipación del juego en DIM con un nombre", "Presets que cambian varias equipaciones a la vez"],
+        points: ["Equipa cualquier equipación con un clic", "Guarda una equipación del juego en DIM con un nombre", "Presets que cambian varias equipaciones a la vez"],
       },
       {
         title: "La build de cualquier Guardián",
@@ -117,8 +117,8 @@ const es: Strings = {
         text: "En la pantalla del artefacto, Radar lista cada ventaja del artefacto de la temporada con lo que hace de verdad.",
       },
       {
-        title: "Equipaciones con un atajo",
-        text: "Equipa equipaciones del juego y de DIM sin salir de la partida, o cambia un preset entero de una vez.",
+        title: "Todas tus equipaciones en un lugar",
+        text: "Equipa equipaciones del juego y de DIM con un clic, guarda nuevas en DIM o cambia un preset entero de una vez.",
       },
       {
         title: "DIM y Discord sobre el juego",
@@ -148,6 +148,7 @@ const es: Strings = {
       "Solo lee lo que hay en tu pantalla, como una captura",
       "Tus datos vienen de la API oficial de Bungie, como con DIM",
       "Tu inicio de sesión de Bungie se queda en tu PC",
+      "Código abierto: todo el código es público en GitHub",
     ],
   },
   how: {
@@ -170,7 +171,8 @@ const es: Strings = {
         q: "¿Me pueden banear por usar Radar?",
         a: "Radar no inyecta nada, no lee la memoria del juego y nunca envía entradas a Destiny 2. Lee lo que hay en tu pantalla (como una captura) y habla con la API oficial de Bungie — igual que DIM y otras apps complementarias.",
       },
-      { q: "¿Es gratis?", a: "Sí. Radar es gratis de descargar y usar." },
+      { q: "¿Es gratis?", a: "Sí. Radar es gratis de descargar y usar." },
+      { q: "¿Radar es de código abierto?", a: "Sí. Todo el código fuente de Radar es público en GitHub – github.com/Niklas2654/D2Radar – bajo la licencia GPL-3.0. El código de cada versión publicada está allí." },
       {
         q: "¿Para qué sirve el inicio de sesión de Bungie?",
         a: "Inicias sesión en la propia página de Bungie – Radar nunca ve tu contraseña. Permite a Radar leer tu depósito e inventario y mover o equipar tu equipo. El inicio de sesión se queda en tu PC.",
@@ -202,14 +204,17 @@ const es: Strings = {
     version: "Versión {version}",
     installer: "Instalador de {size}",
     windows: "Windows 10 / 11",
-    free: "Gratis",
+    free: "Gratis",
+    openSource: "Código abierto",
     downloads: "{n} descargas",
     downloadsLive: "Contado en directo",
-    guardians: "{n} Guardianes conectados",
+    active: "{n} Guardianes activos",
+    activeLive: "Cuentas de Bungie que usaron Radar en los últimos 30 días – contado en directo",
   },
   footer: {
     legal: "Aviso legal",
-    privacy: "Privacidad",
+    privacy: "Privacidad",
+    source: "Código fuente",
     disclaimer: "Sin afiliación con Bungie. Destiny 2 es una marca registrada de Bungie, Inc.",
   },
 };

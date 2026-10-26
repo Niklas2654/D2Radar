@@ -606,6 +606,13 @@ const fr: Record<TranslationKey, string> = {
   "update.progress": "Téléchargement de la mise à jour … {percent} %",
   "update.auto": "Mettre à jour automatiquement",
   "update.autoHint": "Installe les nouvelles versions tout seul – jamais pendant que Destiny tourne.",
+  "privacy.title": "Confidentialité",
+  "privacy.subtitle": "Ce que Radar envoie de lui-même – les deux peuvent être désactivés",
+  "privacy.updates": "Rechercher automatiquement des mises à jour",
+  "privacy.updatesHint": "Demande à GitHub au démarrage et toutes les heures s'il y a une nouvelle version. Désactivé : seulement via « Rechercher des mises à jour ».",
+  "privacy.count": "Me compter anonymement",
+  "privacy.countHint": "À la connexion Bungie, le serveur de Radar compte combien de personnes utilisent Radar – sans stocker de noms, d'identifiants ni de jetons.",
+  "privacy.policy": "Politique de confidentialité",
   "settings.disclaimer":
     "Radar est un projet de fan et n'est pas affilié à Bungie. Destiny est une marque de Bungie, Inc.",
 };

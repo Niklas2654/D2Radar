@@ -89,27 +89,6 @@ pub(crate) async fn identify(app: &AppHandle, hashes: &[u32]) -> Option<ArmorDet
     Some(ArmorDetail { item, sets, from_copy: copy.is_some(), versions: hashes.to_vec() })
 }
 
-/// What can be hovered on the piece's inspect screen: the mods in the
-/// player's copy, and an exotic's perks. Loaded on the first hover (it
-/// takes a moment: the inventory and every mod's definition).
-pub(crate) async fn hover_plugs(app: &AppHandle, detail: &ArmorDetail) -> Vec<ItemInfo> {
-    let owned = crate::inventory::owned_items_quick(app).await.unwrap_or_default();
-    let copy = owned
-        .iter()
-        .filter(|o| detail.versions.contains(&o.item_hash))
-        .min_by_key(|o| match o.location {
-            "equipped" => 0,
-            "inventory" => 1,
-            _ => 2,
-        });
-    let Some(copy) = copy else { return detail.item.perks().to_vec() };
-    let plugs: Vec<u64> = copy.socket_plugs.iter().map(|&p| p as u64).collect();
-    let Some(info) = item_with_plugs(app, copy.item_hash as u64, &plugs).await else {
-        return detail.item.perks().to_vec();
-    };
-    info.perks().iter().chain(info.mods()).cloned().collect()
-}
-
 /* ---------- The mods on the player's copy ---------- */
 
 /// A mod socket of the player's copy and what is in it (None: empty).

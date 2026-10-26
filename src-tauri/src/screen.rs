@@ -147,22 +147,6 @@ pub fn capture_primary_area(area: Option<Region>) -> Result<RgbaImage, String> {
     Ok(image)
 }
 
-/// The mouse pointer's position on the screen (physical pixels).
-pub fn cursor_pos() -> Option<(i32, i32)> {
-    use windows::Win32::Foundation::POINT;
-    use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
-    let mut p = POINT::default();
-    unsafe { GetCursorPos(&mut p) }.ok()?;
-    Some((p.x, p.y))
-}
-
-/// The primary monitor's size (physical pixels).
-pub fn primary_size() -> Option<(u32, u32)> {
-    let monitors = xcap::Monitor::all().ok()?;
-    let m = monitors.iter().find(|m| m.is_primary().unwrap_or(false)).or_else(|| monitors.first())?;
-    Some((m.width().ok()?, m.height().ok()?))
-}
-
 /// Top-left corner (pixels) of what `crop` cuts out for `r`.
 pub fn crop_origin(image: &RgbaImage, r: Region) -> (u32, u32) {
     let (w, h) = (image.width(), image.height());

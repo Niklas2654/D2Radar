@@ -481,6 +481,8 @@ pub fn run() {
             oauth::oauth_set_client,
             oauth::oauth_login,
             oauth::oauth_logout,
+            oauth::usage_count_get,
+            oauth::usage_count_set,
             screen::overlay_set_areas,
             screen::overlay_set_capture_visible
         ])

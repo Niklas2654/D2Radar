@@ -139,7 +139,11 @@ async fn token_request(app: &AppHandle, form: &[(&str, &str)]) -> Result<(), Str
                 .body(body)
         }
         (Some(_), None) if BUILT_IN_CLIENT_ID.is_some() => {
-            let body: serde_json::Map<String, Value> = form.iter().map(|(k, v)| (k.to_string(), Value::from(*v))).collect();
+            let mut body: serde_json::Map<String, Value> = form.iter().map(|(k, v)| (k.to_string(), Value::from(*v))).collect();
+            // Not to be counted among Radar's users (Settings → Privacy).
+            if !usage_count(app) {
+                body.insert("count".into(), Value::Bool(false));
+            }
             http.post(TOKEN_SERVICE).json(&body)
         }
         _ => return Err(tr("Client-ID und Secret fehlen", "Client id and secret missing").into()),
@@ -255,6 +259,35 @@ pub async fn oauth_login(app: AppHandle) -> Result<OAuthStatus, String> {
 }
 
 /// Logged in with Bungie (a refresh token that hasn't run out).
+/// Whether the token service may count this player among Radar's users
+/// (anonymously, see the website's api/token.ts). On unless turned off.
+fn usage_count_path(app: &AppHandle) -> PathBuf {
+    app.path().app_config_dir().unwrap_or_else(|_| PathBuf::from(".")).join("privacy.json")
+}
+
+fn usage_count(app: &AppHandle) -> bool {
+    std::fs::read_to_string(usage_count_path(app))
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v["count"].as_bool())
+        .unwrap_or(true)
+}
+
+#[tauri::command]
+pub fn usage_count_get(app: AppHandle) -> bool {
+    usage_count(&app)
+}
+
+#[tauri::command]
+pub fn usage_count_set(app: AppHandle, on: bool) -> Result<bool, String> {
+    let path = usage_count_path(&app);
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    std::fs::write(path, serde_json::json!({ "count": on }).to_string()).map_err(|e| e.to_string())?;
+    Ok(on)
+}
+
 pub(crate) fn logged_in(app: &AppHandle) -> bool {
     status_of(&store(app)).logged_in
 }

@@ -1,7 +1,8 @@
 // GET /api/stats: how many use Radar with their Bungie account, as counted
 // by /api/token (see count() there): guardians (different accounts ever
-// connected), activeToday (different accounts today, UTC) and logins (all
-// time). Kept at Vercel's edge for two minutes.
+// connected), activeMonth (different accounts in the last 30 days: the
+// days' estimates merged), activeToday (UTC) and logins (all time). Kept at
+// Vercel's edge for two minutes.
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -18,18 +19,20 @@ interface Response {
 export default async function handler(req: Request, res: Response) {
   if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
   const day = today();
+  const month = Array.from({ length: 30 }, (_, i) => `radar:users:${new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10)}`);
   const results = await redis([
     ["PFCOUNT", "radar:users"],
     ["PFCOUNT", `radar:users:${day}`],
     ["GET", "radar:logins"],
+    ["PFCOUNT", ...month],
   ]);
   if (!results) {
     res.setHeader("Cache-Control", "no-store");
     return res.status(503).json({ error: "stats_unavailable" });
   }
-  const [guardians, activeToday, logins] = results.map((r) => Number(r ?? 0));
+  const [guardians, activeToday, logins, activeMonth] = results.map((r) => Number(r ?? 0));
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
-  return res.status(200).json({ guardians, activeToday, logins });
+  return res.status(200).json({ guardians, activeMonth, activeToday, logins });
 }
 
 // Upstash Redis (Vercel Marketplace) over its REST API, no package needed:

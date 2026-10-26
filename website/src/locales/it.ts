@@ -6,7 +6,7 @@ const it: Strings = {
     badge: "Gratis per Windows · v{version}",
     title: "Scopri ciò che il gioco",
     titleAccent: "non ti dice.",
-    text: "Tutto sul tuo Guardiano, proprio accanto al gioco. Radar riconosce l'arma, l'armatura o il Guardiano che stai guardando e mostra ciò che il gioco non mostra: ogni roll, valori esatti, clear, lowman e build. In più dotazioni, DIM e Discord a portata di scorciatoia.",
+    text: "Tutto sul tuo Guardiano, proprio accanto al gioco. Radar riconosce l'arma, l'armatura o il Guardiano che stai guardando e mostra ciò che il gioco non mostra: ogni roll, valori esatti, clear, lowman e build. In più tutte le tue dotazioni in un unico posto, e DIM e Discord a portata di scorciatoia.",
     download: "Scarica per Windows",
     features: "Vedi tutte le funzioni",
     meta: "{size} · Windows 10/11 · Non affiliato a Bungie",
@@ -77,7 +77,7 @@ const it: Strings = {
       {
         title: "Tutte le tue dotazioni",
         subtitle: "Slot di gioco, dotazioni DIM e preset fianco a fianco",
-        points: ["Equipaggia una dotazione con una scorciatoia, in gioco", "Salva una dotazione di gioco in DIM con un nome", "Preset che cambiano più dotazioni insieme"],
+        points: ["Equipaggia qualsiasi dotazione con un clic", "Salva una dotazione di gioco in DIM con un nome", "Preset che cambiano più dotazioni insieme"],
       },
       {
         title: "La build di qualsiasi Guardiano",
@@ -117,8 +117,8 @@ const it: Strings = {
         text: "Nella schermata dell'artefatto Radar elenca ogni peculiarità dell'artefatto stagionale con ciò che fa davvero.",
       },
       {
-        title: "Dotazioni con una scorciatoia",
-        text: "Equipaggia dotazioni di gioco e di DIM senza uscire dalla partita, o cambia un intero preset in un colpo.",
+        title: "Tutte le dotazioni in un posto",
+        text: "Equipaggia dotazioni di gioco e di DIM con un clic, salvane di nuove in DIM, o cambia un intero preset in un colpo.",
       },
       {
         title: "DIM e Discord sopra il gioco",
@@ -148,6 +148,7 @@ const it: Strings = {
       "Legge solo ciò che è sullo schermo, come uno screenshot",
       "I tuoi dati vengono dall'API ufficiale di Bungie, come con DIM",
       "Il tuo accesso Bungie resta sul tuo PC",
+      "Open source: tutto il codice è pubblico su GitHub",
     ],
   },
   how: {
@@ -170,7 +171,8 @@ const it: Strings = {
         q: "Posso essere bannato per usare Radar?",
         a: "Radar non inietta nulla, non legge la memoria del gioco e non invia mai input a Destiny 2. Legge ciò che è sullo schermo (come uno screenshot) e parla con l'API ufficiale di Bungie — proprio come DIM e le altre app companion.",
       },
-      { q: "È gratis?", a: "Sì. Radar è gratuito da scaricare e usare." },
+      { q: "È gratis?", a: "Sì. Radar è gratuito da scaricare e usare." },
+      { q: "Radar è open source?", a: "Sì. Tutto il codice sorgente di Radar è pubblico su GitHub – github.com/Niklas2654/D2Radar – con licenza GPL-3.0. Il codice di ogni versione pubblicata si trova lì." },
       {
         q: "A cosa serve l'accesso Bungie?",
         a: "Accedi sulla pagina di Bungie – Radar non vede mai la tua password. Permette a Radar di leggere deposito e inventario e di spostare o equipaggiare il tuo equipaggiamento. L'accesso resta sul tuo PC.",
@@ -202,14 +204,17 @@ const it: Strings = {
     version: "Versione {version}",
     installer: "Installer da {size}",
     windows: "Windows 10 / 11",
-    free: "Gratis",
+    free: "Gratis",
+    openSource: "Open source",
     downloads: "{n} download",
     downloadsLive: "Conteggio in tempo reale",
-    guardians: "{n} Guardiani connessi",
+    active: "{n} Guardiani attivi",
+    activeLive: "Account Bungie che hanno usato Radar negli ultimi 30 giorni – conteggio in tempo reale",
   },
   footer: {
     legal: "Note legali",
-    privacy: "Privacy",
+    privacy: "Privacy",
+    source: "Codice sorgente",
     disclaimer: "Non affiliato a Bungie. Destiny 2 è un marchio di Bungie, Inc.",
   },
 };

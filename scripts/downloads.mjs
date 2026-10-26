@@ -40,7 +40,7 @@ const stats = await fetch("https://d2radar.vercel.app/api/stats")
   .then((r) => (r.ok ? r.json() : null))
   .catch(() => null);
 if (stats) {
-  console.log(`Guardians connected: ${stats.guardians} · today: ${stats.activeToday} · logins: ${stats.logins}`);
+  console.log(`Guardians connected: ${stats.guardians} · active (30 days): ${stats.activeMonth} · today: ${stats.activeToday} · logins: ${stats.logins}`);
 } else {
   console.log("Guardians connected: not counted yet (Upstash database not connected?)");
 }

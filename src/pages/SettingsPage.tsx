@@ -1,7 +1,8 @@
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { cx, GlassPanel, GlassSwitch, PanelHeader } from "../components/glass";
-import { IconCheck, IconGlobe, IconLayers, IconRadar, Logo } from "../components/icons";
+import { IconCheck, IconGlobe, IconLayers, IconLink, IconRadar, Logo } from "../components/icons";
 import { LANGUAGES, languageName, translate, useT } from "../lib/i18n";
 import { WeaponDetectSetup } from "../components/WeaponDetectSetup";
 import { JOIN_VERBS } from "./DiscordPage";
@@ -42,6 +43,42 @@ function StartupPanel() {
         </p>
       )}
       {error && <p className="mt-2 rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-200">{error}</p>}
+    </GlassPanel>
+  );
+}
+
+const PRIVACY_URL = "https://d2radar.vercel.app/privacy";
+
+/** What Radar sends on its own, each to turn off: the update checks
+ *  (GitHub) and being counted among Radar's users (its token service). */
+function PrivacyPanel() {
+  const t = useT();
+  const [settings, update] = useSettings();
+  const [count, setCount] = useState(true);
+  useEffect(() => {
+    if (isTauri) void call<boolean>("usage_count_get").then((v) => setCount(v !== false));
+  }, []);
+  const changeCount = (on: boolean) => {
+    setCount(on);
+    void call<boolean>("usage_count_set", { on }).catch(() => setCount(!on));
+  };
+  return (
+    <GlassPanel className="p-5">
+      <PanelHeader icon={<IconLink />} title={t("privacy.title")} subtitle={t("privacy.subtitle")} />
+      <GlassSwitch
+        label={t("privacy.updates")}
+        description={t("privacy.updatesHint")}
+        checked={settings.updateChecks}
+        onChange={(updateChecks) => update({ updateChecks })}
+      />
+      <GlassSwitch label={t("privacy.count")} description={t("privacy.countHint")} checked={count} onChange={changeCount} />
+      <button
+        type="button"
+        onClick={() => (isTauri ? void openUrl(PRIVACY_URL) : window.open(PRIVACY_URL))}
+        className="mt-2 text-[12.5px] text-(--accent-text) underline decoration-white/20 underline-offset-[3px] hover:decoration-current"
+      >
+        {t("privacy.policy")}
+      </button>
     </GlassPanel>
   );
 }
@@ -149,6 +186,8 @@ export function SettingsPage() {
 
         <HotkeysPanel />
 
+        <PrivacyPanel />
+
         <WeaponDetectSetup />
 
 
@@ -166,7 +205,7 @@ export function SettingsPage() {
               <GlassSwitch
                 label={t("update.auto")}
                 description={t("update.autoHint")}
-                checked={settings.autoUpdate}
+                checked={settings.autoUpdate && settings.updateChecks}
                 onChange={(autoUpdate) => {
                   update({ autoUpdate });
                   if (autoUpdate) void autoInstall();

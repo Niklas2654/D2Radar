@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconChevron, IconWindows, Logo } from "../components/icons";
-import { DOWNLOAD_URL, INSTALLER_SIZE, useDownloads, useGuardians, VERSION } from "../fx";
+import { DOWNLOAD_URL, INSTALLER_SIZE, REPO_URL, useActive, useDownloads, VERSION } from "../fx";
 import { fill, useSiteLang, useStrings } from "../i18n";
 import { SectionTitle } from "./Features";
 
@@ -72,8 +72,8 @@ export function Download() {
   const s = useStrings().download;
   const lang = useSiteLang();
   const live = [
-    { n: useDownloads(), text: s.downloads },
-    { n: useGuardians(), text: s.guardians },
+    { n: useDownloads(), text: s.downloads, title: s.downloadsLive },
+    { n: useActive(), text: s.active, title: s.activeLive },
   ];
   return (
     <section id="download" className="relative mx-auto max-w-6xl px-5 py-24">
@@ -97,11 +97,18 @@ export function Download() {
               {t}
             </span>
           ))}
+          {/* The source code, on GitHub. */}
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition-colors hover:text-white/80">
+            <span className="text-(--accent-text) [&_svg]:size-3.5">
+              <IconCheck />
+            </span>
+            <span className="underline decoration-white/20 underline-offset-[3px]">{s.openSource}</span>
+          </a>
           {/* Counted live (api/downloads.ts, api/stats.ts): a dot instead of the tick. */}
           {live.map(
-            ({ n, text }) =>
+            ({ n, text, title }) =>
               !!n && (
-                <span key={text} className="inline-flex items-center gap-1.5" title={s.downloadsLive}>
+                <span key={text} className="inline-flex items-center gap-1.5" title={title}>
                   <span className="grid size-3.5 place-items-center">
                     <span className="size-1.5 animate-pulse rounded-full bg-(--accent-text)" />
                   </span>
@@ -110,6 +117,13 @@ export function Download() {
               ),
           )}
         </div>
+        {/* Under the download: who signs it (SignPath Foundation asks for both). */}
+        <p className="mt-4 text-[11.5px] text-white/35">
+          Free code signing provided by SignPath.io, certificate by SignPath Foundation ·{" "}
+          <a href="/code-signing" className="underline decoration-white/20 underline-offset-[3px] hover:text-white/70">
+            Code signing policy
+          </a>
+        </p>
       </div>
     </section>
   );
@@ -129,6 +143,13 @@ export function Footer() {
           </a>
           <a href="/privacy" className="hover:text-white/70">
             {s.privacy}
+          </a>
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white/70">
+            {s.source}
+          </a>
+          {/* (SignPath Foundation asks for this term on the home page.) */}
+          <a href="/code-signing" className="hover:text-white/70">
+            Code signing policy
           </a>
         </div>
         <p className="text-center sm:text-right">
