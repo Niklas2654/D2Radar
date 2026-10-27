@@ -604,6 +604,8 @@ const pl: Record<TranslationKey, string> = {
   "update.install": "Aktualizuj do {version}",
   "update.installing": "Instalowanie aktualizacji …",
   "update.progress": "Pobieranie aktualizacji … {percent} %",
+  "update.screenTitle": "Aktualizowanie Radar",
+  "update.restarting": "Instalowanie, Radar za chwilę uruchomi się ponownie …",
   "update.auto": "Aktualizuj automatycznie",
   "update.autoHint": "Instaluje nowe wersje samodzielnie – nigdy podczas działania Destiny.",
   "privacy.title": "Prywatność",

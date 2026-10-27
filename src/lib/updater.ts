@@ -6,8 +6,8 @@ import { call, isTauri } from "./tauri";
 
 /** Where Radar's updates stand. The newest release of the public D2Radar
  *  repo (its latest.json, see tauri.conf.json) is looked up at start, every
- *  hour, and when Radar comes to the front again a while after the last look; installing downloads it, runs the installer (passive:
- *  just a progress bar) and starts Radar again. */
+ *  hour, and when Radar comes to the front again a while after the last look; installing downloads it, runs the installer (quiet:
+ *  no window, UpdateScreen shows meanwhile) and starts Radar again. */
 export type UpdateState =
   | { kind: "idle" }
   | { kind: "checking" }

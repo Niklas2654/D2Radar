@@ -1,0 +1,22 @@
+[package]
+name = "radar-setup"
+version = "0.1.0"
+edition = "2021"
+description = "Radar's own setup window: installs the bundled NSIS installer silently"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+winreg = "0.55"
+sys-locale = "0.3"
+
+[build-dependencies]
+winresource = "0.1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

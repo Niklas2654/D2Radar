@@ -604,6 +604,8 @@ const ru: Record<TranslationKey, string> = {
   "update.install": "Обновить до {version}",
   "update.installing": "Установка обновления …",
   "update.progress": "Загрузка обновления … {percent} %",
+  "update.screenTitle": "Обновление Radar",
+  "update.restarting": "Установка, Radar сейчас перезапустится …",
   "update.auto": "Обновлять автоматически",
   "update.autoHint": "Устанавливает новые версии сам — никогда во время игры в Destiny.",
   "privacy.title": "Конфиденциальность",

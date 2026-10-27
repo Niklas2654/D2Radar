@@ -44,7 +44,7 @@
   ],
   "rewrites": [
     {
-      "source": "/(impressum|privacy|datenschutz|code-signing)",
+      "source": "/(impressum|privacy|datenschutz)",
       "destination": "/index.html"
     }
   ]

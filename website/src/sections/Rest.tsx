@@ -117,13 +117,6 @@ export function Download() {
               ),
           )}
         </div>
-        {/* Under the download: who signs it (SignPath Foundation asks for both). */}
-        <p className="mt-4 text-[11.5px] text-white/35">
-          Free code signing provided by SignPath.io, certificate by SignPath Foundation ·{" "}
-          <a href="/code-signing" className="underline decoration-white/20 underline-offset-[3px] hover:text-white/70">
-            Code signing policy
-          </a>
-        </p>
       </div>
     </section>
   );
@@ -146,10 +139,6 @@ export function Footer() {
           </a>
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white/70">
             {s.source}
-          </a>
-          {/* (SignPath Foundation asks for this term on the home page.) */}
-          <a href="/code-signing" className="hover:text-white/70">
-            Code signing policy
           </a>
         </div>
         <p className="text-center sm:text-right">

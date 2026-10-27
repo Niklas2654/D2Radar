@@ -126,7 +126,7 @@ const UNFOLD = 0.9;
  * soft core breathes in the middle, contacts flash as the beam passes them,
  * and a faint arc outside the scope shows how far loading is.
  */
-function NeonRadar({ progress, closingAt }: { progress: number; closingAt: number | null }) {
+export function NeonRadar({ progress, closingAt }: { progress: number; closingAt: number | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const progressRef = useRef(progress);
   progressRef.current = progress;

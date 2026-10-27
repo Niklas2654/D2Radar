@@ -713,6 +713,19 @@ async fn compute(app: &AppHandle, membership_id: &str) -> Result<FullClearStats,
     Ok(stats)
 }
 
+/// A character's class type (0 titan, 1 hunter, 2 warlock) as a run's report
+/// tells it: the way to a deleted character's class.
+async fn class_in_report(http: &reqwest::Client, key: &str, instance: &str, character: &str) -> Option<i64> {
+    let report = fetch_report(http, key, instance).await?;
+    let entry = report["entries"].as_array()?.iter().find(|e| e["characterId"].as_str() == Some(character))?;
+    match entry["player"]["classHash"].as_u64()? {
+        3655393761 => Some(0),
+        671679327 => Some(1),
+        2271682572 => Some(2),
+        _ => None,
+    }
+}
+
 /// The classes of characters no longer in the profile (deleted) whose runs
 /// are lowmans: from those runs' reports (they say each player's class).
 /// Whether any was learned.
@@ -743,15 +756,8 @@ async fn classes_from_reports(app: &AppHandle, runs: &[Run], dungeon_runs: &[Run
         .map(|(character, instance)| {
             let (http, key) = (http.clone(), key.clone());
             async move {
-                let report = fetch_report(&http, &key, &instance).await?;
-                let entry = report["entries"].as_array()?.iter().find(|e| e["characterId"].as_str() == Some(character.as_str()))?;
-                let class = match entry["player"]["classHash"].as_u64()? {
-                    3655393761 => "titan",
-                    671679327 => "hunter",
-                    2271682572 => "warlock",
-                    _ => return None,
-                };
-                Some((character, class.to_string()))
+                let class = class_in_report(&http, &key, &instance, &character).await?;
+                Some((character, ["titan", "hunter", "warlock"][class as usize].to_string()))
             }
         })
         .buffer_unordered(8)
@@ -1569,8 +1575,9 @@ pub async fn activity_runs(
     let versions: HashMap<u64, String> = looked.iter().map(|(h, v, _)| (*h, v.clone())).collect();
     let tiers: HashMap<u64, Vec<String>> = looked.into_iter().map(|(h, _, t)| (h, t)).collect();
     let feat_names = crate::feats::definitions(&app).await;
-    // Each character's class (the current ones; a deleted one has none).
-    let classes: HashMap<String, String> = {
+    // Each character's class: the current ones from the profile, a deleted
+    // one's from what the clears learned or else from one of its runs' reports.
+    let mut classes: HashMap<String, String> = {
         let state = app.state::<BungieState>();
         let path = format!("/Destiny2/{mt}/Profile/{membership_id}/?components=200");
         match state.api_key() {
@@ -1585,6 +1592,48 @@ pub async fn activity_runs(
             Err(_) => HashMap::new(),
         }
     };
+    let mut unknown: Vec<(String, String)> = Vec::new();
+    {
+        let learned = CLASSES.lock().unwrap();
+        for r in &runs {
+            if r.character_id.is_empty() || classes.contains_key(&r.character_id) || unknown.iter().any(|(c, _)| *c == r.character_id) {
+                continue;
+            }
+            let class = learned.as_ref().and_then(|m| m.get(&r.character_id)).and_then(|c| match c.as_str() {
+                "titan" => Some(0),
+                "hunter" => Some(1),
+                "warlock" => Some(2),
+                _ => None,
+            });
+            match class {
+                Some(class) => {
+                    classes.insert(r.character_id.clone(), crate::bungie::class_name(class).to_string());
+                }
+                None => unknown.push((r.character_id.clone(), r.instance_id.clone())),
+            }
+        }
+    }
+    if !unknown.is_empty() {
+        let state = app.state::<BungieState>();
+        if let Ok(key) = state.api_key() {
+            let http = state.http.clone();
+            let found: Vec<(String, i64)> = stream::iter(unknown)
+                .map(|(character, instance)| {
+                    let (http, key) = (http.clone(), key.clone());
+                    async move { Some((character.clone(), class_in_report(&http, &key, &instance, &character).await?)) }
+                })
+                .buffer_unordered(8)
+                .filter_map(|found| async move { found })
+                .collect()
+                .await;
+            let mut learned = CLASSES.lock().unwrap();
+            let learned = learned.get_or_insert_default();
+            for (character, class) in found {
+                learned.insert(character.clone(), ["titan", "hunter", "warlock"][class as usize].to_string());
+                classes.insert(character, crate::bungie::class_name(class).to_string());
+            }
+        }
+    }
     load_reports(&app);
     let reports = REPORTS.lock().unwrap();
     let reports = reports.as_ref().expect("loaded");

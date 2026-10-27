@@ -27,11 +27,6 @@ Windows Settings → Apps → Installed apps → Radar → Uninstall.
 Your settings and caches stay in %APPDATA%\app.radar.overlay and %LOCALAPPDATA%\app.radar.overlay; delete those folders to remove them too.
 
 
-CODE SIGNING
-
-Code signing policy: https://d2radar.vercel.app/code-signing
-
-
 -----------------------------------------------------------------------
 
 RADAR – eine Begleit-App für Destiny 2
@@ -61,8 +56,3 @@ DEINSTALLIEREN
 
 Windows-Einstellungen → Apps → Installierte Apps → Radar → Deinstallieren.
 Einstellungen und Zwischenspeicher bleiben in %APPDATA%\app.radar.overlay und %LOCALAPPDATA%\app.radar.overlay; lösche diese Ordner, um auch sie zu entfernen.
-
-
-CODESIGNIERUNG
-
-Code signing policy: https://d2radar.vercel.app/code-signing

@@ -8,12 +8,11 @@ import { Download, Faq, Footer, HowItWorks } from "./sections/Rest";
 import { Tour } from "./sections/Tour";
 
 /** The legal pages' addresses (vercel.json sends them to the site too). */
-const LEGAL_PATHS: Record<LegalPage, string> = { impressum: "/impressum", datenschutz: "/privacy", signing: "/code-signing" };
+const LEGAL_PATHS: Record<LegalPage, string> = { impressum: "/impressum", datenschutz: "/privacy" };
 
 /** The legal page the address points to, if any. */
 function legalPage(): LegalPage | null {
   const path = location.pathname.replace(/\/+$/, "");
-  if (path === "/code-signing") return "signing";
   return path === "/impressum" ? "impressum" : path === "/privacy" || path === "/datenschutz" ? "datenschutz" : null;
 }
 

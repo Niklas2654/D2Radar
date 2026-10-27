@@ -5,6 +5,7 @@ import { Navbar, type NavItem } from "./components/Navbar";
 import { Backdrop } from "./components/Backdrop";
 import { CopySwap } from "./components/CopySwap";
 import { UpdateBadge } from "./components/UpdateButton";
+import { UpdateScreen } from "./components/UpdateScreen";
 import { Splash } from "./components/Splash";
 import { PageTransition } from "./components/PageTransition";
 import { useBungie } from "./lib/bungie";
@@ -114,6 +115,7 @@ export function App() {
     <div className="flex h-full flex-col">
       <Backdrop />
       {loading && <Splash startWebviews={startWebviews} onDone={() => setLoading(false)} />}
+      <UpdateScreen />
       <Navbar items={pages} active={page} onChange={setPage} right={status} />
       <PageTransition
         page={page}

@@ -8,7 +8,8 @@
 #  1. its source, as one commit on D2Radar's main (no development history),
 #  2. the Windows app built from it, with Radar's Bungie app built in, as a
 #     release there: the installer, the signed update and latest.json, which
-#     the app's updater reads, plus a copy as Radar-setup.exe for the website,
+#     the app's updater reads, plus Radar-setup.exe for the website: Radar's
+#     own setup window (setup/) with that installer inside,
 #  3. and the website on Vercel is updated (website.yml: the new version and
 #     size; skipped while the Vercel secrets aren't set).
 #
@@ -72,7 +73,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: |
+            src-tauri
+            setup
           # Kept when a later step fails too (the release upload …): a
           # rerun then doesn't compile everything again.
           cache-on-failure: true
@@ -98,15 +101,18 @@ jobs:
           includeUpdaterJson: true
           args: --config src-tauri/tauri.release.conf.json
 
-      # The same installer under a name that never changes: the website
-      # links to releases/latest/download/Radar-setup.exe.
+      # For the website, under a name that never changes
+      # (releases/latest/download/Radar-setup.exe): Radar's own setup window
+      # with the installer just built inside (setup/build.rs finds it). The
+      # updater keeps using the installer itself.
       - shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $built = "src-tauri/target/release/bundle/nsis/Radar_${version}_x64-setup.exe"
-          Copy-Item $built Radar-setup.exe
+          cargo build --release --manifest-path setup/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Copy-Item setup/target/release/radar-setup.exe Radar-setup.exe
           gh release upload "v$version" Radar-setup.exe --repo $env:PUBLIC_REPO --clobber
 
   website:

@@ -604,6 +604,8 @@ const es: Record<TranslationKey, string> = {
   "update.install": "Actualizar a {version}",
   "update.installing": "Instalando actualización …",
   "update.progress": "Descargando actualización … {percent} %",
+  "update.screenTitle": "Actualizando Radar",
+  "update.restarting": "Instalando, Radar se reiniciará enseguida …",
   "update.auto": "Actualizar automáticamente",
   "update.autoHint": "Instala las nuevas versiones solo, nunca mientras Destiny está abierto.",
   "privacy.title": "Privacidad",
