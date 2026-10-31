@@ -54,6 +54,10 @@ export function Navbar<K extends string>({
         <Logo size={20} animated />
         <span data-tauri-drag-region className="neon-title font-display text-[12.5px] font-semibold tracking-[0.42em]">
           RADAR
+          {/* The light running through it: moved, never repainted. */}
+          <span aria-hidden className="neon-band">
+            <span className="neon-band-text">RADAR</span>
+          </span>
         </span>
       </div>
 

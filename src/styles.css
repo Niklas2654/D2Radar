@@ -96,11 +96,25 @@ body {
   z-index: 1;
 }
 
-/* How much the glass light shows on a panel (0..1), eased. */
+/* How much the glass light shows on a panel (0..1), eased; and where the
+   pointer's light is, in the panel's own coordinates (lib/glassLight.ts).
+   Not inherited: set on a big panel on every pointer move, an inherited
+   value would restyle everything inside it each frame. Only the panel's
+   own light layers take them (`inherit` there). */
 @property --glow {
   syntax: "<number>";
-  inherits: true;
+  inherits: false;
   initial-value: 0;
+}
+@property --mx {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: -9999px;
+}
+@property --my {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: -9999px;
 }
 /* In the components layer: a transition utility on a panel still wins. */
 @layer components {
@@ -198,13 +212,11 @@ body {
 /* The delete button's fuse (components/FuseButton.tsx): burns down the rim
    clockwise with a glow; held while the pointer is on the button. */
 .fuse-burn {
-  filter: drop-shadow(0 0 3px #ff7a59) drop-shadow(0 0 6px rgb(255 122 89 / 0.6));
+  /* One soft glow (two filters made every frame dear). */
+  filter: drop-shadow(0 0 3px rgb(255 122 89 / 0.8));
   animation-name: fuse-burn;
   animation-timing-function: linear;
   animation-fill-mode: both;
-}
-.fuse:hover .fuse-burn {
-  animation-play-state: paused;
 }
 @keyframes fuse-burn {
   from {
@@ -258,13 +270,56 @@ body {
   }
 }
 
-/* Uppercase wordmark with a light running through it (navbar, splash). */
+/* Uppercase wordmark with a light running through it (navbar): a band
+   in the accent slides over the white letters, its copy of them sliding
+   back as far, so they stay in place. Only transforms move (on the GPU);
+   a moving background on the text repainted the page on every frame. */
 .neon-title {
-  background: linear-gradient(90deg, #fff 0 30%, var(--accent) 50%, #fff 70% 100%) 0 0 / 200% 100% repeat-x;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: shimmer 4.5s linear infinite;
+  position: relative;
+  display: inline-block;
+  color: #fff;
+  white-space: nowrap;
+}
+.neon-band {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 50%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 50%, transparent);
+  animation: neon-band 4.5s linear infinite;
+  will-change: transform;
+}
+.neon-band-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--accent);
+  animation: neon-band-text 4.5s linear infinite;
+  will-change: transform;
+}
+@keyframes neon-band {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+/* Back as far as the band went (it is 40% of the title, this all of it). */
+@keyframes neon-band-text {
+  from {
+    transform: translateX(40%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .neon-band {
+    display: none;
+  }
 }
 
 /* The HUD window must stay fully transparent: only widgets are painted. */
@@ -324,6 +379,9 @@ body {
 }
 
 .glass-hud::before {
+  --mx: inherit;
+  --my: inherit;
+  --glow: inherit;
   content: "";
   position: absolute;
   inset: 0;
@@ -411,6 +469,9 @@ body {
 
 /* Soft specular highlight across the top edge. */
 .glass::after {
+  --mx: inherit;
+  --my: inherit;
+  --glow: inherit;
   content: "";
   position: absolute;
   inset: 0;
@@ -1083,6 +1144,48 @@ body {
   }
 }
 
+/* Off screen: skipped (layout, paint) until scrolled near; its height
+   kept as last drawn, so the scrollbar doesn't jump. */
+.lazy-paint {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 170px;
+}
+
+/* ---------- The pointer's light on app panels ----------
+   A spot moved with a transform (lib/glassLight.ts) inside a clip the size
+   of the panel, faded in on the panel under the pointer: the GPU moves it,
+   nothing is painted again (a gradient at a position set on the panel
+   repainted the whole panel, and all in it, on every pointer move). */
+.glass-light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  /* Lights up a little under the pointer. */
+  box-shadow: 0 0 16px -6px var(--accent-halo);
+}
+.glass-light.is-lit {
+  opacity: 1;
+}
+.glass-light-spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1300px;
+  height: 1300px;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, color-mix(in oklab, var(--accent) 35%, white) 7%, transparent),
+    transparent 55%
+  );
+  transform: translate3d(-9999px, -9999px, 0);
+  will-change: transform;
+}
+
 /* ---------- Spotlight on tiles ----------
    The pointer's light (lib/glassLight.ts sets --mx / --my on each tile, in
    its own coordinates) passes over a grid of tiles: a faint white light
@@ -1094,6 +1197,8 @@ body {
 }
 .spotlight::before,
 .spotlight:not(.shimmer)::after {
+  --mx: inherit;
+  --my: inherit;
   content: "";
   position: absolute;
   inset: 0;
@@ -1123,4 +1228,271 @@ body {
   mask:
     linear-gradient(#000 0 0) content-box exclude,
     linear-gradient(#000 0 0);
+}
+
+/* ---------- Loadouts: the builder takes the whole width ---------- */
+
+/* The list's column closes and the builder's grows into it; the list
+   slides out to the left and fades, then the builder's beam runs round. */
+.loadouts-grid {
+  grid-template-columns: 320px minmax(0, 1fr);
+  column-gap: 16px;
+  transition:
+    grid-template-columns 560ms cubic-bezier(0.22, 0.8, 0.2, 1),
+    column-gap 560ms cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+.loadouts-grid.is-building {
+  grid-template-columns: 0px minmax(0, 1fr);
+  column-gap: 0px;
+}
+.loadouts-list {
+  overflow: hidden;
+  transition:
+    opacity 320ms ease,
+    transform 560ms cubic-bezier(0.22, 0.8, 0.2, 1),
+    filter 320ms ease;
+}
+.loadouts-grid.is-building .loadouts-list {
+  opacity: 0;
+  transform: translateX(-40px) scale(0.96);
+  filter: blur(4px);
+  pointer-events: none;
+}
+/* The builder arriving: in from a little to the right while it grows. */
+.builder-wide {
+  animation: builder-wide 620ms cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+@keyframes builder-wide {
+  from {
+    opacity: 0;
+    transform: translateX(24px) scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loadouts-grid,
+  .loadouts-list,
+  .builder-wide {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ---------- Optimizer: an exotic landing in its card ---------- */
+
+/* Settles in with a gold flash (restarted on each pick: the element is
+   keyed by the landing). */
+.exotic-landing {
+  animation: exotic-landing 520ms cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+@keyframes exotic-landing {
+  0% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 0 rgb(232 197 71 / 0.7), 0 0 28px rgb(232 197 71 / 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 10px rgb(232 197 71 / 0), 0 0 18px rgb(232 197 71 / 0.25);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(232 197 71 / 0), 0 0 12px rgb(232 197 71 / 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .exotic-landing {
+    animation: none;
+  }
+}
+
+/* The exotic grid folding away once one is picked: first the icons
+   vanish in a quick ripple (--i: each tile's place), then the rows close
+   (grid rows 1fr -> 0fr). Opening runs it backwards. */
+.exotic-grid {
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 420ms cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+.exotic-grid.is-folded {
+  grid-template-rows: 0fr;
+  transition-delay: 220ms;
+}
+.exotic-grid .exotic-tile {
+  transition:
+    border-color 150ms,
+    box-shadow 150ms,
+    transform 260ms cubic-bezier(0.22, 0.8, 0.2, 1) calc(min(var(--i, 0), 40) * 6ms),
+    opacity 220ms ease calc(min(var(--i, 0), 40) * 6ms);
+}
+.exotic-grid.is-folded .exotic-tile {
+  opacity: 0;
+  transform: scale(0.6) translateY(-6px);
+}
+.exotic-grid > div {
+  transition: opacity 300ms ease;
+}
+.exotic-grid.is-folded > div {
+  opacity: 0;
+  transition-delay: 260ms;
+}
+/* "Change" appears once the grid has gone. */
+.exotic-change {
+  animation: exotic-change 320ms ease 300ms both;
+}
+@keyframes exotic-change {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .exotic-grid,
+  .exotic-grid .exotic-tile,
+  .exotic-grid > div,
+  .exotic-change {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* An exotic class item's picked perks arriving in the exotic's header:
+   from below (where the lists were), one after the other. */
+.perk-badge {
+  animation: perk-badge 460ms cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+@keyframes perk-badge {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  60% {
+    box-shadow: 0 0 14px var(--accent-glow);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .perk-badge {
+    animation: none;
+  }
+}
+
+/* A perk's place emptied for changing it: breathes until the new one
+   flies in. */
+.perk-slot-empty {
+  animation: perk-slot-empty 1.6s ease-in-out infinite;
+}
+@keyframes perk-slot-empty {
+  50% {
+    background-color: color-mix(in oklab, var(--accent) 10%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .perk-slot-empty {
+    animation: none;
+  }
+}
+
+/* A subclass landing in its spot: as an exotic's, in the accent color. */
+.subclass-landing {
+  animation: subclass-landing 520ms cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+@keyframes subclass-landing {
+  0% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 0 var(--accent-glow), 0 0 28px var(--accent-glow);
+  }
+  60% {
+    box-shadow: 0 0 0 10px transparent, 0 0 18px var(--accent-halo);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent, 0 0 12px var(--accent-halo);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .subclass-landing {
+    animation: none;
+  }
+}
+
+/* A subclass's options appearing: pushed in from the top, revealed top to
+   bottom. */
+.setup-reveal {
+  animation: setup-reveal 460ms cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+@keyframes setup-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setup-reveal {
+    animation: none;
+  }
+}
+
+/* A stat's minimum: the picked part in the accent, up to what builds can
+   reach lighter, beyond it hatched. */
+.glass-range.stat-range {
+  background:
+    linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 70%, white)) 0 / var(--fill, 0%) 100% no-repeat,
+    linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.2)) 0 / var(--reach, 100%) 100% no-repeat,
+    repeating-linear-gradient(135deg, rgb(255 138 122 / 0.28) 0 3px, transparent 3px 7px),
+    rgb(255 255 255 / 0.04);
+  transition: background-size 300ms ease;
+}
+
+/* The optimizer's settings window: up from a little below. */
+.settings-in {
+  animation: settings-in 320ms cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+@keyframes settings-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-in {
+    animation: none;
+  }
+}
+
+/* The optimizer's stat bars: the range input lies over the segments, only
+   its knob shows. */
+.stat-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+.stat-slider:focus-visible {
+  outline: none;
+}
+.stat-slider::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+.stat-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 6px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    0 0 10px var(--accent-glow);
+  transition: box-shadow 0.15s;
+}
+.stat-slider:hover::-webkit-slider-thumb,
+.stat-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 0 12px var(--accent-glow);
 }

@@ -25,6 +25,13 @@ pub struct EditSocket {
     options: Vec<ItemInfo>,
     /// Can be left empty (armor mods).
     removable: bool,
+    /// The rest of the weapon's perk pool for this column: not on this roll
+    /// (not insertable), shown for what there would be.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pool: Vec<ItemInfo>,
+    /// A weapon's perk column (not its mod).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    perk: bool,
 }
 
 /// Plug categories that are not edited here.
@@ -171,7 +178,10 @@ pub async fn loadout_item_sockets(
     let info = item(&app, hash).await.ok_or("?")?;
     let def = definition(&app, "DestinyInventoryItemDefinition", hash).await.ok_or("?")?;
     let owned = owned_for(&c.owned, entry, &c.character);
-    let plug_sets = own_profile(&app, &c.s, "105").await.unwrap_or(Value::Null);
+    // What the account can insert (profile and character plug sets: they
+    // come with the sockets component). Without it the plug sets'
+    // definitions stand in, full of old mods no one can insert.
+    let plug_sets = own_profile(&app, &c.s, "305").await.unwrap_or(Value::Null);
     let overrides = overrides_of(entry);
     let plug_now = |index: usize| -> Option<u32> {
         overrides
@@ -221,6 +231,12 @@ pub async fn loadout_item_sockets(
         return Err(tr("Nur Waffen und Rüstung lassen sich bearbeiten", "Only weapons and armor can be edited").into());
     }
 
+    Ok(finish_sockets(&app, wanted).await)
+}
+
+/// (index, label, current, options, removable) as sockets to show: the
+/// options as items, without placeholders and what isn't edited here.
+async fn finish_sockets(app: &AppHandle, wanted: Vec<(usize, String, Option<ItemInfo>, Vec<u32>, bool)>) -> Vec<EditSocket> {
     let out = join_all(wanted.into_iter().map(|(index, label, current, options, removable)| {
         let app = app.clone();
         async move {
@@ -238,11 +254,85 @@ pub async fn loadout_item_sockets(
                 !EMPTY.iter().any(|w| name.contains(w))
             });
             let label = if label.is_empty() { current.as_ref().map(|c| c.type_name().to_string()).unwrap_or_default() } else { label };
-            EditSocket { index, label, current, options, removable }
+            EditSocket { index, label, current, options, removable, pool: Vec::new(), perk: false }
         }
     }))
     .await;
-    Ok(out.into_iter().filter(|s| !s.options.is_empty()).collect())
+    out.into_iter().filter(|s| !s.options.is_empty()).collect()
+}
+
+/// The perk and mod sockets of an owned weapon (`instance_id`) with their
+/// choices, as it is now (for the builder: what's picked there is its own).
+#[tauri::command]
+pub async fn weapon_sockets(app: AppHandle, character_id: Option<String>, instance_id: String) -> Result<Vec<EditSocket>, String> {
+    let s = session(&app).await?;
+    let key = character_id.unwrap_or_default();
+    let (character, owned) = futures::join!(cached_character(&app, &s, &key), owned_items(&app));
+    let (character, _) = character?;
+    let owned = owned.unwrap_or_default();
+    let o = owned.iter().find(|o| o.instance_id == instance_id).ok_or(tr("Waffe nicht gefunden", "Weapon not found"))?;
+    let hash = o.item_hash as u64;
+    let info = item(&app, hash).await.ok_or("?")?;
+    if !WEAPON_BUCKETS.contains(&info.bucket) {
+        return Err(tr("Keine Waffe", "Not a weapon").into());
+    }
+    let def = definition(&app, "DestinyInventoryItemDefinition", hash).await.ok_or("?")?;
+    let plug_sets = own_profile(&app, &s, "305").await.unwrap_or(Value::Null);
+    // Every socket at once (each looks up its plugs; one after the other
+    // that added up to seconds).
+    let sockets: Vec<usize> = info.perk_sockets().iter().copied().chain(info.mod_sockets.iter().map(|(i, _)| *i)).collect();
+    let (app_ref, def_ref, plug_sets_ref, character_ref) = (&app, &def, &plug_sets, &character);
+    let found = join_all(sockets.iter().map(|&index| async move {
+        let current = match o.socket_plugs.get(index).copied().filter(|&p| p != 0) {
+            Some(p) => item(app_ref, p as u64).await,
+            None => None,
+        };
+        if current.as_ref().is_some_and(|p| skipped(&p.plug_category)) {
+            return None;
+        }
+        let options = choices(app_ref, def_ref, index, Some(o), plug_sets_ref, character_ref).await;
+        // (A perk column with one perk on this roll still shows: its pool.)
+        let pooled = def_ref["sockets"]["socketEntries"][index]["randomizedPlugSetHash"].as_u64().is_some_and(|h| h != 0);
+        if options.len() < 2 && !pooled {
+            return None;
+        }
+        let label = current.as_ref().map(|p| p.type_name().to_string()).unwrap_or_default();
+        Some((index, label, current, options, false))
+    }))
+    .await;
+    let wanted: Vec<_> = found.into_iter().flatten().collect();
+    let mut out = finish_sockets(&app, wanted).await;
+    for socket in &mut out {
+        socket.perk = info.perk_sockets().contains(&socket.index);
+    }
+    // Each perk column's whole pool (its random plug set), the rest of it
+    // beside the choices: one each (enhanced versions by name); all columns
+    // at once.
+    let pools = join_all(out.iter().map(|socket| async move {
+        let set = def_ref["sockets"]["socketEntries"][socket.index]["randomizedPlugSetHash"].as_u64().filter(|&h| h != 0)?;
+        let set = definition(app_ref, "DestinyPlugSetDefinition", set).await?;
+        let mut hashes: Vec<u64> = set["reusablePlugItems"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|p| p["currentlyCanRoll"].as_bool() != Some(false))
+            .filter_map(|p| p["plugItemHash"].as_u64())
+            .collect();
+        hashes.dedup();
+        Some(join_all(hashes.iter().map(|&h| item(app_ref, h))).await)
+    }))
+    .await;
+    for (socket, infos) in out.iter_mut().zip(pools) {
+        let Some(infos) = infos else { continue };
+        let mut seen: Vec<String> = socket.options.iter().map(|o| o.name.clone()).collect();
+        for info in infos.into_iter().flatten() {
+            if info.icon_present() && !seen.contains(&info.name) {
+                seen.push(info.name.clone());
+                socket.pool.push(info);
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// Put `plug` into socket `index` of item `hash` in a DIM loadout (0 =
@@ -319,6 +409,5 @@ pub async fn loadout_set_plug(
     }
     l["lastUpdatedAt"] = json!(chrono::Utc::now().timestamp_millis());
     save_loadout(&app, &c.s, l.clone()).await?;
-    crate::dimsync::remember_raw(&l);
     Ok(describe(&app, &l, &c.character, c.class_type, &c.owned).await)
 }

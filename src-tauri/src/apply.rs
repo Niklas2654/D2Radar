@@ -53,7 +53,20 @@ fn progress(app: &AppHandle, text: &str) {
     let _ = app.emit("loadout-progress", text);
 }
 
+/// Moving failed because the destination is full.
+const NO_ROOM: &str = "DestinyNoRoomInDestination";
+
 async fn transfer(app: &AppHandle, s: &Session, o: &OwnedItem, character: &str, to_vault: bool) -> Result<(), String> {
+    transfer_status(app, s, o, character, to_vault).await.map_err(|(status, message)| {
+        if status == NO_ROOM {
+            tr("kein Platz im Inventar", "no room in the inventory").to_string()
+        } else {
+            action_error((status, message))
+        }
+    })
+}
+
+async fn transfer_status(app: &AppHandle, s: &Session, o: &OwnedItem, character: &str, to_vault: bool) -> Result<(), (String, String)> {
     let body = json!({
         "itemReferenceHash": o.item_hash,
         "stackSize": 1,
@@ -62,13 +75,41 @@ async fn transfer(app: &AppHandle, s: &Session, o: &OwnedItem, character: &str, 
         "characterId": character,
         "membershipType": s.membership_type,
     });
-    post_action(app, s, "Items/TransferItem/", body).await.map(|_| ()).map_err(|(status, message)| {
-        if status == "DestinyNoRoomInDestination" {
-            tr("kein Platz im Inventar", "no room in the inventory").to_string()
-        } else {
-            action_error((status, message))
-        }
-    })
+    post_action(app, s, "Items/TransferItem/", body).await.map(|_| ())
+}
+
+/// Move `o` to `character`; its slot there (`bucket`: the item's own, not
+/// the vault's it sits in) full, first one of the items in that slot that
+/// isn't equipped nor wanted (`keep`) goes to the vault, as DIM does.
+#[allow(clippy::too_many_arguments)]
+async fn fetch_to(
+    app: &AppHandle,
+    s: &Session,
+    owned: &[OwnedItem],
+    o: &OwnedItem,
+    bucket: u64,
+    character: &str,
+    keep: &[String],
+    moved_out: &mut Vec<String>,
+) -> Result<(), String> {
+    match transfer_status(app, s, o, character, false).await {
+        Ok(()) => return Ok(()),
+        Err((status, _)) if status == NO_ROOM => {}
+        Err(e) => return Err(action_error(e)),
+    }
+    let room = owned.iter().find(|x| {
+        x.character_id.as_deref() == Some(character)
+            && x.location == "inventory"
+            && x.bucket == bucket
+            && bucket != 0
+            && !keep.contains(&x.instance_id)
+            && !moved_out.contains(&x.instance_id)
+    });
+    let Some(room) = room else { return Err(tr("kein Platz im Inventar", "no room in the inventory").into()) };
+    progress(app, &format!("{} {} …", tr("Mache Platz:", "Making room:"), name_of(app, room.item_hash).await));
+    transfer(app, s, room, character, true).await.map_err(|e| format!("{} ({e})", tr("kein Platz im Inventar", "no room in the inventory")))?;
+    moved_out.push(room.instance_id.clone());
+    transfer(app, s, o, character, false).await
 }
 
 pub(crate) async fn insert_plug(app: &AppHandle, s: &Session, character: &str, item: &str, socket: usize, plug: u32) -> Result<(), PlugError> {
@@ -414,6 +455,8 @@ pub(crate) async fn validate(app: &AppHandle, plan: &Plan, character: &str, clas
 /// for parts that didn't work.
 pub(crate) async fn apply(app: &AppHandle, plan: &Plan, slot: Option<usize>, character: Option<&str>) -> Result<Vec<String>, String> {
     let s = session(app).await?;
+    // Equipping starts from the profile as it is now, not as kept.
+    crate::inventory::invalidate();
     let profile = own_profile(app, &s, "200,206").await?;
     let (character, class_type) = pick_character(&profile, character)?;
     if plan.class_type != ANY_CLASS && plan.class_type != class_type {
@@ -424,18 +467,28 @@ pub(crate) async fn apply(app: &AppHandle, plan: &Plan, slot: Option<usize>, cha
             tr("wechsle erst den Charakter", "switch characters first")
         ));
     }
-    crate::inventory::invalidate();
     let owned = owned_items(app)
         .await
         .ok_or(tr("Erst in den Einstellungen mit Bungie einloggen", "Log in with Bungie in the settings first"))?;
     let mut warnings = Vec::new();
+
+    // The artifact its perks are from (an older loadout names only the perks).
+    let artifacts = crate::weapons::artifact_defs(app).await;
+    let artifact = crate::weapons::artifact_for(&artifacts, &plan.artifact).cloned();
+    let has_artifact_item = artifact.as_ref().is_some_and(|d| plan.equipped.iter().any(|it| it.hash == d.hash));
+    let artifact_item = artifact.as_ref().filter(|_| !has_artifact_item).map(|d| PlanItem { id: None, hash: d.hash, overrides: Vec::new() });
+    let wanted_ids: Vec<String> = plan.equipped.iter().filter_map(|it| find_owned(&owned, it, &character)).map(|o| o.instance_id.clone()).collect();
+    let mut moved_out: Vec<String> = Vec::new();
 
     // 1. Move the items to the character.
     progress(app, tr("Items werden geholt …", "Fetching items …"));
     let mut to_equip: Vec<(String, bool)> = Vec::new();
     let mut placed: Vec<(String, u32, &PlanItem)> = Vec::new();
     let mut armor: Vec<ArmorPiece> = Vec::new();
-    for it in &plan.equipped {
+    // Another artifact the loadout lists (saved when the wrong one was
+    // picked for its perks): left out, the perks' own one goes on.
+    let other_artifact = |it: &PlanItem| artifact.as_ref().is_some_and(|d| it.hash != d.hash && artifacts.iter().any(|a| a.hash == it.hash));
+    for it in plan.equipped.iter().filter(|it| !other_artifact(it)).chain(artifact_item.iter()) {
         let info = item(app, it.hash as u64).await;
         let name = info.as_ref().map(|i| i.name.clone()).unwrap_or_else(|| format!("#{}", it.hash));
         let Some(o) = find_owned(&owned, it, &character) else {
@@ -454,7 +507,8 @@ pub(crate) async fn apply(app: &AppHandle, plan: &Plan, slot: Option<usize>, cha
                     continue;
                 }
             }
-            if let Err(e) = transfer(app, &s, o, &character, false).await {
+            let bucket = info.as_ref().map(|i| i.bucket).unwrap_or(0);
+            if let Err(e) = fetch_to(app, &s, &owned, o, bucket, &character, &wanted_ids, &mut moved_out).await {
                 warnings.push(format!("{name}: {e}"));
                 continue;
             }
@@ -487,7 +541,29 @@ pub(crate) async fn apply(app: &AppHandle, plan: &Plan, slot: Option<usize>, cha
     progress(app, tr("Subklasse und Mods werden gesetzt …", "Setting subclass and mods …"));
     let sockets = own_profile(app, &s, "305").await?;
     let mut targets: Vec<Target> = Vec::new();
+    let mut artifact_set = false;
     for (id, hash, it) in &placed {
+        // The artifact: its perks into the sockets that take them.
+        if let Some(d) = artifact.as_ref().filter(|d| d.hash == *hash) {
+            let current: Vec<u32> = (0..d.sockets.iter().map(|s| s.0 + 1).max().unwrap_or(0)).map(|i| current_plug(&sockets, id, i).unwrap_or(0)).collect();
+            let wanted: Vec<u32> = plan.artifact.iter().copied().filter(|&p| d.tier_of(p).is_some()).collect();
+            match crate::weapons::place_artifact(d, &current, &wanted, false) {
+                Some(list) => targets.extend(list.into_iter().map(|(i, plug)| (id.clone(), i, plug, None))),
+                None => {
+                    // Not around what's in: empty them all, then place anew.
+                    for &(i, _, empty) in &d.sockets {
+                        if current.get(i).is_some_and(|&c| c != empty) {
+                            let _ = insert_plug(app, &s, &character, id, i, empty).await;
+                        }
+                    }
+                    if let Some(list) = crate::weapons::place_artifact(d, &[], &wanted, true) {
+                        targets.extend(list.into_iter().filter(|&(i, plug)| d.sockets.iter().all(|s| s.0 != i || s.2 != plug)).map(|(i, plug)| (id.clone(), i, plug, None)));
+                    }
+                }
+            }
+            artifact_set = true;
+            continue;
+        }
         let def = crate::fireteam::definition(app, "DestinyInventoryItemDefinition", *hash as u64).await;
         let default_plug = |index: usize| {
             def.as_ref()
@@ -529,7 +605,11 @@ pub(crate) async fn apply(app: &AppHandle, plan: &Plan, slot: Option<usize>, cha
     let mut in_game_only = Vec::new();
     let total = changes.iter().filter(|(_, _, plug, empty)| Some(*plug) != *empty).count();
     let mut done = 0;
-    for (id, index, plug, empty) in &changes {
+    // Artifact perks refused: tried again once the rest is in (the game may
+    // want them in an order).
+    let is_artifact_perk = |plug: u32| artifact.as_ref().is_some_and(|d| d.tier_of(plug).is_some());
+    let mut retry: Vec<&Target> = Vec::new();
+    for t @ (id, index, plug, empty) in &changes {
         if Some(*plug) == *empty {
             continue; // already emptied above
         }
@@ -537,8 +617,21 @@ pub(crate) async fn apply(app: &AppHandle, plan: &Plan, slot: Option<usize>, cha
         progress(app, &format!("{} {} ({done}/{total}) …", tr("Setze", "Setting"), name_of(app, *plug).await));
         match insert_plug(app, &s, &character, id, *index, *plug).await {
             Ok(()) => {}
+            Err(_) if is_artifact_perk(*plug) => retry.push(t),
             Err(PlugError::InGameOnly) => in_game_only.push(name_of(app, *plug).await),
             Err(PlugError::Other(e)) => warnings.push(format!("{}: {e}", name_of(app, *plug).await)),
+        }
+    }
+    for (id, index, plug, _) in retry {
+        if insert_plug(app, &s, &character, id, *index, *plug).await.is_err() {
+            warnings.push(format!(
+                "{}: {}",
+                name_of(app, *plug).await,
+                tr(
+                    "Artefakt-Perk nicht gesetzt (Platz noch gesperrt oder Perk nicht freigeschaltet?)",
+                    "artifact perk not set (slot still locked or perk not unlocked?)"
+                )
+            ));
         }
     }
     if !in_game_only.is_empty() {
@@ -546,8 +639,8 @@ pub(crate) async fn apply(app: &AppHandle, plan: &Plan, slot: Option<usize>, cha
         warnings.push(format!("{}: {}", tr("Nur im Spiel einstellbar", "Only settable in game"), in_game_only.join(", ")));
     }
 
-    // Artifact perks: not settable through the API; say which to change.
-    if !plan.artifact.is_empty() {
+    // Artifact perks of an artifact not found: say which to change in game.
+    if !plan.artifact.is_empty() && !artifact_set {
         let active = active_artifact(app, &s, &character).await;
         let mut missing = Vec::new();
         for &perk in &plan.artifact {

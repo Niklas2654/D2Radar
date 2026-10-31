@@ -1,5 +1,7 @@
-//! The player's DIM loadouts, read from DIM Sync (api.destinyitemmanager.com)
-//! with their Bungie login, for the Loadouts tab.
+//! The player's loadouts, kept by Radar on this PC (loadouts-<membership>.json,
+//! in DIM's loadout format), for the Loadouts tab. DIM Sync
+//! (api.destinyitemmanager.com) only gets the ones the player sends there
+//! (`dim_push`).
 //!
 //! DIM hands out API keys to local development apps itself (POST /new_app,
 //! localhost origins only); an app for the public needs the DIM team's
@@ -12,7 +14,7 @@ use std::time::{Duration, Instant};
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::bungie::{api_as_user, class_name, BungieState};
 use crate::fireteam::{definition, item, ItemInfo, SUBCLASS};
@@ -179,78 +181,54 @@ async fn token(app: &AppHandle, s: &Session, key: &str) -> Result<String, String
     Ok(token)
 }
 
-/// All DIM loadouts of the player (raw DIM shape).
-async fn raw_loadouts(app: &AppHandle, s: &Session) -> Result<Vec<Value>, String> {
-    let key = ensure_key(app).await?;
-    let token = token(app, s, &key).await?;
-    let http = app.state::<BungieState>().http.clone();
-    let url = format!("{BASE}/profile?platformMembershipId={}&components=loadouts", s.membership_id());
-    let res = send(http.get(url).header("X-API-Key", &key).bearer_auth(token)).await?;
-    let loadouts = res["loadouts"].as_array().cloned().unwrap_or_default();
-    // Deleted ones stay hidden while DIM still lists them (it lags behind).
-    let mut deleted = deleted(app);
-    let listed: std::collections::HashSet<&str> = loadouts.iter().filter_map(|l| l["id"].as_str()).collect();
-    let before = deleted.len();
-    deleted.retain(|id, at| listed.contains(id.as_str()) && chrono::Utc::now().timestamp() - *at < DELETED_FOR_SECS);
-    if deleted.len() != before {
-        store_deleted(app, &deleted);
+/* ---------- The local store ---------- */
+
+/// The file the loadouts were kept in before the database.
+fn old_store_path(app: &AppHandle, s: &Session) -> PathBuf {
+    app.path().app_config_dir().unwrap_or_else(|_| PathBuf::from(".")).join(format!("loadouts-{}.json", s.membership_id()))
+}
+
+/// Serializes reads and writes.
+static FILE: Mutex<()> = Mutex::new(());
+
+/// The player's loadouts (radar.db); the old file's taken over once.
+fn read_store(app: &AppHandle, s: &Session) -> Vec<Value> {
+    let membership = s.membership_id();
+    let old = old_store_path(app, s);
+    if old.exists() {
+        let text = std::fs::read_to_string(&old).unwrap_or_default();
+        let from_file: Vec<Value> =
+            serde_json::from_str::<Value>(&text).ok().and_then(|v| v["loadouts"].as_array().cloned()).unwrap_or_default();
+        let mut all = crate::db::loadouts(app, membership);
+        for l in from_file {
+            if !all.iter().any(|x| x["id"] == l["id"]) {
+                all.push(l);
+            }
+        }
+        if crate::db::set_loadouts(app, membership, &all).is_ok() {
+            let _ = std::fs::rename(&old, old.with_extension("json.moved-to-db"));
+        }
+        return all;
     }
-    let mut edited = EDITED.lock().unwrap();
-    let edited = edited.get_or_insert_default();
-    edited.retain(|_, (at, _)| at.elapsed() < Duration::from_secs(DELETED_FOR_SECS as u64));
-    let stamp = |l: &Value| l["lastUpdatedAt"].as_i64().unwrap_or(0);
-    // Saved in Radar and not listed by DIM yet (it lags behind): shown
-    // already, newest first.
-    let mut new: Vec<Value> = edited
-        .iter()
-        .filter(|(id, _)| !listed.contains(id.as_str()) && !deleted.contains_key(id.as_str()))
-        .map(|(_, (_, l))| l.clone())
-        .collect();
-    new.sort_by_key(|l| std::cmp::Reverse(stamp(l)));
-    Ok(new
-        .into_iter()
-        .chain(
-            loadouts
-                .into_iter()
-                .filter(|l| l["id"].as_str().is_none_or(|id| !deleted.contains_key(id)))
-                .map(|l| match l["id"].as_str().and_then(|id| edited.get(id)) {
-                    Some((_, mine)) if stamp(mine) > stamp(&l) => mine.clone(),
-                    _ => l,
-                }),
-        )
-        .collect())
+    crate::db::loadouts(app, membership)
 }
 
-/// Loadouts deleted in Radar: id -> when (unix seconds). DIM's own list
-/// can still include them for a while after the delete went through.
-const DELETED_FOR_SECS: i64 = 15 * 60;
-
-fn deleted_path(app: &AppHandle) -> PathBuf {
-    app.path().app_config_dir().unwrap_or_else(|_| PathBuf::from(".")).join("dim-deleted.json")
+fn write_store(app: &AppHandle, s: &Session, loadouts: &[Value]) -> Result<(), String> {
+    crate::db::set_loadouts(app, s.membership_id(), loadouts)
 }
 
-fn deleted(app: &AppHandle) -> std::collections::HashMap<String, i64> {
-    std::fs::read_to_string(deleted_path(app)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+/// All loadouts of the player (DIM's shape).
+fn raw_loadouts(app: &AppHandle, s: &Session) -> Vec<Value> {
+    let _guard = FILE.lock().unwrap();
+    read_store(app, s)
 }
 
-fn store_deleted(app: &AppHandle, deleted: &std::collections::HashMap<String, i64>) {
-    if let Ok(json) = serde_json::to_string(deleted) {
-        let _ = std::fs::write(deleted_path(app), json);
-    }
+/// A loadout as stored here, by id.
+pub(crate) fn local_loadout(app: &AppHandle, s: &Session, id: &str) -> Option<Value> {
+    raw_loadouts(app, s).into_iter().find(|l| l["id"].as_str() == Some(id))
 }
 
-/// Loadouts saved in Radar (new or changed), by id: DIM's list can still
-/// hold the old version, or none, for a while.
-static EDITED: Mutex<Option<std::collections::HashMap<String, (Instant, Value)>>> = Mutex::new(None);
-
-/// Keep a loadout just saved from Radar over DIM's (possibly older) copy.
-pub(crate) fn remember_raw(l: &Value) {
-    if let Some(id) = l["id"].as_str() {
-        EDITED.lock().unwrap().get_or_insert_default().insert(id.to_string(), (Instant::now(), l.clone()));
-    }
-}
-
-/// The raw DIM loadouts, with when they were fetched.
+/// The raw loadouts, with when they were read.
 static RAW_CACHE: Mutex<Option<(Instant, Vec<Value>)>> = Mutex::new(None);
 /// Described loadouts per (character id, loadout id).
 type DetailsCache = std::collections::HashMap<(String, String), (Instant, DimLoadoutOut)>;
@@ -294,13 +272,65 @@ pub(crate) async fn cached_raw(app: &AppHandle, s: &Session) -> Result<Vec<Value
             return Ok(raw.clone());
         }
     }
-    let raw = raw_loadouts(app, s).await?;
+    let raw = raw_loadouts(app, s);
     *RAW_CACHE.lock().unwrap() = Some((Instant::now(), raw.clone()));
     Ok(raw)
 }
 
-/// Create or replace a loadout in DIM.
+/// Create or replace a loadout (by its id).
 pub(crate) async fn save_loadout(app: &AppHandle, s: &Session, loadout: Value) -> Result<(), String> {
+    {
+        let _guard = FILE.lock().unwrap();
+        let mut all = read_store(app, s);
+        let id = loadout["id"].as_str().unwrap_or_default();
+        match all.iter_mut().find(|l| l["id"].as_str() == Some(id)) {
+            Some(old) => *old = loadout,
+            None => all.push(loadout),
+        }
+        write_store(app, s, &all)?;
+    }
+    invalidate_loadouts();
+    Ok(())
+}
+
+/// Weapons the loadouts list that the account no longer has (dismantled,
+/// gone): taken out of them, for `membership` with `items` everything it
+/// owns as just fetched. Armor and the rest stay (a missing piece shows as
+/// such); nothing happens with too few items to be a whole profile.
+pub(crate) async fn drop_missing_weapons(app: &AppHandle, membership: &str, items: &[crate::inventory::OwnedItem]) {
+    if items.len() < 20 {
+        return;
+    }
+    let Ok(gear) = crate::weapons::gear(app).await else { return };
+    let owned: std::collections::HashSet<&str> = items.iter().map(|o| o.instance_id.as_str()).collect();
+    let gone = |entry: &Value| {
+        let id = entry["id"].as_str().unwrap_or_default();
+        let weapon = entry["hash"].as_u64().and_then(|h| gear.get(h as u32)).is_some_and(|g| crate::fireteam::WEAPON_BUCKETS.contains(&g.bucket));
+        weapon && !id.is_empty() && id != "0" && !owned.contains(id)
+    };
+    let changed = {
+        let _guard = FILE.lock().unwrap();
+        let mut all = crate::db::loadouts(app, membership);
+        let mut changed = false;
+        for l in &mut all {
+            for list in ["equipped", "unequipped"] {
+                let Some(entries) = l[list].as_array_mut() else { continue };
+                let before = entries.len();
+                entries.retain(|e| !gone(e));
+                changed |= entries.len() != before;
+            }
+        }
+        changed && crate::db::set_loadouts(app, membership, &all).is_ok()
+    };
+    if changed {
+        crate::weapons::log_to_file("[loadouts] took weapons no longer owned out");
+        invalidate_loadouts();
+        let _ = app.emit("loadouts-changed", ());
+    }
+}
+
+/// Create or replace a loadout in DIM Sync.
+async fn send_to_dim(app: &AppHandle, s: &Session, loadout: Value) -> Result<(), String> {
     let key = ensure_key(app).await?;
     let token = token(app, s, &key).await?;
     let http = app.state::<BungieState>().http.clone();
@@ -310,11 +340,6 @@ pub(crate) async fn save_loadout(app: &AppHandle, s: &Session, loadout: Value) -
         "updates": [{ "action": "loadout", "payload": loadout }],
     });
     let res = send(http.post(format!("{BASE}/profile")).header("X-API-Key", &key).bearer_auth(token).json(&body)).await?;
-    invalidate_loadouts();
-    // Shown as saved right away, DIM's list catching up meanwhile.
-    if res["results"][0]["status"].as_str() == Some("Success") {
-        remember_raw(&loadout);
-    }
     let result = &res["results"][0];
     match result["status"].as_str() {
         Some("Success") => Ok(()),
@@ -328,19 +353,27 @@ pub struct DimStatus {
     connected: bool,
 }
 
+/// Whether the loadouts can be listed: always (they're on this PC).
 #[tauri::command]
-pub fn dim_status(app: AppHandle) -> DimStatus {
-    // Connected once is enough: a new Bungie key re-registers on the next read.
-    let _ = api_key(&app);
-    DimStatus { connected: STORE.lock().unwrap().as_ref().is_some_and(|s| s.api_key.is_some()) }
+pub fn dim_status() -> DimStatus {
+    DimStatus { connected: true }
 }
 
-/// Register with DIM if needed and check that the loadouts can be read.
 #[tauri::command]
-pub async fn dim_connect(app: AppHandle) -> Result<DimStatus, String> {
-    let s = session(&app).await?;
-    raw_loadouts(&app, &s).await?;
+pub async fn dim_connect() -> Result<DimStatus, String> {
     Ok(DimStatus { connected: true })
+}
+
+/// Send a loadout to DIM (registering Radar there on first use): it then
+/// shows up in DIM too. Sent again, DIM's copy is replaced.
+#[tauri::command]
+pub async fn dim_push(app: AppHandle, id: String) -> Result<(), String> {
+    let s = session(&app).await?;
+    let loadout = raw_loadouts(&app, &s)
+        .into_iter()
+        .find(|l| l["id"].as_str() == Some(id.as_str()))
+        .ok_or(tr("Loadout nicht gefunden", "Loadout not found"))?;
+    send_to_dim(&app, &s, loadout).await
 }
 
 #[derive(Clone, Serialize)]
@@ -421,6 +454,8 @@ fn mods_onto_armor(items: Vec<ItemInfo>, mods: Vec<ItemInfo>, by_bucket: Vec<(u6
 pub(crate) async fn describe(app: &AppHandle, l: &Value, character: &str, class_type: i64, owned: &[OwnedItem]) -> DimLoadoutOut {
     let equipped: Vec<u64> = l["equipped"].as_array().into_iter().flatten().filter_map(|i| i["hash"].as_u64()).collect();
     let infos: Vec<ItemInfo> = join_all(equipped.iter().map(|h| item(app, *h))).await.into_iter().flatten().collect();
+    // (The artifact item shows as its perks, in the artifact's own place.)
+    let infos: Vec<ItemInfo> = infos.into_iter().filter(|i| i.bucket != crate::weapons::ARTIFACT_BUCKET).collect();
     let (subclasses, items): (Vec<ItemInfo>, Vec<ItemInfo>) = infos.into_iter().partition(|i| i.bucket == SUBCLASS);
     // Weapons with their perks and mods: the owned copy's, with the
     // loadout's own choices (socket overrides) on top.
@@ -672,30 +707,18 @@ pub async fn dim_loadout_details(app: AppHandle, character_id: Option<String>, i
     Ok(out)
 }
 
-/// Delete a loadout from DIM.
+/// Delete a loadout (from Radar; a copy sent to DIM stays there).
 #[tauri::command]
 pub async fn dim_loadout_delete(app: AppHandle, id: String) -> Result<(), String> {
     let s = session(&app).await?;
-    let key = api_key(&app).ok_or(tr("Erst „Mit DIM verbinden“ klicken", "Click “Connect DIM” first"))?;
-    let token = token(&app, &s, &key).await?;
-    let http = app.state::<BungieState>().http.clone();
-    let body = json!({
-        "platformMembershipId": s.membership_id(),
-        "destinyVersion": 2,
-        "updates": [{ "action": "delete_loadout", "payload": id }],
-    });
-    let res = send(http.post(format!("{BASE}/profile")).header("X-API-Key", &key).bearer_auth(token).json(&body)).await?;
-    invalidate_loadouts();
-    let result = &res["results"][0];
-    match result["status"].as_str() {
-        Some("Success") => {
-            let mut deleted = deleted(&app);
-            deleted.insert(id, chrono::Utc::now().timestamp());
-            store_deleted(&app, &deleted);
-            Ok(())
-        }
-        _ => Err(format!("DIM: {}", result["message"].as_str().or(result["status"].as_str()).unwrap_or("?"))),
+    {
+        let _guard = FILE.lock().unwrap();
+        let mut all = read_store(&app, &s);
+        all.retain(|l| l["id"].as_str() != Some(id.as_str()));
+        write_store(&app, &s, &all)?;
     }
+    invalidate_loadouts();
+    Ok(())
 }
 
 /// Put a DIM loadout on a character (default: the one played last), and
@@ -711,10 +734,9 @@ pub async fn dim_loadout_apply(
 ) -> Result<Vec<String>, String> {
     let s = session(&app).await?;
     let loadout = raw_loadouts(&app, &s)
-        .await?
         .into_iter()
         .find(|l| l["id"].as_str() == Some(id.as_str()))
-        .ok_or(tr("Loadout nicht mehr in DIM", "Loadout no longer in DIM"))?;
+        .ok_or(tr("Loadout nicht gefunden", "Loadout not found"))?;
     let mut plan = crate::apply::plan_from_dim(&loadout);
     // Name / color / icon chosen for the slot (preset) win over the loadout's.
     if let Some([name, color, icon]) = identifiers.filter(|ids| ids.iter().all(|&h| h != 0)) {

@@ -1062,19 +1062,47 @@ pub fn bungie_reset_session(app: AppHandle, state: State<'_, BungieState>) {
     state.wake.notify_one();
 }
 
+/// The language picked in the setup window, once (the app starts in it).
+#[tauri::command]
+pub fn install_language(app: tauri::AppHandle) -> Option<String> {
+    let file = app.path().app_config_dir().ok()?.join("install-language.txt");
+    let code = std::fs::read_to_string(&file).ok()?.trim().to_string();
+    let _ = std::fs::remove_file(&file);
+    (!code.is_empty()).then_some(code)
+}
+
 /// Switch the language of Rust-side texts and Bungie content, then refresh
-/// so activity names follow. Called by the frontend on start and on change.
+/// so activity names follow. Called by the frontend on start and on change;
+/// a change (another language than the one kept) gets the language's game
+/// data and restarts Radar in it ("language-restarting" first).
 #[tauri::command]
 pub fn set_language(app: tauri::AppHandle, state: State<'_, BungieState>, language: String) -> Result<(), String> {
-    let config = {
+    let (config, changed) = {
         let mut i = state.inner.lock().unwrap();
         if i.config.language.as_deref() == Some(language.as_str()) && crate::i18n::language() == language {
             return Ok(());
         }
+        let changed = i.config.language.as_deref().is_some_and(|before| before != language);
         crate::i18n::set_language(&language);
         i.config.language = Some(language);
-        i.config.clone()
+        (i.config.clone(), changed)
     };
+    state.save(&config)?;
+    if changed {
+        // Picked in the settings: its game data, then Radar starts anew in it.
+        let _ = app.emit("language-restarting", ());
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::db::ensure_language(&app, crate::i18n::locale(), None).await;
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            app.restart();
+        });
+        return Ok(());
+    }
+    {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move { crate::db::ensure_language(&app, crate::i18n::locale(), None).await });
+    }
     // What was named in the old language is looked up anew; open pages of
     // the weapon statistic reload it.
     crate::usage::forget_summary();

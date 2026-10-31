@@ -15,7 +15,7 @@ import { reloadAllPlayers } from "./lib/fireteam";
 import { useT } from "./lib/i18n";
 import { accentColor, useSettings } from "./lib/settings";
 import { startUpdateChecks } from "./lib/updater";
-import { call, isDemo } from "./lib/tauri";
+import { call, isDemo, subscribe } from "./lib/tauri";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DimPage, preloadDimIfUsed } from "./pages/DimPage";
 import { DiscordPage, preloadDiscord } from "./pages/DiscordPage";
@@ -116,6 +116,7 @@ export function App() {
       <Backdrop />
       {loading && <Splash startWebviews={startWebviews} onDone={() => setLoading(false)} />}
       <UpdateScreen />
+      <LanguageRestart />
       <Navbar items={pages} active={page} onChange={setPage} right={status} />
       <PageTransition
         page={page}
@@ -168,5 +169,21 @@ function NameBadge({ name, live, fallback }: { name?: string; live: boolean; fal
         {badge}
       </button>
     </Tooltip>
+  );
+}
+
+/** Another language picked: Radar gets its game data and starts anew in it. */
+function LanguageRestart() {
+  const t = useT();
+  const [on, setOn] = useState(false);
+  useEffect(() => subscribe("language-restarting", () => setOn(true)), []);
+  if (!on) return null;
+  return (
+    <div className="animate-fade-in fixed inset-0 z-[200] grid place-items-center bg-[#020307]/90 backdrop-blur-sm">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span className="size-6 animate-spin rounded-full border-2 border-white/10 border-t-(--accent)" />
+        <p className="text-[14px] font-medium text-white">{t("settings.languageRestart")}</p>
+      </div>
+    </div>
   );
 }

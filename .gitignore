@@ -6,6 +6,8 @@ dist/
 *.tsbuildinfo
 src-tauri/target/
 src-tauri/gen/
+# Game data per language (made before a release, uploaded with it)
+src-tauri/resources/game-*.db*
 
 # Website: the app's build (made by website's build:app) and the installer
 # (published as a release of the public D2Radar repo by `pnpm release`)

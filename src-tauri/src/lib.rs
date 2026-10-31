@@ -23,6 +23,7 @@ mod compendium;
 mod crash;
 mod clears;
 mod dim;
+mod db;
 mod dimsync;
 mod discord;
 mod edit;
@@ -34,6 +35,7 @@ mod inventory;
 mod launch;
 mod loadouts;
 mod oauth;
+mod optimizer;
 mod presets;
 mod screen;
 mod session;
@@ -343,6 +345,8 @@ pub fn run() {
         )
         .setup(|app| {
             let handle = app.handle();
+            // The player's items: kept on disk, fetched anew when used, else every 30 minutes.
+            inventory::start_hourly_refresh(handle);
             for failed in hotkeys::register_all(handle) {
                 eprintln!("[hotkeys] not registered: {failed}");
             }
@@ -395,6 +399,15 @@ pub fn run() {
             bungie::bungie_refresh,
             bungie::bungie_reset_session,
             bungie::set_language,
+            bungie::install_language,
+            optimizer::optimize_armor,
+            optimizer::optimizer_limits,
+            optimizer::optimizer_upgrades,
+            optimizer::optimizer_exotics,
+            optimizer::optimizer_exotic_perks,
+            optimizer::optimizer_piece,
+            optimizer::optimizer_subclass,
+            optimizer::optimizer_sets,
             dim::dim_show,
             dim::dim_hide,
             dim::dim_preload,
@@ -425,8 +438,11 @@ pub fn run() {
             loadouts::loadout_clear,
             loadouts::loadout_identifiers,
             inventory::own_characters,
+            inventory::inventory_refresh,
+            inventory::inventory_fetched_at,
             dimsync::dim_status,
             dimsync::dim_connect,
+            dimsync::dim_push,
             dimsync::dim_loadout_list,
             dimsync::dim_loadout_details,
             dimsync::dim_loadout_delete,
@@ -435,9 +451,11 @@ pub fn run() {
             presets::preset_draft,
             presets::preset_candidates,
             presets::preset_save,
+            presets::preset_edit,
             presets::preset_preview,
             edit::loadout_item_sockets,
             edit::loadout_set_plug,
+            edit::weapon_sockets,
             sets::loadout_sets,
             sets::loadout_set_save,
             sets::loadout_set_delete,
@@ -472,6 +490,7 @@ pub fn run() {
             usage::weapon_usage,
             overlay_set_frame,
             weapons::artifact_detail,
+            weapons::artifact_options,
             weapons::weapon_detect_config,
             weapons::weapon_set_auto,
             weapons::weapon_set_region,

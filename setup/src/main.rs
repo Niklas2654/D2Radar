@@ -52,7 +52,20 @@ struct Texts {
     close: &'static str,
     failed: &'static str,
     retry: &'static str,
+    language: &'static str,
 }
+
+/// Radar's languages (code as the app has them, name in that language).
+const LANGUAGES: [(&str, &str); 8] = [
+    ("de", "Deutsch"),
+    ("en", "English"),
+    ("fr", "Français"),
+    ("es", "Español"),
+    ("it", "Italiano"),
+    ("pt", "Português"),
+    ("pl", "Polski"),
+    ("ru", "Русский"),
+];
 
 const EN: Texts = Texts {
     subtitle: "Your companion app for Destiny 2",
@@ -71,6 +84,7 @@ const EN: Texts = Texts {
     close: "Close",
     failed: "The installation failed",
     retry: "Try again",
+    language: "Language (game data for it comes with the first start)",
 };
 
 const DE: Texts = Texts {
@@ -91,6 +105,7 @@ const DE: Texts = Texts {
     close: "Schließen",
     failed: "Die Installation ist fehlgeschlagen",
     retry: "Erneut versuchen",
+    language: "Sprache (ihre Spieldaten kommen beim ersten Start)",
 };
 
 #[derive(Clone)]
@@ -107,6 +122,8 @@ struct Setup {
     /// The version already installed, if any.
     installed: Option<String>,
     desktop: bool,
+    /// The language Radar starts in (index into LANGUAGES).
+    language: usize,
     step: Arc<Mutex<Step>>,
 }
 
@@ -136,12 +153,16 @@ impl Setup {
             egui::ColorImage::from_rgba_unmultiplied(size, logo.as_raw()),
             egui::TextureOptions::LINEAR,
         );
-        let german = sys_locale::get_locale().is_some_and(|l| l.to_lowercase().starts_with("de"));
+        let system = sys_locale::get_locale().unwrap_or_default().to_lowercase();
+        let german = system.starts_with("de");
+        // Windows' language if Radar has it, else English.
+        let language = LANGUAGES.iter().position(|(code, _)| system.starts_with(code)).unwrap_or(1);
         Self {
             t: if german { &DE } else { &EN },
             logo,
             installed: registry("DisplayVersion"),
             desktop: true,
+            language,
             step: Arc::new(Mutex::new(Step::Ready)),
         }
     }
@@ -151,8 +172,9 @@ impl Setup {
         let step = self.step.clone();
         let ctx = ctx.clone();
         let desktop = self.desktop;
+        let language = LANGUAGES[self.language].0;
         std::thread::spawn(move || {
-            let result = run_installer(desktop);
+            let result = run_installer(desktop).map(|()| remember_language(language));
             *step.lock().unwrap() = match result {
                 Ok(()) => Step::Done,
                 Err(e) => Step::Failed(e),
@@ -176,6 +198,16 @@ fn run_installer(desktop: bool) -> Result<(), String> {
     match status? {
         s if s.success() => Ok(()),
         s => Err(format!("code {}", s.code().unwrap_or(-1))),
+    }
+}
+
+/// The language picked, for Radar's first start (it takes it over once:
+/// %APPDATA%\app.radar.overlay\install-language.txt).
+fn remember_language(code: &str) {
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        let dir = PathBuf::from(appdata).join("app.radar.overlay");
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join("install-language.txt"), code);
     }
 }
 
@@ -256,6 +288,28 @@ fn checkbox(ui: &mut egui::Ui, on: &mut bool, label: &str) {
     if response.hovered() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
+}
+
+/// The languages as a row of small buttons, the picked one in the accent.
+fn languages(ui: &mut egui::Ui, picked: &mut usize) {
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = Vec2::new(6.0, 6.0);
+        for (i, (_, name)) in LANGUAGES.iter().enumerate() {
+            let font = FontId::proportional(13.0);
+            let size = ui.painter().layout_no_wrap(name.to_string(), font.clone(), TEXT).size();
+            let (rect, response) = ui.allocate_exact_size(Vec2::new(size.x + 18.0, 26.0), Sense::click());
+            let on = *picked == i;
+            let fill = if on { ACCENT } else if response.hovered() { Color32::from_rgb(30, 33, 42) } else { PANEL };
+            ui.painter().rect_filled(rect, CornerRadius::same(5), fill);
+            ui.painter().text(rect.center(), Align2::CENTER_CENTER, *name, font, if on { BG } else { TEXT });
+            if response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+            if response.clicked() {
+                *picked = i;
+            }
+        }
+    });
 }
 
 fn link(ui: &mut egui::Ui, label: &str, url: &str) {
@@ -339,6 +393,13 @@ impl eframe::App for Setup {
                         }
                         ui.add_space(14.0);
                         checkbox(ui, &mut self.desktop, self.t.desktop);
+                        ui.add_space(12.0);
+                        // (Bottom-up: the buttons, then their label above.)
+                        ui.with_layout(Layout::top_down(Align::Min), |ui| {
+                            ui.label(RichText::new(self.t.language).size(12.5).color(MUTED));
+                            ui.add_space(4.0);
+                            languages(ui, &mut self.language);
+                        });
                     });
                 }
                 Step::Installing => {

@@ -4,14 +4,17 @@
 # everyone), so a run per tag never found the last one's compiled Rust and
 # built everything again (half an hour); from master each reuses the last.
 # Development happens in the private repo; the public D2Radar repo gets
-# each released version:
-#  1. its source, as one commit on D2Radar's main (no development history),
-#  2. the Windows app built from it, with Radar's Bungie app built in, as a
-#     release there: the installer, the signed update and latest.json, which
-#     the app's updater reads, plus Radar-setup.exe for the website: Radar's
-#     own setup window (setup/) with that installer inside,
-#  3. and the website on Vercel is updated (website.yml: the new version and
-#     size; skipped while the Vercel secrets aren't set).
+# each released version, and only once its build went through:
+#  1. the Windows app, with Radar's Bungie app built in, as a draft release
+#     there (unseen, and not "latest"): the installer, the signed update and
+#     latest.json, which the app's updater reads, plus Radar-setup.exe for the
+#     website: Radar's own setup window (setup/) with that installer inside,
+#  2. then its source, as one commit on D2Radar's main (no development
+#     history), and the release published, tagged on that commit,
+#  3. and then the website on Vercel is updated (website.yml: the new
+#     version and size; skipped while the Vercel secrets aren't set).
+# A failed build leaves D2Radar as it was (at most a draft, which the next
+# run of the same version reuses).
 #
 # Secrets of this repo:
 #   RELEASES_TOKEN              token with "Contents: read and write" on D2Radar
@@ -31,39 +34,17 @@ env:
   PUBLIC_REPO: Niklas2654/D2Radar
 
 jobs:
-  source:
+  app:
     # Only here, in the private repo (the public copy has this file too),
     # and only for a release commit (or started by hand).
     if: >-
       github.repository != 'Niklas2654/D2Radar' &&
       (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Release v'))
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          # Else git pushes with this repo's own token (it set it up for
-          # every github.com address), which can't write to D2Radar.
-          persist-credentials: false
-      - name: Publish the source to D2Radar
-        env:
-          TOKEN: ${{ secrets.RELEASES_TOKEN }}
-        run: |
-          remote="https://x-access-token:${TOKEN}@github.com/${PUBLIC_REPO}.git"
-          version=$(jq -r .version src-tauri/tauri.conf.json)
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch --quiet "$remote" main
-          # This version's files, on top of D2Radar's own history.
-          commit=$(git commit-tree "HEAD^{tree}" -p FETCH_HEAD -m "Radar ${version}")
-          git push --quiet "$remote" "${commit}:refs/heads/main"
-
-  app:
-    needs: source
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 12
       - uses: actions/setup-node@v5
@@ -92,12 +73,13 @@ jobs:
         with:
           owner: Niklas2654
           repo: D2Radar
-          # The tag goes on D2Radar's main: the source commit made just before.
+          # A draft: the tag is made when it's published (source job), on
+          # the source commit.
           tagName: v__VERSION__
           releaseCommitish: main
           releaseName: Radar __VERSION__
           releaseBody: Radar __VERSION__ for Windows 10/11. Radar updates itself from here (Settings → About).
-          releaseDraft: false
+          releaseDraft: true
           includeUpdaterJson: true
           args: --config src-tauri/tauri.release.conf.json
 
@@ -115,7 +97,34 @@ jobs:
           Copy-Item setup/target/release/radar-setup.exe Radar-setup.exe
           gh release upload "v$version" Radar-setup.exe --repo $env:PUBLIC_REPO --clobber
 
-  website:
+  source:
+    # Only once the app is built and in the draft release.
     needs: app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Else git pushes with this repo's own token (it set it up for
+          # every github.com address), which can't write to D2Radar.
+          persist-credentials: false
+      - name: Publish the source to D2Radar, then the release
+        env:
+          TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          remote="https://x-access-token:${TOKEN}@github.com/${PUBLIC_REPO}.git"
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --quiet "$remote" main
+          # This version's files, on top of D2Radar's own history.
+          commit=$(git commit-tree "HEAD^{tree}" -p FETCH_HEAD -m "Radar ${version}")
+          git push --quiet "$remote" "${commit}:refs/heads/main"
+          # Out of draft, tagged on that commit: now it's the latest release
+          # (the updater and the website's download see it).
+          gh release edit "v${version}" --repo "$PUBLIC_REPO" --target "$commit" --draft=false --latest
+
+  website:
+    needs: source
     uses: ./.github/workflows/website.yml
     secrets: inherit

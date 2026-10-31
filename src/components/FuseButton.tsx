@@ -4,8 +4,7 @@ import { cx } from "./glass";
 /**
  * A destructive action with a grace period: pressed, the pill turns into
  * "Undo" and a lit fuse burns once around its rim; only when it has burnt
- * down does `onCommit` run. Undo (or Escape) puts it back. Hovering holds
- * the fuse.
+ * down does `onCommit` run. Undo (or Escape) puts it back.
  */
 export function FuseButton({
   label,
@@ -38,16 +37,17 @@ export function FuseButton({
     return () => window.removeEventListener("keydown", key);
   }, [armed]);
 
-  // The rim follows the pill's size (its label changes width).
+  // Its size before arming, kept while the fuse burns: "Undo" is narrower
+  // than the label, and the rim changing size mid-way jumped.
   useEffect(() => {
     const el = button.current;
-    if (!el) return;
+    if (!el || armed) return;
     const measure = () => setSize({ w: el.offsetWidth, h: el.offsetHeight });
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [armed]);
 
   const r = Math.min(12, size.h / 2);
   return (
@@ -57,8 +57,9 @@ export function FuseButton({
       disabled={(disabled && !armed) || busy}
       aria-live="polite"
       onClick={() => setArmed((a) => !a)}
+      style={armed && size.w > 0 ? { width: size.w } : undefined}
       className={cx(
-        "fuse group/fuse relative inline-flex h-8 items-center justify-center rounded-xl border px-3 text-[12.5px] font-medium transition-[background-color,border-color,color,width] duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40",
+        "fuse group/fuse relative inline-flex h-10 items-center justify-center rounded-xl border px-4 text-[13.5px] font-medium transition-[background-color,border-color,color] duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40",
         armed
           ? "border-white/10 bg-white/[0.06] text-white/90 hover:bg-white/[0.1]"
           : "border-red-400/20 bg-red-500/10 text-red-200 hover:bg-red-500/20",

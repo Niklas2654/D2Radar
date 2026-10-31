@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { accentWipe } from "./accentWipe";
-import { broadcast, isDemo, subscribe } from "./tauri";
+import { broadcast, call, isDemo, isTauri, subscribe } from "./tauri";
 
 export const ACCENTS = {
   solar: { label: "Solar", color: "#ff9f2e" },
@@ -123,6 +123,19 @@ function setCurrent(next: Settings, animate = true) {
 }
 
 subscribe<Settings>(EVENT, (next) => setCurrent(next));
+
+// First start: the language picked in the setup window (once).
+if (isTauri && !isDemo) {
+  let saved = true;
+  try {
+    saved = !!localStorage.getItem(KEY);
+  } catch {
+    // Storage blocked: as saved.
+  }
+  void call<string | null>("install_language").then((code) => {
+    if (!saved && code && LANGUAGE_IDS.includes(code as Language)) updateSettings({ language: code as Language });
+  });
+}
 
 /** `fromSite`: the website's demo setting what the website says (no wipe,
  *  not told back to it). */

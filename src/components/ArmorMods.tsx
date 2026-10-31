@@ -137,7 +137,7 @@ export function ArmorMods({
           <span className="text-[11.5px] text-white/50 tabular-nums">{t("mods.energy", { used: used ?? 0, max: mods.energy })}</span>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {mods.slots.map((slot) => (
           <ModTile
             key={slot.socket}
@@ -149,16 +149,21 @@ export function ArmorMods({
             onClick={() => canEquip && setPicking(picking === slot.socket ? null : slot.socket)}
           />
         ))}
+        {/* Putting a mod in, and how it went: beside the sockets. */}
+        <div className="ml-2 min-w-0 flex-1">
+          <ActionToast state={action} inline />
+        </div>
       </div>
       {!canEquip && <p className="mt-2 text-[11.5px] text-[#f5a3a8]">{t("mods.notInOrbit")}</p>}
       {error && <p className="mt-2 text-[11.5px] text-red-300">{error}</p>}
-      <ActionToast state={action} />
       {picking !== null && canEquip && (
         <ModPicker
           itemHash={mods.itemHash}
           instanceId={mods.instanceId}
           socket={picking}
           current={mods.slots.find((s) => s.socket === picking)?.plug?.item.hash ?? null}
+          // The energy a mod here may take: what's free, plus what's in it now.
+          room={mods.energy == null ? null : mods.energy - (used ?? 0) + (mods.slots.find((s) => s.socket === picking)?.plug?.cost ?? 0)}
           onPick={(plug) => equip(picking, plug)}
         />
       )}
@@ -174,9 +179,14 @@ function ModTile({
   busy = false,
   flash = null,
   cost,
+  disabled = false,
+  title,
   onClick,
 }: {
   plug: ModPlug | null;
+  /** Can't go in (not enough energy): greyed out, no click. */
+  disabled?: boolean;
+  title?: string;
   locked?: boolean;
   active?: boolean;
   busy?: boolean;
@@ -194,7 +204,9 @@ function ModTile({
       <button
         ref={anchor}
         type="button"
-        onClick={onClick}
+        onClick={disabled ? undefined : onClick}
+        aria-disabled={disabled || undefined}
+        title={title}
         onPointerEnter={() => setHover(true)}
         onPointerLeave={() => setHover(false)}
         className={cx(
@@ -209,6 +221,7 @@ function ModTile({
                   ? "cursor-pointer border-(--accent-text)"
                   : "cursor-pointer border-white/[0.12] hover:border-white/35",
           !plug && "border-dashed",
+          disabled && "cursor-not-allowed opacity-30 grayscale hover:border-white/[0.12]",
         )}
       >
         {icon ? (
@@ -286,12 +299,15 @@ function ModPicker({
   instanceId,
   socket,
   current,
+  room,
   onPick,
 }: {
   itemHash: number;
   instanceId: string;
   socket: number;
   current: number | null;
+  /** The energy a mod here may cost (null: not known, all allowed). */
+  room: number | null;
   onPick: (plug: ModPlug) => void;
 }) {
   const t = useT();
@@ -311,7 +327,15 @@ function ModPicker({
       ) : (
         <div className="flex max-h-64 flex-wrap gap-1.5 overflow-y-auto">
           {options.map((o) => (
-            <ModTile key={o.item.hash} plug={o} cost={o.cost} active={o.item.hash === current} onClick={() => onPick(o)} />
+            <ModTile
+              key={o.item.hash}
+              plug={o}
+              cost={o.cost}
+              active={o.item.hash === current}
+              disabled={room !== null && o.cost > room}
+              title={room !== null && o.cost > room ? t("mods.noEnergy", { name: o.item.name }) : undefined}
+              onClick={() => onPick(o)}
+            />
           ))}
           {options.length === 0 && <p className="px-1 text-[12px] text-white/40">{t("mods.none")}</p>}
         </div>

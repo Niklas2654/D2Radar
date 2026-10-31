@@ -1,3 +1,4 @@
+import { placeCard } from "../lib/placeCard";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LOCALES, useLanguage, useT } from "../lib/i18n";
@@ -90,10 +91,8 @@ export function StatHover({ id, stat, name, children }: { id: StatId; stat: numb
     if (!at || !card.current) return;
     const w = card.current.offsetWidth;
     const h = card.current.offsetHeight;
-    let top = at.bottom + 8;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, at.top - h - 8);
-    const left = Math.min(Math.max(8, at.left), window.innerWidth - w - 8);
-    setPos({ left, top });
+    // Below, else above, else beside it: never over it (and the pointer).
+    setPos(placeCard(at, w, h));
   }, [at]);
   return (
     <div

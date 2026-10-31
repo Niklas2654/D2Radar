@@ -48,18 +48,25 @@ fn path(app: &AppHandle) -> PathBuf {
 fn all(app: &AppHandle) -> Vec<LoadoutSet> {
     SETS.lock()
         .unwrap()
-        .get_or_insert_with(|| {
-            std::fs::read_to_string(path(app)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+        .get_or_insert_with(|| match crate::db::presets(app) {
+            Some(rows) => rows.into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect(),
+            // Not in the database yet: the old file's, taken over.
+            None => {
+                let old: Vec<LoadoutSet> =
+                    std::fs::read_to_string(path(app)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+                let rows: Vec<serde_json::Value> = old.iter().filter_map(|x| serde_json::to_value(x).ok()).collect();
+                if crate::db::set_presets(app, &rows).is_ok() && path(app).exists() {
+                    let _ = std::fs::rename(path(app), path(app).with_extension("json.moved-to-db"));
+                }
+                old
+            }
         })
         .clone()
 }
 
 fn store(app: &AppHandle, sets: Vec<LoadoutSet>) -> Result<Vec<LoadoutSet>, String> {
-    if let Some(dir) = path(app).parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let json = serde_json::to_string_pretty(&sets).map_err(|e| e.to_string())?;
-    std::fs::write(path(app), json).map_err(|e| e.to_string())?;
+    let rows: Vec<serde_json::Value> = sets.iter().filter_map(|x| serde_json::to_value(x).ok()).collect();
+    crate::db::set_presets(app, &rows)?;
     *SETS.lock().unwrap() = Some(sets.clone());
     Ok(sets)
 }

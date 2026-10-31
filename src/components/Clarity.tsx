@@ -1,4 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { placeCard } from "../lib/placeCard";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BUNGIE_ORIGIN } from "../lib/bungie";
@@ -102,10 +103,16 @@ export function PerkHover({
   perk,
   clarity,
   enhancedClarity,
+  exact,
+  disabled = false,
   children,
 }: {
   perk: Perk;
   clarity?: ClarityText;
+  /** No card (only the children). */
+  disabled?: boolean;
+  /** Exact numbers as text (Destiny Data Compendium), where Clarity has none. */
+  exact?: string;
   /** Clarity for the perk's enhanced version. */
   enhancedClarity?: ClarityText;
   children: ReactNode;
@@ -121,10 +128,8 @@ export function PerkHover({
     if (!at || !card.current) return;
     const w = card.current.offsetWidth;
     const h = card.current.offsetHeight;
-    let top = at.bottom + 8;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, at.top - h - 8);
-    const left = Math.min(Math.max(8, at.left + at.width / 2 - w / 2), window.innerWidth - w - 8);
-    setPos({ left, top });
+    // Below, else above, else beside it: never over it (and the pointer).
+    setPos(placeCard(at, w, h));
   }, [at]);
 
   return (
@@ -132,6 +137,7 @@ export function PerkHover({
       ref={anchor}
       className="contents"
       onMouseEnter={(e) => {
+        if (disabled) return;
         const target = e.currentTarget.firstElementChild ?? e.currentTarget;
         window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setAt((target as Element).getBoundingClientRect()), 180);
@@ -164,6 +170,13 @@ export function PerkHover({
               <div className="mt-2.5 rounded-xl border border-(--accent-glow) bg-(--accent-soft) p-2.5">
                 <div className="mb-1 text-[9.5px] font-semibold tracking-[0.14em] text-(--accent-text) uppercase">{t("clarity.title")}</div>
                 <ClarityLines text={clarity} />
+              </div>
+            )}
+            {!clarity && exact && (
+              <div className="mt-2.5 rounded-xl border border-(--accent-glow) bg-(--accent-soft) p-2.5">
+                <div className="mb-1 text-[9.5px] font-semibold tracking-[0.14em] text-(--accent-text) uppercase">{t("clarity.title")}</div>
+                <p className="text-[12px] leading-relaxed whitespace-pre-line text-white/80">{exact}</p>
+                <CompendiumCredit className="mt-1.5" />
               </div>
             )}
             {perk.enhanced && (
@@ -213,10 +226,8 @@ export function ExoticHover({ perks, children }: { perks?: ClarityItemPerk[]; ch
     if (!at || !card.current) return;
     const w = card.current.offsetWidth;
     const h = card.current.offsetHeight;
-    let top = at.bottom + 8;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, at.top - h - 8);
-    const left = Math.min(Math.max(8, at.left + at.width / 2 - w / 2), window.innerWidth - w - 8);
-    setPos({ left, top });
+    // Below, else above, else beside it: never over it (and the pointer).
+    setPos(placeCard(at, w, h));
   }, [at]);
   if (!perks?.length) return <>{children}</>;
   return (
@@ -263,6 +274,8 @@ export function ExoticArmorPerks({ item, compact = false }: { item: ItemInfo; co
     perks.length > 0
       ? perks.map((p) => ({ name: p.name, text: clarity.get(p.hash), exact: p.exact, description: p.description }))
       : (byItem.get(item.hash) ?? []).map((p) => ({ name: p.name, text: p.text }));
+  // Neither Clarity nor the perks have numbers: the Compendium's for the piece.
+  if (item.exact && !entries.some((e) => e.text || e.exact)) entries.splice(0, entries.length, { name: item.name, exact: item.exact });
   if (entries.length === 0) return null;
   const exact = entries.some((e) => e.text || e.exact);
   const fromCompendium = entries.some((e) => !e.text && e.exact);
@@ -299,10 +312,8 @@ export function ExoticArmorHover({ item, children }: { item: ItemInfo; children:
     if (!at || !card.current) return;
     const w = card.current.offsetWidth;
     const h = card.current.offsetHeight;
-    let top = at.bottom + 8;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, at.top - h - 8);
-    const left = Math.min(Math.max(8, at.left + at.width / 2 - w / 2), window.innerWidth - w - 8);
-    setPos({ left, top });
+    // Below, else above, else beside it: never over it (and the pointer).
+    setPos(placeCard(at, w, h));
   }, [at]);
   if (!item.exotic) return <>{children}</>;
   return (

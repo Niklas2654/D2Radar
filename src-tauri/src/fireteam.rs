@@ -100,7 +100,7 @@ pub struct ItemInfo {
     type_name: String,
     /// What it does (perks, exotic armor perks); empty when not needed.
     #[serde(skip_serializing_if = "String::is_empty")]
-    description: String,
+    pub(crate) description: String,
     /// Exact numbers from the Destiny Data Compendium (exotic class item
     /// spirits), when known.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -449,6 +449,14 @@ pub(crate) async fn item(app: &AppHandle, hash: u64) -> Option<ItemInfo> {
     } else {
         own
     };
+    // The exact numbers (Destiny Data Compendium), by its English name.
+    let english = if lc == "en" { None } else { definition_in(app, "DestinyInventoryItemDefinition", hash, "en").await };
+    let exact = english
+        .as_ref()
+        .unwrap_or(&def)["displayProperties"]["name"]
+        .as_str()
+        .filter(|n| !n.is_empty())
+        .and_then(crate::compendium::exact);
     let info = def["displayProperties"]["name"]
         .as_str()
         .filter(|n| !n.is_empty())
@@ -458,7 +466,7 @@ pub(crate) async fn item(app: &AppHandle, hash: u64) -> Option<ItemInfo> {
             icon: def["displayProperties"]["icon"].as_str().map(Into::into),
             type_name: def["itemTypeDisplayName"].as_str().unwrap_or_default().into(),
             description,
-            exact: None,
+            exact,
             exotic: def["inventory"]["tierType"].as_i64() == Some(TIER_EXOTIC),
             // Weapons have a default damage type, subclasses their HUD one.
             damage_type: def["defaultDamageType"]
@@ -626,114 +634,130 @@ pub(crate) async fn definition(app: &AppHandle, entity: &str, hash: u64) -> Opti
 /// A definition in a given language (English names for lookups in English
 /// community data).
 pub(crate) async fn definition_in(app: &AppHandle, entity: &str, hash: u64, lang: &str) -> Option<Value> {
-    let locale = || lang;
-    let cache_key = format!("{}:{entity}:{hash}", locale());
+    let cache_key = format!("{lang}:{entity}:{hash}");
     load_definitions(app);
     if let Some(cached) = DEFINITIONS.lock().unwrap().get_or_insert_default().get(&cache_key) {
         return cached.clone();
     }
-    let (http, key) = http(app);
-    let path = format!("/Destiny2/Manifest/{entity}/{hash}/?lc={}", locale());
-    let def = api(&http, &key.ok()?, Method::GET, &path, None).await.ok();
-    {
-        let mut definitions = DEFINITIONS.lock().unwrap();
-        let definitions = definitions.get_or_insert_default();
-        // Every item, perk and mod looked at stays otherwise: start over past
-        // a few thousand (they are fetched again as needed).
-        if definitions.len() >= MAX_DEFINITIONS {
-            definitions.clear();
+    // Kept in the game data (shipped with the app, or looked up before): at
+    // once; of an older manifest, looked up anew in the background.
+    let current = DEFINITIONS_VERSION.lock().unwrap().clone();
+    if let Some((version, data)) = crate::db::definition(app, lang, entity, hash) {
+        // (An empty one, kept from before: looked up anew.)
+        if let Some(def) = serde_json::from_str::<Value>(&data).ok().filter(|d| !d.is_null()) {
+            remember(&cache_key, Some(def.clone()));
+            if current.as_ref().is_some_and(|c| *c != version) {
+                let (app, entity, lang) = (app.clone(), entity.to_string(), lang.to_string());
+                tauri::async_runtime::spawn(async move {
+                    if let Some(new) = fetch_definition(&app, &entity, hash, &lang).await {
+                        remember(&format!("{lang}:{entity}:{hash}"), Some(new.clone()));
+                        keep_later(&app, &lang, &entity, hash, &new);
+                    }
+                });
+            }
+            return Some(def);
         }
-        definitions.insert(cache_key, def.clone());
     }
-    if def.is_some() {
-        save_definitions_later(app);
+    let def = fetch_definition(app, entity, hash, lang).await;
+    remember(&cache_key, def.clone());
+    if let Some(d) = &def {
+        keep_later(app, lang, entity, hash, d);
     }
     def
 }
 
-/* ---------- Definitions kept on disk ---------- */
-
-/// The definitions looked up, kept for the next start (they only change
-/// with a manifest update: then they're dropped, see `manifest`).
-#[derive(Default, Serialize, Deserialize)]
-struct DefinitionsFile {
-    version: String,
-    definitions: HashMap<String, Value>,
+/// A definition from Bungie (the manifest entity endpoint).
+async fn fetch_definition(app: &AppHandle, entity: &str, hash: u64, lang: &str) -> Option<Value> {
+    let (http, key) = http(app);
+    let path = format!("/Destiny2/Manifest/{entity}/{hash}/?lc={lang}");
+    api(&http, &key.ok()?, Method::GET, &path, None).await.ok()
 }
 
-/// The manifest version the definitions on disk are from.
+/// In memory (every item, perk and mod looked at stays otherwise: start
+/// over past a few thousand; they're in the game data anyway).
+fn remember(cache_key: &str, def: Option<Value>) {
+    let mut definitions = DEFINITIONS.lock().unwrap();
+    let definitions = definitions.get_or_insert_default();
+    if definitions.len() >= MAX_DEFINITIONS {
+        definitions.clear();
+    }
+    definitions.insert(cache_key.to_string(), def);
+}
+
+/* ---------- Definitions kept (the game data, see db.rs) ---------- */
+
+/// The current manifest's version (set when it's known).
 static DEFINITIONS_VERSION: Mutex<Option<String>> = Mutex::new(None);
 static DEFINITIONS_LOADED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static DEFINITIONS_SAVING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// New definitions to write: (lang, entity, hash, JSON).
+static TO_KEEP: Mutex<Vec<(String, String, u64, String)>> = Mutex::new(Vec::new());
 
+/// The file definitions were kept in before the database.
 fn definitions_path(app: &AppHandle) -> PathBuf {
     app.path().app_cache_dir().unwrap_or_else(|_| PathBuf::from(".")).join("definitions-v1.json")
 }
 
+/// The old file's definitions, taken over into the game data once.
 fn load_definitions(app: &AppHandle) {
     use std::sync::atomic::Ordering;
     if DEFINITIONS_LOADED.swap(true, Ordering::SeqCst) {
         return;
     }
-    let Some(file) = std::fs::read_to_string(definitions_path(app))
-        .ok()
-        .and_then(|s| serde_json::from_str::<DefinitionsFile>(&s).ok())
-    else {
+    #[derive(Deserialize)]
+    struct DefinitionsFile {
+        version: String,
+        definitions: HashMap<String, Value>,
+    }
+    let path = definitions_path(app);
+    let Some(file) = std::fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str::<DefinitionsFile>(&s).ok()) else {
         return;
     };
-    // The manifest already known to be newer: nothing to keep.
-    if MANIFEST.lock().unwrap().as_ref().is_some_and(|m| m.version != file.version) {
-        return;
-    }
-    *DEFINITIONS_VERSION.lock().unwrap() = Some(file.version);
-    let mut definitions = DEFINITIONS.lock().unwrap();
-    let definitions = definitions.get_or_insert_default();
-    for (key, def) in file.definitions {
-        definitions.entry(key).or_insert(Some(def));
-    }
+    let rows: Vec<(String, String, u64, String, String)> = file
+        .definitions
+        .iter()
+        .filter_map(|(key, def)| {
+            let mut parts = key.splitn(3, ':');
+            let (lang, entity, hash) = (parts.next()?, parts.next()?, parts.next()?.parse().ok()?);
+            Some((lang.to_string(), entity.to_string(), hash, file.version.clone(), def.to_string()))
+        })
+        .collect();
+    crate::db::set_definitions(app, &rows);
+    let _ = std::fs::remove_file(path);
 }
 
 /// Written a few seconds after the last new definition (not on each).
-fn save_definitions_later(app: &AppHandle) {
+fn keep_later(app: &AppHandle, lang: &str, entity: &str, hash: u64, def: &Value) {
     use std::sync::atomic::Ordering;
+    TO_KEEP.lock().unwrap().push((lang.to_string(), entity.to_string(), hash, def.to_string()));
     if DEFINITIONS_SAVING.swap(true, Ordering::SeqCst) {
         return;
     }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        tokio::time::sleep(Duration::from_secs(3)).await;
         DEFINITIONS_SAVING.store(false, Ordering::SeqCst);
-        let version = MANIFEST
-            .lock()
-            .unwrap()
-            .as_ref()
-            .map(|m| m.version.clone())
-            .or_else(|| DEFINITIONS_VERSION.lock().unwrap().clone());
-        let Some(version) = version else { return };
-        let definitions: HashMap<String, Value> = DEFINITIONS
-            .lock()
-            .unwrap()
-            .as_ref()
-            .map(|d| d.iter().filter_map(|(k, v)| Some((k.clone(), v.clone()?))).collect())
-            .unwrap_or_default();
-        if let Ok(json) = serde_json::to_string(&DefinitionsFile { version, definitions }) {
-            let path = definitions_path(&app);
-            if let Some(dir) = path.parent() {
-                let _ = std::fs::create_dir_all(dir);
-            }
-            let _ = std::fs::write(path, json);
+        // (The manifest's version not known yet: asked for first.)
+        if DEFINITIONS_VERSION.lock().unwrap().is_none() {
+            let _ = manifest(&app).await;
         }
+        let Some(version) = DEFINITIONS_VERSION.lock().unwrap().clone() else { return };
+        let rows: Vec<_> = std::mem::take(&mut *TO_KEEP.lock().unwrap())
+            .into_iter()
+            .map(|(lang, entity, hash, data)| (lang, entity, hash, version.clone(), data))
+            .collect();
+        tauri::async_runtime::spawn_blocking(move || crate::db::set_definitions(&app, &rows));
     });
 }
 
-/// A new manifest: the definitions kept from an older one go.
+/// The current manifest: definitions kept of an older one are looked up
+/// anew when used (served meanwhile); items looked up are dropped.
 fn check_definitions(app: &AppHandle, version: &str) {
     load_definitions(app);
     let mut kept = DEFINITIONS_VERSION.lock().unwrap();
     if kept.as_deref().is_some_and(|v| v != version) {
         DEFINITIONS.lock().unwrap().take();
         ITEMS.lock().unwrap().take();
-        let _ = std::fs::remove_file(definitions_path(app));
     }
     *kept = Some(version.to_string());
 }
@@ -771,7 +795,16 @@ pub(crate) async fn armor_sets(app: &AppHandle, armor: &[ItemInfo]) -> Vec<Armor
             None => counts.push((set, 1)),
         }
     }
-    let sets = join_all(counts.into_iter().map(|(hash, pieces)| async move {
+    let sets = join_all(counts.into_iter().map(|(hash, pieces)| armor_set(app, hash, pieces))).await;
+    let mut sets: Vec<ArmorSet> = sets.into_iter().flatten().collect();
+    sets.sort_by_key(|s| std::cmp::Reverse(s.pieces));
+    sets
+}
+
+/// An armor set with its bonuses, `pieces` of it worn (which bonuses are
+/// active).
+pub(crate) async fn armor_set(app: &AppHandle, hash: u64, pieces: u32) -> Option<ArmorSet> {
+    {
         let (def, english_set) = futures::join!(
             definition(app, "DestinyEquipableItemSetDefinition", hash),
             definition_in(app, "DestinyEquipableItemSetDefinition", hash, "en"),
@@ -813,11 +846,7 @@ pub(crate) async fn armor_sets(app: &AppHandle, armor: &[ItemInfo]) -> Vec<Armor
         let mut perks: Vec<SetPerk> = perks.into_iter().flatten().collect();
         perks.sort_by_key(|p| p.required);
         Some(ArmorSet { name, pieces, perks })
-    }))
-    .await;
-    let mut sets: Vec<ArmorSet> = sets.into_iter().flatten().collect();
-    sets.sort_by_key(|s| std::cmp::Reverse(s.pieces));
-    sets
+    }
 }
 
 /* ---------- Player profile ---------- */

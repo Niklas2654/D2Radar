@@ -88,6 +88,13 @@ export const IconPlus = () => (
   </svg>
 );
 
+export const IconEdit = () => (
+  <svg {...base}>
+    <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+    <path d="M13.5 6.5l4 4" />
+  </svg>
+);
+
 /** DIM's logo mark (from its site's pinned-tab icon), in the current color. */
 export const IconDim = () => (
   <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
@@ -219,5 +226,12 @@ export const Logo = ({ size = 20, animated = false }: { size?: number; animated?
         />
       )}
     </circle>
+  </svg>
+);
+
+export const IconArrowLeft = () => (
+  <svg {...base}>
+    <path d="M19 12H5" />
+    <path d="m12 19-7-7 7-7" />
   </svg>
 );

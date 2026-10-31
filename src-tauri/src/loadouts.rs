@@ -326,5 +326,5 @@ pub async fn loadout_to_dim(
         Some(n) => n,
         None => describe(&app, index, loadout, &HashMap::new()).await.name,
     };
-    crate::presets::preset_save(app, Some(character_id), name, items).await
+    crate::presets::preset_save(app, Some(character_id), name, items, None, None, None, None, None).await
 }

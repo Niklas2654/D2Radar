@@ -1,0 +1,98 @@
+# Radar's game data per language (src-tauri/src/db.rs): the definitions it
+# looks up (subclasses with their supers, abilities, aspects and fragments,
+# exotics, mods, artifacts, sets, …) and the weapon index, as one gzipped
+# SQLite file per app language. They sit on the public D2Radar repo's
+# release "game-data" (always the same tag), where Radar downloads its
+# language's on the first start, after picking another language, and when
+# Bungie's manifest is newer than its own. Made anew once a day, when
+# Bungie's manifest changed (a Destiny patch or hotfix), or by hand.
+#
+# Secrets of this repo: RELEASES_TOKEN (see release.yml).
+name: Game data
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Make them anew even if the manifest didn't change
+        type: boolean
+        default: false
+
+env:
+  PUBLIC_REPO: Niklas2654/D2Radar
+  TAG: game-data
+
+jobs:
+  game-data:
+    # Only in the private repo (the public copy has this file too).
+    if: github.repository != 'Niklas2654/D2Radar'
+    runs-on: windows-latest
+    steps:
+      - name: Bungie's manifest version, and the one the files are of
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          $now = (Invoke-RestMethod https://www.bungie.net/Platform/Destiny2/Manifest/).Response.version
+          $had = ""
+          try {
+            gh release download $env:TAG --repo $env:PUBLIC_REPO --pattern version.txt --dir . --clobber 2>$null
+            $had = (Get-Content version.txt -Raw).Trim()
+          } catch {}
+          "manifest=$now" >> $env:GITHUB_OUTPUT
+          $stale = ($now -ne $had) -or ("${{ inputs.force }}" -eq "true")
+          "stale=$stale" >> $env:GITHUB_OUTPUT
+          Write-Host "manifest $now, files of '$had' -> make anew: $stale"
+          # (A failed download, none there yet, left its exit code behind:
+          # GitHub would take it for the step's.)
+          exit 0
+
+      - if: steps.version.outputs.stale == 'True'
+        uses: actions/checkout@v5
+      - if: steps.version.outputs.stale == 'True'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12
+      - if: steps.version.outputs.stale == 'True'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - if: steps.version.outputs.stale == 'True'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.version.outputs.stale == 'True'
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+
+      - name: Make the files
+        if: steps.version.outputs.stale == 'True'
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile
+          # (The app's frontend, which the Rust crate embeds.)
+          pnpm build
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cargo test --release --manifest-path src-tauri/Cargo.toml --lib build_game_db -- --ignored --nocapture
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          "${{ steps.version.outputs.manifest }}" | Set-Content -NoNewline src-tauri/resources/version.txt
+
+      - name: Put them on the release
+        if: steps.version.outputs.stale == 'True'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          gh release view $env:TAG --repo $env:PUBLIC_REPO 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:TAG --repo $env:PUBLIC_REPO --title "Game data" --latest=false `
+              --notes "Radar's game data per language, downloaded by the app (updated when Destiny's manifest changes)."
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          $files = (Get-ChildItem src-tauri/resources/game-*.db.gz).FullName + "src-tauri/resources/version.txt"
+          gh release upload $env:TAG @files --repo $env:PUBLIC_REPO --clobber
+          if ($LASTEXITCODE -ne 0) { exit 1 }

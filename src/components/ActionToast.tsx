@@ -9,7 +9,7 @@ export type ActionState = { kind: "busy" | "ok" | "error"; text: string } | null
  * from the vault, putting a mod in): while it runs, then its outcome for a
  * moment (an error a little longer).
  */
-export function ActionToast({ state }: { state: ActionState }) {
+export function ActionToast({ state, inline = false }: { state: ActionState; /** In the flow (beside what it's about), not at the page's bottom. */ inline?: boolean }) {
   const [shown, setShown] = useState(state);
   useEffect(() => {
     setShown(state);
@@ -19,10 +19,16 @@ export function ActionToast({ state }: { state: ActionState }) {
   }, [state]);
   if (!shown) return null;
   return (
-    <div className="animate-fade-in pointer-events-none fixed bottom-[6vh] left-1/2 z-[150] -translate-x-1/2">
+    <div
+      className={cx(
+        "animate-fade-in pointer-events-none",
+        inline ? "min-w-0" : "fixed bottom-[6vh] left-1/2 z-[150] -translate-x-1/2",
+      )}
+    >
       <div
         className={cx(
-          "flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-[13px] font-medium whitespace-nowrap shadow-[0_18px_40px_-12px_rgb(0_0_0/0.9)]",
+          "flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-[13px] font-medium shadow-[0_18px_40px_-12px_rgb(0_0_0/0.9)]",
+          inline ? "min-h-12 w-fit max-w-full py-1.5" : "whitespace-nowrap",
           shown.kind === "busy"
             ? "border-white/10 bg-[#0b0d14]/95 text-white"
             : shown.kind === "ok"

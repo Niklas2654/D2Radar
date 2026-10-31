@@ -1,27 +1,57 @@
 //! The player's own items (inventory, vault, equipped) with their socketed
 //! plugs, via the Bungie login. Used to show the actual roll of an
 //! inspected weapon, and to pull a copy out of the vault.
+//!
+//! Fetched once and kept on disk too: the app has them at once on start.
+//! They're fetched again in the background when they're read (the app
+//! working with items) and two minutes old, every 30 minutes otherwise, when Radar comes
+//! back to the front (after a while), on the reload button, and before
+//! anything that moves or equips items (`invalidate`).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::bungie::{api_as_user, class_name, BungieState};
 use crate::i18n::tr;
 
-/// The inventory is reused this long (detection asks once per weapon).
-const TTL: Duration = Duration::from_secs(20);
+/// Read when this old: fetched anew in the background (while the app works
+/// with items, they're never much older; see the module docs).
+const TTL: Duration = Duration::from_secs(2 * 60);
+/// Nothing reading them: fetched anew this often anyway.
+const IDLE_REFRESH: Duration = Duration::from_secs(30 * 60);
 
-#[derive(Clone)]
+/// Where an item is ("equipped", "inventory", "vault"). (An alias: serde
+/// would read a `&'static str` field as borrowed from the input.)
+pub type Place = &'static str;
+
+/// "equipped" / "inventory" / "vault" back from the copy on disk.
+fn location_of<'de, D: Deserializer<'de>>(d: D) -> Result<&'static str, D::Error> {
+    Ok(match String::deserialize(d)?.as_str() {
+        "equipped" => "equipped",
+        "inventory" => "inventory",
+        _ => "vault",
+    })
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OwnedItem {
     pub item_hash: u32,
     pub instance_id: String,
     /// The character holding it (None in the vault).
     pub character_id: Option<String>,
     /// "equipped", "inventory" or "vault".
-    pub location: &'static str,
+    #[serde(deserialize_with = "location_of")]
+    pub location: Place,
+    /// The inventory bucket it's in (0: unknown).
+    pub bucket: u64,
+    /// Its gear tier (1–5; 0: none, older gear).
+    #[serde(default)]
+    pub gear_tier: u8,
     /// Plug hashes currently in the item's sockets.
     pub plugs: Vec<u32>,
     /// The plug in each socket, by socket index (0 = none).
@@ -37,6 +67,70 @@ pub struct OwnedItem {
 }
 
 static CACHE: Mutex<Option<(Instant, Vec<OwnedItem>)>> = Mutex::new(None);
+/// The next call fetches anew and waits for it (something was moved).
+static STALE: AtomicBool = AtomicBool::new(false);
+/// When the items were last fetched (unix seconds; 0: not yet).
+static FETCHED_AT: Mutex<i64> = Mutex::new(0);
+
+/// The whole profile as last fetched (every component Radar reads, see
+/// `SNAPSHOT`), for the membership it's of: `own_profile` answers from it.
+static PROFILE: Mutex<Option<(String, std::sync::Arc<Value>)>> = Mutex::new(None);
+
+/// The components fetched in one go: 100 profile, 102 vault, 104 profile
+/// progression (artifact points), 200 characters, 201 character
+/// inventories, 202 character progressions (artifact), 205 equipment, 206
+/// in-game loadouts, 300 instances, 304 stats, 305 sockets (and plug
+/// sets), 310 reusable plugs.
+const SNAPSHOT: &str = "100,102,104,200,201,202,205,206,300,304,305,310";
+
+/// Where each component's data sits in a profile.
+fn component_keys(component: &str) -> &'static [&'static str] {
+    match component {
+        "100" => &["profile"],
+        "102" => &["profileInventory"],
+        "104" => &["profileProgression"],
+        "200" => &["characters"],
+        "201" => &["characterInventories"],
+        "202" => &["characterProgressions"],
+        "205" => &["characterEquipment"],
+        "206" => &["characterLoadouts"],
+        "300" => &["itemComponents.instances"],
+        "304" => &["itemComponents.stats"],
+        "305" => &["itemComponents.sockets", "profilePlugSets", "characterPlugSets"],
+        "310" => &["itemComponents.reusablePlugs"],
+        _ => &[],
+    }
+}
+
+/// The parts of `profile` for `components` (as Bungie would answer them).
+fn part_of(profile: &Value, components: &str) -> Value {
+    let mut out = json!({});
+    for c in components.split(',').map(str::trim) {
+        for key in component_keys(c) {
+            match key.split_once('.') {
+                Some((outer, inner)) => {
+                    if !out[outer].is_object() {
+                        out[outer] = json!({});
+                    }
+                    out[outer][inner] = profile[outer][inner].clone();
+                }
+                None => out[*key] = profile[*key].clone(),
+            }
+        }
+    }
+    out
+}
+
+/// The copy on disk: when it was fetched, and the profile.
+#[derive(Serialize, Deserialize)]
+struct Saved {
+    at: i64,
+    profile: Value,
+}
+
+fn saved_path(app: &AppHandle, membership: &str) -> Option<std::path::PathBuf> {
+    Some(app.path().app_cache_dir().ok()?.join(format!("inventory-{membership}.json")))
+}
 
 /// `components` is the profile's itemComponents (300 instances, 305
 /// sockets, 310 reusable plugs).
@@ -88,6 +182,8 @@ fn collect(items: &Value, location: &'static str, character_id: Option<&str>, co
             instance_id: instance.to_string(),
             character_id: character_id.map(Into::into),
             location,
+            bucket: item["bucketHash"].as_u64().unwrap_or(0),
+            gear_tier: components["instances"]["data"][instance]["gearTier"].as_u64().unwrap_or(0).min(5) as u8,
             plugs,
             socket_plugs,
             socket_options,
@@ -99,38 +195,140 @@ fn collect(items: &Value, location: &'static str, character_id: Option<&str>, co
     }
 }
 
-/// Forget the cached inventory (after moving or equipping items).
+/// Forget the cached inventory (after moving or equipping items): the next
+/// call fetches it anew and waits for it.
 pub(crate) fn invalidate() {
-    *CACHE.lock().unwrap() = None;
+    STALE.store(true, Ordering::SeqCst);
 }
 
-/// The inventory right away, even a little old, refreshed in the background
-/// when it is (for the weapon overlay, which shouldn't wait seconds for
-/// Bungie). Only the very first call waits.
+/// The inventory right away (for the weapon overlay, which shouldn't wait
+/// seconds for Bungie): as kept, fetched anew in the background once it's
+/// a minute old (a weapon just dropped is inspected in game, with Radar in
+/// the back).
 pub async fn owned_items_quick(app: &AppHandle) -> Option<Vec<OwnedItem>> {
-    let cached = CACHE.lock().unwrap().clone();
-    match cached {
-        Some((at, items)) => {
-            if at.elapsed() >= TTL {
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    owned_items(&app).await;
-                });
-            }
-            Some(items)
+    let kept = CACHE.lock().unwrap().clone();
+    if let Some((at, _)) = kept.filter(|_| !STALE.load(Ordering::SeqCst)) {
+        if at.elapsed() >= QUICK_TTL {
+            refresh_in_background(app);
         }
-        None => owned_items(app).await,
     }
+    owned_items(app).await
 }
 
-/// All instanced items the player owns, or None when not logged in.
+/// See `owned_items_quick`.
+const QUICK_TTL: Duration = Duration::from_secs(60);
+
+/// All instanced items the player owns, or None when not logged in: as
+/// kept (in memory, else from disk), fetched anew in the background when
+/// that's older than two minutes; fetched and waited for after `invalidate`.
 pub async fn owned_items(app: &AppHandle) -> Option<Vec<OwnedItem>> {
-    let cached = || {
-        CACHE.lock().unwrap().as_ref().filter(|(at, _)| at.elapsed() < TTL).map(|(_, items)| items.clone())
-    };
-    if let Some(items) = cached() {
-        return Some(items);
+    if !STALE.load(Ordering::SeqCst) {
+        let kept = CACHE.lock().unwrap().clone();
+        let kept = match kept {
+            Some(k) => Some(k),
+            // (Reading and parsing the copy takes a moment: not on the async
+            // threads, which would wait for it meanwhile.)
+            None => {
+                let app = app.clone();
+                tauri::async_runtime::spawn_blocking(move || from_disk(&app)).await.ok().flatten()
+            }
+        };
+        if let Some((at, items)) = kept {
+            if at.elapsed() >= TTL {
+                refresh_in_background(app);
+            }
+            return Some(items);
+        }
     }
+    fetch(app).await
+}
+
+/// The copy on disk (as of when it was fetched), into memory.
+fn from_disk(app: &AppHandle) -> Option<(Instant, Vec<OwnedItem>)> {
+    let state = app.state::<BungieState>();
+    let (_, membership) = state.player()?;
+    let saved = match crate::db::profile(app, &membership) {
+        Some((at, data)) => Saved { at, profile: serde_json::from_str(&data).ok()? },
+        // (Kept in a file before the database.)
+        None => serde_json::from_slice(&std::fs::read(saved_path(app, &membership)?).ok()?).ok()?,
+    };
+    let age = (chrono::Utc::now().timestamp() - saved.at).max(0) as u64;
+    let at = Instant::now().checked_sub(Duration::from_secs(age)).unwrap_or_else(Instant::now);
+    let items = items_of(&saved.profile);
+    *CACHE.lock().unwrap() = Some((at, items.clone()));
+    *PROFILE.lock().unwrap() = Some((membership, std::sync::Arc::new(saved.profile)));
+    *FETCHED_AT.lock().unwrap() = saved.at;
+    Some((at, items))
+}
+
+/// Every instanced item in a profile (vault, inventories, equipped).
+fn items_of(profile: &Value) -> Vec<OwnedItem> {
+    let components = &profile["itemComponents"];
+    let mut items = Vec::new();
+    collect(&profile["profileInventory"]["data"]["items"], "vault", None, components, &mut items);
+    for (id, c) in profile["characterInventories"]["data"].as_object().into_iter().flatten() {
+        collect(&c["items"], "inventory", Some(id), components, &mut items);
+    }
+    for (id, c) in profile["characterEquipment"]["data"].as_object().into_iter().flatten() {
+        collect(&c["items"], "equipped", Some(id), components, &mut items);
+    }
+    items
+}
+
+/// Fetch anew without waiting for it (one at a time).
+fn refresh_in_background(app: &AppHandle) {
+    static RUNNING: AtomicBool = AtomicBool::new(false);
+    if RUNNING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        fetch(&app).await;
+        RUNNING.store(false, Ordering::SeqCst);
+    });
+}
+
+/// When the items were last fetched (unix seconds; 0: never).
+#[tauri::command]
+pub fn inventory_fetched_at(app: AppHandle) -> i64 {
+    if *FETCHED_AT.lock().unwrap() == 0 {
+        from_disk(&app);
+    }
+    *FETCHED_AT.lock().unwrap()
+}
+
+/// Fetch the items now (the reload button; `older_than` seconds: only if
+/// they're older, e.g. when Radar comes back to the front). Resolves to
+/// when they were fetched.
+#[tauri::command]
+pub async fn inventory_refresh(app: AppHandle, older_than: Option<i64>) -> Result<i64, String> {
+    let now = chrono::Utc::now().timestamp();
+    if let Some(secs) = older_than {
+        let at = inventory_fetched_at(app.clone());
+        if at > 0 && now - at < secs {
+            return Ok(at);
+        }
+    }
+    fetch(&app).await.ok_or(tr("Erst mit Bungie einloggen", "Log in with Bungie first"))?;
+    Ok(*FETCHED_AT.lock().unwrap())
+}
+
+/// Every 30 minutes, the items fetched anew (when logged in), read or not.
+pub(crate) fn start_hourly_refresh(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(IDLE_REFRESH).await;
+            fetch(&app).await;
+        }
+    });
+}
+
+/// Fetch every item from Bungie now, keep it (memory and disk) and tell
+/// the app ("inventory-updated", when it was fetched).
+async fn fetch(app: &AppHandle) -> Option<Vec<OwnedItem>> {
+    let started = Instant::now();
+    let cached = || CACHE.lock().unwrap().as_ref().filter(|(at, _)| *at >= started).map(|(_, items)| items.clone());
     // One download at a time: callers at the same moment (loadouts loading
     // side by side) wait for it instead of each fetching the whole profile.
     static FETCHING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -142,21 +340,34 @@ pub async fn owned_items(app: &AppHandle) -> Option<Vec<OwnedItem>> {
     let state = app.state::<BungieState>();
     let key = state.api_key().ok()?;
     let (mt, mid) = state.player()?;
-    // 102 vault, 201 character inventories, 205 equipment, 300 instances
-    // (armor energy), 305 sockets, 310 reusable plugs (all perk options per socket)
-    let path = format!("/Destiny2/{mt}/Profile/{mid}/?components=102,201,205,300,305,310");
+    // Everything Radar reads in one go (see SNAPSHOT); cache-busted, so a
+    // move just made shows.
+    let path = format!("/Destiny2/{mt}/Profile/{mid}/?components={SNAPSHOT}&cb={}", chrono::Utc::now().timestamp_millis());
     let profile = api_as_user(&state.http, &key, &token, &path).await.ok()?;
-    let components = &profile["itemComponents"];
-
-    let mut items = Vec::new();
-    collect(&profile["profileInventory"]["data"]["items"], "vault", None, components, &mut items);
-    for (id, c) in profile["characterInventories"]["data"].as_object().into_iter().flatten() {
-        collect(&c["items"], "inventory", Some(id), components, &mut items);
-    }
-    for (id, c) in profile["characterEquipment"]["data"].as_object().into_iter().flatten() {
-        collect(&c["items"], "equipped", Some(id), components, &mut items);
-    }
+    let items = items_of(&profile);
+    let profile = std::sync::Arc::new(profile);
+    *PROFILE.lock().unwrap() = Some((mid.clone(), profile.clone()));
     *CACHE.lock().unwrap() = Some((Instant::now(), items.clone()));
+    STALE.store(false, Ordering::SeqCst);
+    let at = chrono::Utc::now().timestamp();
+    *FETCHED_AT.lock().unwrap() = at;
+    // The copy on disk (written aside, then put in place).
+    {
+        let (app, mid) = (app.clone(), mid.clone());
+        let old = saved_path(&app, &mid);
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::db::set_profile(&app, &mid, at, &profile.to_string());
+            if let Some(old) = old.filter(|p| p.exists()) {
+                let _ = std::fs::remove_file(old);
+            }
+        });
+    }
+    let _ = app.emit("inventory-updated", at);
+    // Weapons gone from the account: out of the loadouts too.
+    {
+        let (app, items) = (app.clone(), items.clone());
+        tauri::async_runtime::spawn(async move { crate::dimsync::drop_missing_weapons(&app, &mid, &items).await });
+    }
     Some(items)
 }
 
@@ -190,8 +401,20 @@ pub(crate) async fn session(app: &AppHandle) -> Result<Session, String> {
     Ok(Session { token, key, membership_type, membership_id })
 }
 
-/// GET a profile with the given components, as the logged-in player.
+/// A profile with the given components, as the logged-in player: from the
+/// profile as kept (see the module docs) when it has them all, else
+/// fetched for these.
 pub(crate) async fn own_profile(app: &AppHandle, session: &Session, components: &str) -> Result<Value, String> {
+    let kept = components.split(',').map(str::trim).all(|c| !component_keys(c).is_empty());
+    if kept {
+        // As kept (fetched first after `invalidate`, or when there's none).
+        owned_items(app).await;
+        let profile = PROFILE.lock().unwrap().clone();
+        if let Some((membership, profile)) = profile.filter(|(m, _)| *m == session.membership_id) {
+            let _ = membership;
+            return Ok(part_of(&profile, components));
+        }
+    }
     let state = app.state::<BungieState>();
     // Cache-busted: right after moving or plugging items, a cached answer
     // would still show the old state.
@@ -289,6 +512,8 @@ pub(crate) async fn post_action(app: &AppHandle, session: &Session, path: &str, 
             .map_err(|_| (String::new(), tr("Unerwartete Antwort von Bungie.net", "Unexpected response from Bungie.net").into()))?;
         let status = res["ErrorStatus"].as_str().unwrap_or("");
         if status == "Success" {
+            // Something changed in game: the profile as kept is out of date.
+            invalidate();
             return Ok(res["Response"].clone());
         }
         attempt += 1;
@@ -335,7 +560,7 @@ pub async fn pull_from_vault(app: &AppHandle, instance_id: &str, item_hash: u32)
     });
     let result = post_action(app, &session, "Items/TransferItem/", body).await.map(|_| ());
     // The inventory changed either way (or is stale).
-    *CACHE.lock().unwrap() = None;
+    invalidate();
     match result {
         Ok(()) => Ok(class_name(class_type).to_string()),
         Err((status, _)) if status == "DestinyNoRoomInDestination" => Err(tr(

@@ -323,6 +323,11 @@ pub(crate) struct GearInfo {
     pub class_type: i64,
     pub exotic: bool,
     pub watermark: Option<String>,
+    /// The armor set it belongs to (set bonuses), 0: none. (Not defaulted:
+    /// an index from before it is built again.)
+    pub set: u32,
+    /// Its rarity (2 common … 5 legendary, 6 exotic).
+    pub tier: u8,
 }
 
 /// The gear table (see `WeaponIndex::gear`).
@@ -332,6 +337,11 @@ pub(crate) struct Gear(Arc<WeaponDb>);
 impl Gear {
     pub(crate) fn get(&self, hash: u32) -> Option<&GearInfo> {
         self.0.index.gear.get(&hash)
+    }
+
+    /// Every item in the table.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (u32, &GearInfo)> {
+        self.0.index.gear.iter().map(|(&h, g)| (h, g))
     }
 }
 
@@ -352,6 +362,7 @@ struct WeaponDb {
 }
 
 static DB: Mutex<Option<Arc<WeaponDb>>> = Mutex::new(None);
+
 /// Serializes index builds (they download and parse ~200 MB).
 static BUILD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
@@ -609,6 +620,8 @@ fn build_index(
                     class_type: i.class_type,
                     exotic: i.inventory.tier_type == 6,
                     watermark: i.icon_watermark.clone(),
+                    set: i.equipping_block.as_ref().map_or(0, |e| e.equipable_item_set_hash),
+                    tier: i.inventory.tier_type,
                 },
             )
         })
@@ -662,11 +675,17 @@ fn build_index(
     WeaponIndex { version, locale: locale().to_string(), weapons, perks, stat_names, aliases, enhanced, mods, gear, sources, sets, artifacts }
 }
 
+/// The file the index was kept in before the game data (db.rs).
 fn index_path(app: &AppHandle) -> PathBuf {
     app.path()
         .app_cache_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join(format!("weapons-v11-{}.json", locale()))
+}
+
+/// The index's key in the game data: its format and language.
+pub(crate) fn index_key(lang: &str) -> String {
+    format!("v11-{lang}")
 }
 
 fn into_db(index: WeaponIndex) -> Arc<WeaponDb> {
@@ -735,13 +754,18 @@ async fn db(app: &AppHandle) -> Result<Arc<WeaponDb>, String> {
     let key = state.api_key()?;
     let info = api(&state.http, &key, Method::GET, "/Destiny2/Manifest/", None).await?;
     let version = info["version"].as_str().unwrap_or_default().to_string();
+    // The game data for the language brings the index (none here yet, or of
+    // an older manifest; else it's built from the manifest below).
+    crate::db::ensure_language(app, locale(), Some(&version)).await;
     let path = index_path(app);
 
+    // From the game data (shipped with the app), else the old file.
     let cached = tauri::async_runtime::spawn_blocking({
-        let path = path.clone();
+        let (path, app) = (path.clone(), app.clone());
         move || {
-            std::fs::read_to_string(path)
-                .ok()
+            crate::db::weapon_index(&app, &index_key(locale()))
+                .map(|(_, json)| json)
+                .or_else(|| std::fs::read_to_string(path).ok())
                 .and_then(|s| serde_json::from_str::<WeaponIndex>(&s).ok())
         }
     })
@@ -769,10 +793,8 @@ async fn db(app: &AppHandle) -> Result<Arc<WeaponDb>, String> {
             )?;
             let index = build_index(version, items, plug_sets, groups, stat_defs, sandbox_perks, collectibles, item_sets);
             if let Ok(json) = serde_json::to_string(&index) {
-                if let Some(dir) = path.parent() {
-                    let _ = std::fs::create_dir_all(dir);
-                }
-                let _ = std::fs::write(&path, json);
+                crate::db::set_weapon_index(app, &index_key(locale()), &index.version, &json);
+                let _ = std::fs::remove_file(&path);
             }
             index
         }
@@ -2380,6 +2402,199 @@ pub async fn artifact_detail(app: AppHandle, name: Option<String>) -> Result<Opt
     }))
 }
 
+/* ---------- Artifacts (Monument of Triumph) ---------- */
+
+/// The artifact slot: one artifact equipped, its perks in its sockets.
+pub(crate) const ARTIFACT_BUCKET: u64 = 1506418338;
+
+/// An artifact as the game has it: its perks by tier, and its perk sockets.
+#[derive(Clone, Debug)]
+pub(crate) struct ArtifactDef {
+    /// Its English name (the Compendium's).
+    pub name: String,
+    pub season: String,
+    pub hash: u32,
+    pub icon: Option<String>,
+    /// Perk hashes per tier (one, two, three diamonds).
+    pub tiers: Vec<Vec<u32>>,
+    /// Its perk sockets: (socket index, the highest tier it takes, its empty plug).
+    pub sockets: Vec<(usize, usize, u32)>,
+}
+
+impl ArtifactDef {
+    /// A perk's tier (0-based), if it's one of this artifact's.
+    pub fn tier_of(&self, perk: u32) -> Option<usize> {
+        self.tiers.iter().position(|t| t.contains(&perk))
+    }
+}
+
+/// The artifact `perks` are from: the one with the most of them (a perk
+/// can be on several artifacts, e.g. Armorsmith; the first having any one
+/// picked the wrong artifact and dropped the rest).
+pub(crate) fn artifact_for<'a>(defs: &'a [ArtifactDef], perks: &[u32]) -> Option<&'a ArtifactDef> {
+    let count = |d: &ArtifactDef| perks.iter().filter(|&&p| d.tier_of(p).is_some()).count();
+    // (max_by_key keeps the last of equals: reversed, the first wins.)
+    defs.iter().rev().filter(|d| count(d) > 0).max_by_key(|d| count(d))
+}
+
+static ARTIFACT_DEFS: Mutex<Option<std::sync::Arc<Vec<ArtifactDef>>>> = Mutex::new(None);
+
+/// The artifacts the account has (its characters' artifact slots), each
+/// from its definition: the sockets' plug sets give the perks, a socket
+/// taking more tiers than the one before adds a tier.
+pub(crate) async fn artifact_defs(app: &AppHandle) -> std::sync::Arc<Vec<ArtifactDef>> {
+    if let Some(known) = ARTIFACT_DEFS.lock().unwrap().clone() {
+        return known;
+    }
+    let owned = crate::inventory::owned_items(app).await.unwrap_or_default();
+    let mut hashes: Vec<u32> = owned.iter().filter(|o| o.bucket == ARTIFACT_BUCKET).map(|o| o.item_hash).collect();
+    hashes.sort_unstable();
+    hashes.dedup();
+    let mut out = Vec::new();
+    for hash in hashes {
+        let (def, english) = futures::join!(
+            crate::fireteam::definition(app, "DestinyInventoryItemDefinition", hash as u64),
+            crate::fireteam::definition_in(app, "DestinyInventoryItemDefinition", hash as u64, "en"),
+        );
+        let Some(def) = def else { continue };
+        let name = english.as_ref().unwrap_or(&def)["displayProperties"]["name"].as_str().unwrap_or_default().to_string();
+        let mut tiers: Vec<Vec<u32>> = Vec::new();
+        let mut sockets = Vec::new();
+        for (index, entry) in def["sockets"]["socketEntries"].as_array().into_iter().flatten().enumerate() {
+            let Some(empty) = entry["singleInitialItemHash"].as_u64() else { continue };
+            let Some(set) = entry["reusablePlugSetHash"].as_u64().filter(|&h| h != 0) else { continue };
+            let Some(set) = crate::fireteam::definition(app, "DestinyPlugSetDefinition", set).await else { continue };
+            let plugs: Vec<u32> = set["reusablePlugItems"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|p| p["plugItemHash"].as_u64().map(|h| h as u32))
+                .filter(|&h| h as u64 != empty)
+                .collect();
+            // ("Reset Artifact": a socket of its own, not a perk.)
+            if plugs.len() < 3 {
+                continue;
+            }
+            let new: Vec<u32> = plugs.iter().copied().filter(|p| !tiers.iter().flatten().any(|t| t == p)).collect();
+            if !new.is_empty() {
+                tiers.push(new);
+            }
+            sockets.push((index, tiers.len(), empty as u32));
+        }
+        if tiers.is_empty() {
+            continue;
+        }
+        let sheet = crate::compendium::artifacts().iter().find(|a| a.name.eq_ignore_ascii_case(&name));
+        out.push(ArtifactDef {
+            season: sheet.map(|a| a.season.clone()).unwrap_or_default(),
+            name,
+            hash,
+            icon: def["displayProperties"]["icon"].as_str().map(Into::into),
+            tiers,
+            sockets,
+        });
+    }
+    // As the Compendium lists them.
+    let order = |d: &ArtifactDef| crate::compendium::artifacts().iter().position(|a| a.name.eq_ignore_ascii_case(&d.name)).unwrap_or(usize::MAX);
+    out.sort_by_key(order);
+    let out = std::sync::Arc::new(out);
+    if !out.is_empty() {
+        *ARTIFACT_DEFS.lock().unwrap() = Some(out.clone());
+    }
+    out
+}
+
+/// Which perk goes in which socket: `wanted` perks already in a socket stay
+/// there, the others go into the free sockets that take their tier (the
+/// highest tiers first), the sockets left get their empty plug. `current`:
+/// the plug in each socket index. None when they don't fit that way (then
+/// all sockets are to be emptied first, and `fresh` places them anew).
+pub(crate) fn place_artifact(def: &ArtifactDef, current: &[u32], wanted: &[u32], fresh: bool) -> Option<Vec<(usize, u32)>> {
+    let mut out: Vec<(usize, Option<u32>)> = def.sockets.iter().map(|&(i, _, _)| (i, None)).collect();
+    let mut left: Vec<u32> = Vec::new();
+    for &perk in wanted {
+        let at = (!fresh).then(|| def.sockets.iter().position(|&(i, _, _)| current.get(i) == Some(&perk))).flatten();
+        match at {
+            Some(k) => out[k].1 = Some(perk),
+            None => left.push(perk),
+        }
+    }
+    left.sort_by_key(|&p| std::cmp::Reverse(def.tier_of(p).unwrap_or(0)));
+    for perk in left {
+        let tier = def.tier_of(perk)? + 1;
+        // The free socket taking it that takes the fewest tiers.
+        let k = (0..out.len()).filter(|&k| out[k].1.is_none() && def.sockets[k].1 >= tier).min_by_key(|&k| def.sockets[k].1)?;
+        out[k].1 = Some(perk);
+    }
+    Some(out.into_iter().zip(&def.sockets).map(|((i, perk), &(_, _, empty))| (i, perk.unwrap_or(empty))).collect())
+}
+
+/// An artifact a loadout can pick perks from (Monument of Triumph: one
+/// active at a time).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactOption {
+    /// The artifact's item hash.
+    hash: u32,
+    name: String,
+    season: String,
+    icon: Option<String>,
+    /// Per tier (one, two, three diamonds): its perks.
+    tiers: Vec<Vec<ArtifactPerkOption>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactPerkOption {
+    /// Its item hash (0: not found in the manifest by name).
+    hash: u32,
+    name: String,
+    icon: Option<String>,
+    /// What it does, with the numbers (Destiny Data Compendium, English).
+    text: String,
+    /// What it does as Bungie says it (the app's language).
+    description: String,
+}
+
+/// Every artifact the account has with its perks (from the game's
+/// definitions; the numbers from the Compendium, by the perk's English name).
+#[tauri::command]
+pub async fn artifact_options(app: AppHandle) -> Result<Vec<ArtifactOption>, String> {
+    let defs = artifact_defs(&app).await;
+    let mut out = Vec::new();
+    for d in defs.iter() {
+        let sheet = crate::compendium::artifacts().iter().find(|a| a.name.eq_ignore_ascii_case(&d.name));
+        let mut tiers = Vec::new();
+        for tier in &d.tiers {
+            let app = &app;
+            let infos = futures::future::join_all(tier.iter().map(|&h| async move {
+                let (info, english) = futures::join!(
+                    crate::fireteam::item(app, h as u64),
+                    crate::fireteam::definition_in(app, "DestinyInventoryItemDefinition", h as u64, "en"),
+                );
+                (h, info, english)
+            }))
+            .await;
+            tiers.push(
+                infos
+                    .into_iter()
+                    .filter_map(|(hash, info, english)| {
+                        let info = info?;
+                        let english = english.as_ref().and_then(|e| e["displayProperties"]["name"].as_str()).unwrap_or(&info.name).to_string();
+                        let text = sheet
+                            .and_then(|a| a.tiers.iter().flatten().find(|p| p.name.eq_ignore_ascii_case(&english)))
+                            .map(|p| p.text.clone())
+                            .unwrap_or_default();
+                        Some(ArtifactPerkOption { hash, name: info.name.clone(), icon: info.icon().map(String::from), text, description: info.description.clone() })
+                    })
+                    .collect(),
+            );
+        }
+        out.push(ArtifactOption { hash: d.hash, name: d.name.clone(), season: d.season.clone(), icon: d.icon.clone(), tiers });
+    }
+    Ok(out)
+}
+
 /// The weapon name in `region` of `shot` (see `read_any`).
 fn read_name(db: &WeaponDb, shot: &image::RgbaImage, region: Region) -> Result<Option<(usize, screen::TextLine)>, String> {
     Ok(read_any(db, shot, region)?.and_then(|(named, line, _)| match named {
@@ -2953,9 +3168,323 @@ pub async fn weapon_test(app: AppHandle) -> Result<TestResult, String> {
     Ok(TestResult { lines, weapon })
 }
 
+/// Making the game data Radar downloads on its first start
+/// (resources/game-<lang>.db.gz, one per app language, uploaded with each
+/// release): the language's weapon index and the definitions Radar looks
+/// up that aren't the player's own gear (see db.rs). Run before a release:
+///   cargo test --lib build_game_db -- --ignored --nocapture
+#[cfg(test)]
+mod game_data {
+    use super::*;
+    use serde_json::value::RawValue;
+    use serde_json::Value;
+    use std::collections::HashSet;
+
+    const LANGS: [&str; 8] = ["en", "de", "fr", "es", "it", "pt-br", "pl", "ru"];
+    const ARTIFACT_BUCKET: u64 = 1506418338;
+
+    /// Taken whole (small, all of them used).
+    const WHOLE: [&str; 8] = [
+        "DestinyMaterialRequirementSetDefinition",
+        "DestinyEquipableItemSetDefinition",
+        "DestinyStatDefinition",
+        "DestinySeasonDefinition",
+        "DestinyArtifactDefinition",
+        "DestinyLoadoutNameDefinition",
+        "DestinyLoadoutColorDefinition",
+        "DestinyLoadoutIconDefinition",
+    ];
+
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct Item {
+        item_type: i64,
+        inventory: Inv,
+        plug: Option<Plug>,
+        sockets: Option<Sockets>,
+        equipping_block: Option<Equipping>,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct Inv {
+        tier_type: i64,
+        bucket_type_hash: u64,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct Plug {
+        plug_category_identifier: String,
+        insertion_material_requirement_hash: u64,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct Sockets {
+        socket_entries: Vec<Entry>,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct Entry {
+        single_initial_item_hash: u64,
+        reusable_plug_set_hash: u64,
+        randomized_plug_set_hash: u64,
+        reusable_plug_items: Vec<PlugItem>,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct PlugItem {
+        plug_item_hash: u64,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct Equipping {
+        equipable_item_set_hash: u64,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct PlugSetSel {
+        reusable_plug_items: Vec<PlugItem>,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct ItemSetSel {
+        set_perks: Vec<SetPerkSel>,
+    }
+    #[derive(Deserialize, Default)]
+    #[serde(rename_all = "camelCase", default)]
+    struct SetPerkSel {
+        sandbox_perk_hash: u64,
+    }
+
+    fn get(http: &reqwest::Client, path: &str) -> Vec<u8> {
+        tauri::async_runtime::block_on(async {
+            http.get(format!("https://www.bungie.net{path}")).send().await?.error_for_status()?.bytes().await
+        })
+        .expect("download")
+        .to_vec()
+    }
+
+    #[test]
+    #[ignore]
+    fn build_game_db() {
+        let http = reqwest::Client::new();
+        let info: Value = serde_json::from_slice(&get(&http, "/Platform/Destiny2/Manifest/")).unwrap();
+        let info = &info["Response"];
+        let version = info["version"].as_str().unwrap().to_string();
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/resources");
+        let _ = std::fs::create_dir_all(dir);
+        let english = &info["jsonWorldComponentContentPaths"]["en"];
+        let collectibles_bytes = get(&http, english["DestinyCollectibleDefinition"].as_str().unwrap());
+
+        // What to take, from the English tables (the hashes are the same in every language).
+        let paths = english;
+        let items_bytes = get(&http, paths["DestinyInventoryItemDefinition"].as_str().unwrap());
+        let plugsets_bytes = get(&http, paths["DestinyPlugSetDefinition"].as_str().unwrap());
+        let itemsets_bytes = get(&http, paths["DestinyEquipableItemSetDefinition"].as_str().unwrap());
+        let items: HashMap<String, Item> = serde_json::from_slice(&items_bytes).unwrap();
+        let plugsets: HashMap<String, PlugSetSel> = serde_json::from_slice(&plugsets_bytes).unwrap();
+        let itemsets: HashMap<String, ItemSetSel> = serde_json::from_slice(&itemsets_bytes).unwrap();
+        let (mut keep_items, mut keep_sets): (HashSet<u64>, HashSet<u64>) = (HashSet::new(), HashSet::new());
+        // Looks, not what Radar reads: shaders, ornaments, trackers, ….
+        let cosmetic = |hash: u64| {
+            items.get(&hash.to_string()).and_then(|i| i.plug.as_ref()).is_some_and(|p| {
+                let c = p.plug_category_identifier.as_str();
+                ["shader", "skins", "ornament", "memento", "tracker", "transmat", "emote", "spawnfx", "hologram"].iter().any(|w| c.contains(w))
+            })
+        };
+        // `itself`: the item too, not only its plugs (weapons: only those,
+        // the weapon itself is looked up when it's opened).
+        let take_item = |hash: u64, keep_items: &mut HashSet<u64>, keep_sets: &mut HashSet<u64>, itself: bool| {
+            let Some(it) = items.get(&hash.to_string()) else { return };
+            if itself && !keep_items.insert(hash) {
+                return;
+            }
+            // Its sockets' plugs and plug sets (subclass setups, exotic perks,
+            // spirits, artifact perks, weapon perk pools); not its looks.
+            for e in it.sockets.iter().flat_map(|s| &s.socket_entries) {
+                if cosmetic(e.single_initial_item_hash) {
+                    continue;
+                }
+                for set in [e.reusable_plug_set_hash, e.randomized_plug_set_hash].into_iter().filter(|&h| h != 0) {
+                    if keep_sets.insert(set) {
+                        for p in plugsets.get(&set.to_string()).into_iter().flat_map(|s| &s.reusable_plug_items) {
+                            if !cosmetic(p.plug_item_hash) {
+                                keep_items.insert(p.plug_item_hash);
+                            }
+                        }
+                    }
+                }
+                keep_items.insert(e.single_initial_item_hash);
+                keep_items.extend(e.reusable_plug_items.iter().map(|p| p.plug_item_hash));
+            }
+        };
+        let mut sets_wanted: HashSet<u64> = HashSet::new();
+        for (hash, it) in &items {
+            let hash: u64 = hash.parse().unwrap();
+            let category = it.plug.as_ref().map(|p| p.plug_category_identifier.as_str()).unwrap_or_default();
+            let wanted = it.item_type == 16 // subclasses
+                || (it.item_type == 2 && it.inventory.tier_type == 6) // exotic armor
+                || it.inventory.bucket_type_hash == ARTIFACT_BUCKET // artifacts
+                || category.starts_with("enhancements.") // armor mods
+                || (category.contains("masterworks") && category.contains("armor")) // armor masterworks
+                || category.contains("tuning");
+            if wanted {
+                take_item(hash, &mut keep_items, &mut keep_sets, true);
+            }
+            // Weapons: their perks, frames, origin traits, mods and masterworks
+            // (the perk editor shows them at once).
+            if it.item_type == 3 {
+                take_item(hash, &mut keep_items, &mut keep_sets, false);
+            }
+            if it.item_type == 2 {
+                if let Some(e) = &it.equipping_block {
+                    if e.equipable_item_set_hash != 0 {
+                        sets_wanted.insert(e.equipable_item_set_hash);
+                    }
+                }
+            }
+        }
+        // The materials masterworks cost.
+        let matsets: HashMap<String, Box<RawValue>> =
+            serde_json::from_slice(&get(&http, paths["DestinyMaterialRequirementSetDefinition"].as_str().unwrap())).unwrap();
+        for hash in keep_items.clone() {
+            let Some(req) = items.get(&hash.to_string()).and_then(|i| i.plug.as_ref()).map(|p| p.insertion_material_requirement_hash) else { continue };
+            if let Some(set) = matsets.get(&req.to_string()) {
+                let v: Value = serde_json::from_str(set.get()).unwrap();
+                for m in v["materials"].as_array().into_iter().flatten() {
+                    if let Some(h) = m["itemHash"].as_u64() {
+                        keep_items.insert(h);
+                    }
+                }
+            }
+        }
+        // Plug sets with a kept plug in them (e.g. the general mod socket's).
+        for (hash, set) in &plugsets {
+            if set.reusable_plug_items.iter().any(|p| keep_items.contains(&p.plug_item_hash) && !cosmetic(p.plug_item_hash)) {
+                keep_sets.insert(hash.parse().unwrap());
+            }
+        }
+        // Set bonuses: their perks.
+        let perks: HashSet<u64> = itemsets
+            .iter()
+            .filter(|(h, _)| sets_wanted.contains(&h.parse().unwrap_or(0)))
+            .flat_map(|(_, s)| s.set_perks.iter().map(|p| p.sandbox_perk_hash))
+            .collect();
+        keep_items.remove(&0);
+        println!("{version}: {} items, {} plug sets, {} set perks per language", keep_items.len(), keep_sets.len(), perks.len());
+        drop((items, plugsets, itemsets, matsets));
+
+        for lang in LANGS {
+            let file = format!("{dir}/game-{lang}.db");
+            let _ = std::fs::remove_file(&file);
+            let conn = rusqlite::Connection::open(&file).unwrap();
+            conn.execute_batch(crate::db::GAME_SCHEMA).unwrap();
+            let paths = &info["jsonWorldComponentContentPaths"][lang];
+            let table = |name: &str| get(&http, paths[name].as_str().unwrap());
+            let items_bytes = table("DestinyInventoryItemDefinition");
+            let plugsets_bytes = table("DestinyPlugSetDefinition");
+            let perks_bytes = table("DestinySandboxPerkDefinition");
+            let tx = conn.unchecked_transaction().unwrap();
+            {
+                let mut st = tx.prepare("INSERT OR REPLACE INTO definitions (lang, entity, hash, version, data) VALUES (?1, ?2, ?3, ?4, ?5)").unwrap();
+                let mut put = |entity: &str, bytes: &[u8], keep: &dyn Fn(u64) -> bool| {
+                    let all: HashMap<String, Box<RawValue>> = serde_json::from_slice(bytes).unwrap();
+                    let mut n = 0;
+                    for (hash, raw) in all {
+                        let hash: u64 = hash.parse().unwrap_or(0);
+                        if keep(hash) {
+                            st.execute(rusqlite::params![lang, entity, hash as i64, version, raw.get()]).unwrap();
+                            n += 1;
+                        }
+                    }
+                    n
+                };
+                let n_items = put("DestinyInventoryItemDefinition", &items_bytes, &|h| keep_items.contains(&h));
+                let n_sets = put("DestinyPlugSetDefinition", &plugsets_bytes, &|h| keep_sets.contains(&h));
+                let n_perks = put("DestinySandboxPerkDefinition", &perks_bytes, &|h| perks.contains(&h));
+                let mut n_whole = 0;
+                for name in WHOLE {
+                    n_whole += put(name, &table(name), &|_| true);
+                }
+                println!("{lang}: {n_items} items, {n_sets} plug sets, {n_perks} perks, {n_whole} others");
+            }
+            // The weapon index (as the app builds it).
+            let index = build_index(
+                version.clone(),
+                serde_json::from_slice(&items_bytes).unwrap(),
+                serde_json::from_slice(&plugsets_bytes).unwrap(),
+                serde_json::from_slice(&table("DestinyStatGroupDefinition")).unwrap(),
+                serde_json::from_slice(&table("DestinyStatDefinition")).unwrap(),
+                serde_json::from_slice(&perks_bytes).unwrap(),
+                serde_json::from_slice(&collectibles_bytes).unwrap(),
+                serde_json::from_slice(&table("DestinyEquipableItemSetDefinition")).unwrap(),
+            );
+            tx.execute(
+                "INSERT OR REPLACE INTO weapon_index (lang, version, data) VALUES (?1, ?2, ?3)",
+                rusqlite::params![index_key(lang), version, serde_json::to_string(&index).unwrap()],
+            )
+            .unwrap();
+            tx.commit().unwrap();
+            conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('version', ?1)", rusqlite::params![version]).unwrap();
+            conn.execute_batch("PRAGMA journal_mode = DELETE; VACUUM;").unwrap();
+            drop(conn);
+            // Gzipped for the download (JSON packs well).
+            let raw = std::fs::read(&file).unwrap();
+            let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+            std::io::Write::write_all(&mut gz, &raw).unwrap();
+            let packed = gz.finish().unwrap();
+            std::fs::write(format!("{file}.gz"), &packed).unwrap();
+            std::fs::remove_file(&file).unwrap();
+            println!("wrote {file}.gz ({} MB, {} MB unpacked)", packed.len() / 1_000_000, raw.len() / 1_000_000);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// As the game's artifacts: sockets 0–1 take tier 1, 2–4 up to tier 2,
+    /// 5–6 all three (empty plug 9).
+    fn artifact() -> ArtifactDef {
+        ArtifactDef {
+            name: "A".into(),
+            season: String::new(),
+            hash: 1,
+            icon: None,
+            tiers: vec![vec![11, 12, 13, 14, 15], vec![21, 22, 23, 24], vec![31, 32]],
+            sockets: vec![(0, 1, 9), (1, 1, 9), (2, 2, 9), (3, 2, 9), (4, 2, 9), (5, 3, 9), (6, 3, 9)],
+        }
+    }
+
+    #[test]
+    fn finds_a_source_in_plain_words() {
+        let names = |q: &str| plain_source(q).map(|(needles, rest)| (needles[0], rest));
+        assert_eq!(names("vault of glass"), Some(("vault of glass", String::new())));
+        assert_eq!(names("Kings Fall hood"), Some(("king's fall", "hood".into())));
+        assert_eq!(names("fatebringer"), None);
+        // The longest source named: "Deep Stone Crypt", not "Moon" or so.
+        assert_eq!(names("deep stone crypt"), Some(("deep stone crypt", String::new())));
+    }
+
+    #[test]
+    fn artifact_perks_go_where_their_tier_fits() {
+        let a = artifact();
+        let placed = place_artifact(&a, &[], &[11, 21, 31, 32, 22, 12], true).unwrap();
+        let at = |i: usize| placed.iter().find(|(s, _)| *s == i).unwrap().1;
+        // Tier 3 in 5–6, tier 2 in 2–4, tier 1 in 0–1, the rest empty.
+        assert!([at(5), at(6)].contains(&31) && [at(5), at(6)].contains(&32));
+        assert!([at(2), at(3), at(4)].contains(&21) && [at(2), at(3), at(4)].contains(&22));
+        assert_eq!([at(0), at(1)], [11, 12]);
+        assert_eq!(placed.iter().filter(|(_, p)| *p == 9).count(), 1);
+        // What's in already stays where it is.
+        let current = [0, 0, 0, 11, 0, 0, 0];
+        let kept = place_artifact(&a, &current, &[11, 12], false).unwrap();
+        assert!(kept.contains(&(3, 11)) && kept.contains(&(0, 12)));
+        // Three tier-3 perks don't fit.
+        let mut b = a.clone();
+        b.tiers[2].push(33);
+        assert!(place_artifact(&b, &[], &[31, 32, 33], true).is_none());
+    }
 
     /// A character screen's name, read from a screenshot in
     #[test]
@@ -3090,6 +3619,8 @@ mod tests {
             energy_capacity: None,
             socket_options: Vec::new(),
             location: "vault",
+            bucket: 0,
+            gear_tier: 0,
             plugs: vec![perk_hash("Korkenzieher-Drall"), perk_hash("Taktisches Magazin"), perk_hash("Feuerkraft"), 1234],
             options: vec![perk_hash("Korkenzieher-Drall"), perk_hash("Taktisches Magazin"), perk_hash("Feuerkraft"), 1234],
         }];
@@ -3250,6 +3781,52 @@ fn source_key(name: &str) -> String {
     name.to_lowercase().replace('û', "u").chars().filter(|c| c.is_ascii_alphanumeric()).collect()
 }
 
+/// Weapons' ammo (1 primary, 2 special, 3 heavy), from the index.
+pub(crate) async fn weapon_ammo(app: &AppHandle, hashes: &[u32]) -> HashMap<u32, u8> {
+    let Ok(db) = db(app).await else { return HashMap::new() };
+    let wanted: std::collections::HashSet<u32> = hashes.iter().copied().collect();
+    db.index.weapons.iter().filter(|w| wanted.contains(&w.hash)).map(|w| (w.hash, w.ammo)).collect()
+}
+
+/// The names of plugs (a weapon's perks, frame, origin trait, mods), from
+/// the index (no lookups); plugs it doesn't know are left out.
+pub(crate) async fn plug_names(app: &AppHandle, plugs: &[u32]) -> Vec<String> {
+    let Ok(db) = db(app).await else { return Vec::new() };
+    let mut names: Vec<String> = plugs
+        .iter()
+        .filter_map(|h| {
+            let h = db.index.aliases.get(h).unwrap_or(h);
+            db.index.perks.get(h).map(|p| p.name.clone()).or_else(|| db.index.mods.get(h).cloned())
+        })
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+/// Where an item comes from (English, lower case), for searching by it.
+/// Older versions of an item often have no source of their own (no
+/// collectible): then a version of the same name and slot that has one.
+pub(crate) async fn source_of(app: &AppHandle, hashes: &[u32]) -> HashMap<u32, String> {
+    let Ok(db) = db(app).await else { return HashMap::new() };
+    let mut by_name: HashMap<(&str, u64), &String> = HashMap::new();
+    for (h, src) in &db.index.sources {
+        if let Some(g) = db.index.gear.get(h) {
+            by_name.entry((g.name.as_str(), g.bucket)).or_insert(src);
+        }
+    }
+    hashes
+        .iter()
+        .filter_map(|h| {
+            let src = db.index.sources.get(h).or_else(|| {
+                let g = db.index.gear.get(h)?;
+                by_name.get(&(g.name.as_str(), g.bucket)).copied()
+            })?;
+            Some((*h, src.clone()))
+        })
+        .collect()
+}
+
 fn from_source(db: &WeaponDb, hash: u32, needles: &[&str]) -> bool {
     db.index.sources.get(&hash).is_some_and(|s| needles.iter().any(|n| s.contains(n)))
 }
@@ -3305,12 +3882,56 @@ pub enum GearHit {
     Armor { armor: ArmorFound },
 }
 
-/// Weapons and armor by name, and by where they come from: `source:` with
-/// a source's key (or the start of one: "source:vault"), alone or with a
-/// name ("source:lastwish hood"). Weapons first.
+/// A source named in plain words ("vault of glass", "kings fall hood"):
+/// the longest run of words that spells a source's whole name, and the
+/// words left (a name to look for).
+fn plain_source(query: &str) -> Option<(&'static [&'static str], String)> {
+    let words: Vec<&str> = query.split_whitespace().collect();
+    let mut best: Option<(usize, usize, &'static [&'static str])> = None;
+    for i in 0..words.len() {
+        let mut key = String::new();
+        for j in i..words.len() {
+            key.push_str(&source_key(words[j]));
+            if let Some((_, needles)) = SOURCES.iter().find(|(n, _)| source_key(n) == key) {
+                if best.is_none_or(|(a, b, _)| j - i > b - a) {
+                    best = Some((i, j, needles));
+                }
+            }
+        }
+    }
+    let (i, j, needles) = best?;
+    let rest: Vec<&str> = words[..i].iter().chain(&words[j + 1..]).copied().collect();
+    Some((needles, rest.join(" ")))
+}
+
+/// Weapons and armor by name, and by where they come from: a source named
+/// plainly in the search ("vault of glass", "last wish hood": also what the
+/// name alone finds), or `source:` with a source's key (or the start of
+/// one: "source:vault"), alone or with a name. Weapons first.
 #[tauri::command]
 pub async fn gear_search(app: AppHandle, query: String) -> Result<Vec<GearHit>, String> {
     let db = db(&app).await?;
+    if !query.to_lowercase().contains("source:") {
+        if let Some((needles, rest)) = plain_source(&query) {
+            // From the source (with the other words as a name), then what
+            // the whole search finds by name.
+            let mut out = search_gear(&db, &rest, Some(vec![needles]));
+            let by_name = search_gear(&db, &query, None);
+            let seen = |hit: &GearHit, out: &[GearHit]| {
+                let name = |h: &GearHit| match h {
+                    GearHit::Weapon { weapon } => format!("w:{}", weapon.name),
+                    GearHit::Armor { armor } => format!("a:{}", armor.name),
+                };
+                out.iter().any(|o| name(o) == name(hit))
+            };
+            for hit in by_name {
+                if !seen(&hit, &out) {
+                    out.push(hit);
+                }
+            }
+            return Ok(out);
+        }
+    }
     // "source:" and the source after it, however written ("source: vault
     // of glass", "source:VaultOfGlass"): as many words as still start a
     // source's name; the other words are a name to look for.
@@ -3343,15 +3964,21 @@ pub async fn gear_search(app: AppHandle, query: String) -> Result<Vec<GearHit>, 
             wanted = Some(if exact.is_empty() { starting } else { exact });
         }
     }
-    let text = normalize(&words.join(" "));
+    Ok(search_gear(&db, &words.join(" "), wanted))
+}
+
+/// Weapons and armor whose name fits `text` (all of them for none), from
+/// the `wanted` sources only if some are given. Weapons first.
+fn search_gear(db: &WeaponDb, text: &str, wanted: Option<Vec<&'static [&'static str]>>) -> Vec<GearHit> {
+    let text = normalize(text);
     if text.is_empty() && wanted.is_none() {
-        return Ok(Vec::new());
+        return Vec::new();
     }
     let sourced = |hashes: &mut dyn Iterator<Item = u32>| match &wanted {
         None => true,
         Some(sources) => {
             let all: Vec<u32> = hashes.collect();
-            sources.iter().any(|needles| all.iter().any(|&h| from_source(&db, h, needles)))
+            sources.iter().any(|needles| all.iter().any(|&h| from_source(db, h, needles)))
         }
     };
     let score = |name: &str| -> Option<f64> {
@@ -3392,7 +4019,7 @@ pub async fn gear_search(app: AppHandle, query: String) -> Result<Vec<GearHit>, 
         .collect();
     armor.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1 .0.cmp(&b.1 .0)));
     let mut out: Vec<GearHit> =
-        weapons.into_iter().take(limit).map(|(_, i)| GearHit::Weapon { weapon: summary(&db, &db.index.weapons[i]) }).collect();
+        weapons.into_iter().take(limit).map(|(_, i)| GearHit::Weapon { weapon: summary(db, &db.index.weapons[i]) }).collect();
     for (_, (_, hashes)) in armor.into_iter().take(limit) {
         // The newest version shows (highest hash order is no help: the
         // gear table's first with an icon).
@@ -3409,5 +4036,5 @@ pub async fn gear_search(app: AppHandle, query: String) -> Result<Vec<GearHit>, 
             },
         });
     }
-    Ok(out)
+    out
 }

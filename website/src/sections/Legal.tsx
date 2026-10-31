@@ -100,15 +100,7 @@ function LegalNotice() {
       <Binding />
 
       <Card title="Information pursuant to § 5 DDG (German Digital Services Act)">
-        <p>
-          Niklas Kipper
-          <br />
-          Siebsberg 21
-          <br />
-          38442 Wolfsburg
-          <br />
-          Germany
-        </p>
+        <p>The operator's name and postal address are available on request by email: <a href="mailto:D2Radar@outlook.de" className="text-(--accent-text) hover:underline">D2Radar@outlook.de</a></p>
       </Card>
 
       <Card title="Contact">
@@ -118,9 +110,7 @@ function LegalNotice() {
       </Card>
 
       <Card title="Responsible for the content pursuant to § 18 (2) MStV">
-        <p>
-          Niklas Kipper, address as above.
-        </p>
+        <p>The operator of this website; name and address on request (see above).</p>
       </Card>
 
       <Card title="About Bungie">
@@ -162,8 +152,8 @@ function Privacy() {
 
       <Card title="1. Controller">
         <p>
-          The controller for data processing on this website and in the app is Niklas Kipper, Siebsberg 21, 38442 Wolfsburg, Germany, email:{" "}
-          D2Radar@outlook.de (see the{" "}
+          The controller for data processing on this website and in the app is the operator of this website, email:{" "}
+          D2Radar@outlook.de; name and postal address are available on request at that address (see the{" "}
           <a href="/impressum" className="text-(--accent-text) hover:underline">
             legal notice
           </a>
@@ -312,15 +302,7 @@ function Impressum() {
       <h1 className="headline font-display text-[36px] font-bold text-white">Impressum</h1>
 
       <Card title="Angaben gemäß § 5 DDG">
-        <p>
-          Niklas Kipper
-          <br />
-          Siebsberg 21
-          <br />
-          38442 Wolfsburg
-          <br />
-          Deutschland
-        </p>
+        <p>Name und ladungsfähige Anschrift des Betreibers teile ich auf Anfrage per E-Mail mit: <a href="mailto:D2Radar@outlook.de" className="text-(--accent-text) hover:underline">D2Radar@outlook.de</a></p>
       </Card>
 
       <Card title="Kontakt">
@@ -330,9 +312,7 @@ function Impressum() {
       </Card>
 
       <Card title="Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV">
-        <p>
-          Niklas Kipper, Anschrift wie oben.
-        </p>
+        <p>Der Betreiber dieser Website; Name und Anschrift auf Anfrage (siehe oben).</p>
       </Card>
 
       <Card title="Hinweis zu Bungie">
@@ -375,8 +355,8 @@ function Datenschutz() {
 
       <Card title="1. Verantwortlicher">
         <p>
-          Verantwortlich für die Datenverarbeitung auf dieser Website und in der App ist Niklas Kipper, Siebsberg 21, 38442 Wolfsburg,
-          E-Mail: D2Radar@outlook.de (siehe{" "}
+          Verantwortlich für die Datenverarbeitung auf dieser Website und in der App ist der Betreiber dieser Website, E-Mail:
+          D2Radar@outlook.de; Name und Anschrift teile ich auf Anfrage unter dieser Adresse mit (siehe{" "}
           <a href="/impressum" className="text-(--accent-text) hover:underline">
             Impressum
           </a>

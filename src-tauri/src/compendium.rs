@@ -29,6 +29,11 @@ struct Texts {
     /// Every artifact (past seasons' ones are equippable too).
     #[serde(default)]
     artifacts: Vec<Artifact>,
+    /// Abilities' base cooldowns in seconds (supers, grenades, melees,
+    /// class abilities), by English name: the element sheets and "Class
+    /// Abilities".
+    #[serde(default)]
+    cooldowns: HashMap<String, f64>,
 }
 
 /// An artifact as the sheet lists it: its perks per tier (one, two and
@@ -107,6 +112,11 @@ pub(crate) fn exact(english_name: &str) -> Option<String> {
 }
 
 /// Every artifact the sheet lists.
+/// An ability's base cooldown in seconds, by its English name.
+pub(crate) fn base_cooldown(english_name: &str) -> Option<f64> {
+    TEXTS.cooldowns.get(&key(english_name)).copied()
+}
+
 pub(crate) fn artifacts() -> &'static [Artifact] {
     &TEXTS.artifacts
 }
@@ -264,6 +274,77 @@ mod sheet {
         out
     }
 
+    /// The element sheets and "Class Abilities": an ability's name in the
+    /// first cell of its row, "Base Cooldown: 151.5 seconds" (or "Base
+    /// Cooldown:\n455 seconds", "56 [148.4]s": the first number, PvE) in
+    /// another cell of it.
+    pub fn read_cooldowns(rows: &[Vec<String>], out: &mut HashMap<String, f64>) {
+        for row in rows {
+            let Some(name) = row.iter().map(|c| c.trim()).find(|c| !c.is_empty()) else { continue };
+            let name = name.lines().next().unwrap_or_default().trim();
+            if name.is_empty() || name.len() > 40 {
+                continue;
+            }
+            for cell in row {
+                let Some((_, after)) = cell.split_once("Base Cooldown:") else { continue };
+                let digits: String = after
+                    .chars()
+                    .skip_while(|c| !c.is_ascii_digit())
+                    .take_while(|c| c.is_ascii_digit() || *c == '.')
+                    .collect();
+                if let Ok(seconds) = digits.trim_end_matches('.').parse::<f64>() {
+                    if seconds > 0.0 {
+                        out.entry(key(name)).or_insert(seconds);
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    /// The element sheets: an ability's, super's, aspect's or fragment's
+    /// name in the first cell of its row, what it does in the next long one
+    /// (not its cooldown). Fragments are listed by their short name under a
+    /// "Fragments" heading ("Resistance": `prefix` "Spark of" makes it
+    /// "Spark of Resistance"). Kept where nothing else is.
+    pub fn read_subclass(rows: &[Vec<String>], prefix: &str, out: &mut HashMap<String, String>) {
+        let mut fragments = false;
+        for row in rows {
+            let cells: Vec<&str> = row.iter().map(|c| c.trim()).filter(|c| !c.is_empty()).collect();
+            let Some(&name) = cells.first() else { continue };
+            if cells.len() == 1 || matches!(cells.get(1), Some(&"Information") | Some(&"Icon")) {
+                // A heading: the fragments' starts, any other ends them.
+                fragments = name == "Fragments";
+                continue;
+            }
+            if name.contains('\n') || name.len() > 40 {
+                continue;
+            }
+            let Some(text) = cells[1..].iter().find(|c| c.len() > 20 && !c.starts_with("Base Cooldown")) else { continue };
+            let full = if fragments { format!("{prefix} {name}") } else { name.to_string() };
+            out.entry(key(&full)).or_insert_with(|| text.to_string());
+        }
+    }
+
+    /// "Exotic Armors": per class three columns (armor, icon, notes); an
+    /// armor's name with what it does two cells on, its perk's name in the
+    /// row below. Kept by both names.
+    pub fn read_exotic_armor(rows: &[Vec<String>], out: &mut HashMap<String, String>) {
+        for (i, row) in rows.iter().enumerate() {
+            for col in (0..row.len()).step_by(3) {
+                let name = row[col].trim();
+                let Some(text) = row.get(col + 2).map(|t| t.trim()).filter(|t| t.len() > 20) else { continue };
+                if name.is_empty() || name.contains('\n') || name.len() > 40 || name == "Armor" {
+                    continue;
+                }
+                out.entry(key(name)).or_insert_with(|| text.to_string());
+                if let Some(perk) = rows.get(i + 1).and_then(|r| r.get(col)).map(|p| p.trim()).filter(|p| !p.is_empty() && p.len() <= 40) {
+                    out.entry(key(perk)).or_insert_with(|| text.to_string());
+                }
+            }
+        }
+    }
+
     /// "Exotic Class": a spirit's name in one cell, what it does in the next
     /// non-empty one.
     pub fn read_spirits(rows: &[Vec<String>], out: &mut HashMap<String, String>) {
@@ -316,6 +397,12 @@ mod tests {
 
 5% damage.");
         assert_eq!(arts[0].tiers[1][0].name, "Pillar of Ice");
+        let cd = parse_csv("\"Arcbolt Grenade\",\"Scans\",\"Base Cooldown: 151.5 seconds\n\nChunk Scalar: 0.75x\"\n\"Chaos Reach\",\"General\",\"Tier 4 Super\n\nBase Cooldown:\n455 seconds\"\n\"Acrobat's Dodge\",\"Leap\",\"Base Cooldown: 56 [148.4]s\"\n");
+        let mut cooldowns = HashMap::new();
+        read_cooldowns(&cd, &mut cooldowns);
+        assert_eq!(cooldowns["arcbolt grenade"], 151.5);
+        assert_eq!(cooldowns["chaos reach"], 455.0);
+        assert_eq!(cooldowns["acrobat's dodge"], 56.0);
     }
 
     #[test]
@@ -343,6 +430,15 @@ mod tests {
         read_set_bonuses(&fetch("Armor Perks"), &mut perks);
         read_spirits(&fetch("Exotic Class"), &mut perks);
         read_mods(&fetch("Armor Mods"), &mut perks);
+        read_exotic_armor(&fetch("Exotic Armors"), &mut perks);
+        assert!(perks.contains_key("wormhusk crown") && perks.contains_key("cyrtarachne's facade"), "exotic armor missing: check the sheet's layout");
+        for (sheet, prefix) in [("Arc", "Spark of"), ("Solar", "Ember of"), ("Void", "Echo of"), ("Stasis", "Whisper of"), ("Strand", "Thread of"), ("Prismatic", "Facet of"), ("Class Abilities", "")] {
+            read_subclass(&fetch(sheet), prefix, &mut perks);
+        }
+        assert!(
+            ["spark of resistance", "ember of torches", "echo of persistence", "whisper of rime", "thread of warding"].iter().all(|k| perks.contains_key(*k)),
+            "fragments missing: check the element sheets' layout"
+        );
         assert!(
             perks.len() as f64 >= TEXTS.perks.len() as f64 * 0.9,
             "the sheet reads {} entries, the copy has {}: check the sheet's layout first",
@@ -350,10 +446,15 @@ mod tests {
             TEXTS.perks.len()
         );
         let artifacts = read_artifacts(&fetch("Artifact Perks"));
+        let mut cooldowns = HashMap::new();
+        for sheet in ["Arc", "Solar", "Void", "Stasis", "Strand", "Prismatic", "Class Abilities"] {
+            read_cooldowns(&fetch(sheet), &mut cooldowns);
+        }
+        assert!(cooldowns.len() >= TEXTS.cooldowns.len(), "the sheets read {} cooldowns, the copy has {}", cooldowns.len(), TEXTS.cooldowns.len());
         assert!(artifacts.len() >= TEXTS.artifacts.len(), "the sheet reads {} artifacts, the copy has {}", artifacts.len(), TEXTS.artifacts.len());
-        let texts = Texts { fetched: chrono::Utc::now().timestamp(), perks, artifacts };
+        let texts = Texts { fetched: chrono::Utc::now().timestamp(), perks, artifacts, cooldowns };
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/compendium-snapshot.json");
         std::fs::write(path, serde_json::to_string_pretty(&texts).unwrap()).unwrap();
-        println!("wrote {} entries, {} artifacts to {path}", texts.perks.len(), texts.artifacts.len());
+        println!("wrote {} entries, {} artifacts, {} cooldowns to {path}", texts.perks.len(), texts.artifacts.len(), texts.cooldowns.len());
     }
 }

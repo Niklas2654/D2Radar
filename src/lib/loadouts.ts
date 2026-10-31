@@ -229,8 +229,20 @@ export const loadouts = {
     }
     return (await call<ItemInfo[][]>("artifact_layout")) ?? [];
   },
+  /** The artifacts (Monument of Triumph) and their perks per tier. */
+  artifactOptions: async (): Promise<{ name: string; tiers: ItemInfo[][] }[]> => {
+    if (MOCK) return [];
+    type Perk = { hash: number; name: string; icon: string | null; text: string; description: string };
+    const list = (await call<{ name: string; tiers: Perk[][] }[]>("artifact_options")) ?? [];
+    return list.map((a) => ({
+      name: a.name,
+      tiers: a.tiers.map((tier) => tier.map((p) => ({ hash: p.hash, name: p.name, icon: p.icon, typeName: a.name, description: p.description, exact: p.text, exotic: false }))),
+    }));
+  },
   /** Delete a loadout from DIM. */
   remove: async (id: string) => (MOCK ? wait(300) : call("dim_loadout_delete", { id })),
+  /** Also save the loadout in DIM (it's kept in Radar either way). */
+  push: async (id: string) => (MOCK ? wait(600) : call("dim_push", { id })),
   /** Empty an in-game loadout slot. */
   /** An in-game slot saved to DIM as a loadout (its name); its new id. */
   gameToDim: (characterId: string | null, index: number, name: string) =>

@@ -32,6 +32,12 @@ export function GlassPanel({
       )}
       style={{ "--glass-radius": `${radius}px`, ...style } as CSSProperties}
     >
+      {/* The pointer's light (lib/glassLight.ts moves the spot). */}
+      {variant !== "hud" && (
+        <span className="glass-light" aria-hidden>
+          <span className="glass-light-spot" />
+        </span>
+      )}
       {children}
     </div>
   );

@@ -50,6 +50,8 @@ const MIN_KILLS: u64 = 1;
 const WEAPON_BUCKETS: [u64; 3] = [1498876634, 2465295065, 953998645];
 /// Traits shown per weapon.
 const TOP_TRAITS: usize = 4;
+/// A weapon's trait columns (socket indexes).
+const TRAIT_SOCKETS: std::ops::Range<usize> = 3..5;
 /// Weapons and types shown per category.
 const TOP: usize = 10;
 const TOP_TYPES: usize = 6;
@@ -131,6 +133,7 @@ struct Cache {
 }
 
 static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
+
 /// The last result, when it was made and whether every category was full.
 static RESULT: Mutex<Option<(Instant, bool, Vec<UsageCategory>)>> = Mutex::new(None);
 
@@ -147,9 +150,20 @@ fn cache_path(app: &AppHandle) -> PathBuf {
 fn load(app: &AppHandle) {
     let mut cache = CACHE.lock().unwrap();
     if cache.is_none() {
-        *cache = Some(
-            std::fs::read_to_string(cache_path(app)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
-        );
+        let mut loaded: Cache =
+            std::fs::read_to_string(cache_path(app)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+        // Kept by an older version: every plug of every player asked.
+        prune(&mut loaded);
+        for (_, rolls) in loaded.rolls.values_mut() {
+            for (_, plugs) in rolls.iter_mut().filter(|(_, p)| p.len() > TRAIT_SOCKETS.len()) {
+                *plugs = plugs.get(TRAIT_SOCKETS).map(<[u64]>::to_vec).unwrap_or_default();
+            }
+        }
+        // Written back pruned at once (the next start reads the small one).
+        if let Ok(json) = serde_json::to_string(&loaded) {
+            let _ = std::fs::write(cache_path(app), json);
+        }
+        *cache = Some(loaded);
     }
 }
 
@@ -161,21 +175,29 @@ fn newest(cache: &Cache, mode: u32) -> Vec<(&String, &Report)> {
     reports
 }
 
-/// Keep only the reports that count (each mode's newest), then write the cache.
+/// Keep only what counts: each mode's newest reports, the players asked
+/// lately, and the rolls of the players in those reports (of a month).
+fn prune(cache: &mut Cache) {
+    let keep: HashSet<String> =
+        CATEGORIES.iter().flat_map(|(mode, _)| newest(cache, *mode).into_iter().map(|(id, _)| id.clone())).collect();
+    cache.reports.retain(|id, _| keep.contains(id));
+    let since = Utc::now() - chrono::Duration::days(ASK_AGAIN_DAYS);
+    for asked in cache.asked.values_mut() {
+        asked.retain(|_, at| *at >= since);
+    }
+    // Rolls of a month (weapons get re-rolled, metas change), only of the
+    // players the statistic counts.
+    let rolls_since = Utc::now() - chrono::Duration::days(30);
+    let players: HashSet<String> = cache.reports.values().flat_map(|r| r.players.iter().map(|(_, m, _, _)| m.clone())).collect();
+    cache.rolls.retain(|m, (at, _)| *at >= rolls_since && players.contains(m));
+}
+
+/// Prune, then write the cache.
 fn save(app: &AppHandle) {
     let json = {
         let mut cache = CACHE.lock().unwrap();
         let Some(cache) = cache.as_mut() else { return };
-        let keep: HashSet<String> =
-            CATEGORIES.iter().flat_map(|(mode, _)| newest(cache, *mode).into_iter().map(|(id, _)| id.clone())).collect();
-        cache.reports.retain(|id, _| keep.contains(id));
-        let since = Utc::now() - chrono::Duration::days(ASK_AGAIN_DAYS);
-        for asked in cache.asked.values_mut() {
-            asked.retain(|_, at| *at >= since);
-        }
-        // Rolls of a month: weapons get re-rolled, metas change.
-        let rolls_since = Utc::now() - chrono::Duration::days(30);
-        cache.rolls.retain(|_, (at, _)| *at >= rolls_since);
+        prune(cache);
         serde_json::to_string(cache)
     };
     if let Ok(json) = json {
@@ -202,9 +224,14 @@ async fn recent(http: &reqwest::Client, key: &str, mt: i64, mid: &str, mode: u32
         .flat_map(|(_, c)| c["items"].as_array().cloned().unwrap_or_default())
         .filter(|i| WEAPON_BUCKETS.contains(&i["bucketHash"].as_u64().unwrap_or(0)))
         .filter_map(|i| {
+            // Only the two trait columns (sockets 3 and 4): all the
+            // statistic shows (keeping every plug of every player asked
+            // grew it past 200 MB).
             let plugs = sockets[i["itemInstanceId"].as_str()?]["sockets"]
                 .as_array()?
                 .iter()
+                .skip(TRAIT_SOCKETS.start)
+                .take(TRAIT_SOCKETS.len())
                 .filter_map(|s| s["plugHash"].as_u64())
                 .collect();
             Some((i["itemHash"].as_u64()?, plugs))

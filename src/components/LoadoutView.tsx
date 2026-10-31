@@ -6,7 +6,7 @@ import { loadouts, type DimLoadout, type EditSocket, type GameLoadout } from "..
 import { ARMOR_BUCKETS, WEAPON_BUCKETS } from "../lib/presets";
 import { subscribe } from "../lib/tauri";
 import { cx, GlassButton, GlassInput, GlassPanel } from "./glass";
-import { ExoticArmorHover } from "./Clarity";
+import { ExoticArmorHover, PerkHover } from "./Clarity";
 import { FuseButton } from "./FuseButton";
 import { IconCheck, IconClose } from "./icons";
 
@@ -21,10 +21,27 @@ const ELEMENT: Record<number, string> = {
 };
 const elementOf = (item?: ItemInfo | null) => ELEMENT[item?.damageType ?? 0];
 
+/** Gear (weapons, armor, subclass): its own hovers elsewhere. */
+const GEAR_BUCKETS = new Set([...WEAPON_BUCKETS, ...ARMOR_BUCKETS, 3284755031]);
+
 export function ItemIcon({ item, size = 40, missing }: { item: ItemInfo; size?: number; missing?: boolean }) {
+  // Perks, mods, subclass and artifact plugs: what they do on hover, with
+  // the exact numbers.
+  const card = !GEAR_BUCKETS.has(item.bucket ?? 0) && !!(item.exact || item.description);
+  const icon = <ItemIconBox item={item} size={size} missing={missing} title={card ? undefined : `${item.name} – ${item.typeName}`} />;
+  return card ? (
+    <PerkHover perk={{ hash: item.hash, name: item.name, icon: item.icon, typeName: item.typeName, description: item.description ?? "" }} exact={item.exact}>
+      {icon}
+    </PerkHover>
+  ) : (
+    icon
+  );
+}
+
+function ItemIconBox({ item, size, missing, title }: { item: ItemInfo; size: number; missing?: boolean; title?: string }) {
   return (
     <span
-      title={`${item.name} – ${item.typeName}`}
+      title={title}
       className={cx(
         "relative grid shrink-0 place-items-center overflow-hidden rounded-lg border bg-black/30",
         missing
@@ -269,34 +286,38 @@ function Column({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** The season's artifact, loaded once and shared by every loadout view. */
-let artifactLayout: Promise<ItemInfo[][]> | null = null;
+/** The artifacts (Monument of Triumph), loaded once and shared by every loadout view. */
+let artifactOptions: Promise<{ name: string; tiers: ItemInfo[][] }[]> | null = null;
 
-/** The whole artifact as in game, the loadout's perks lit, the rest dim. */
+/** The loadout's artifact with its perks lit, the rest dim. */
 function Artifact({ chosen }: { chosen: ItemInfo[] }) {
   const t = useT();
-  const [layout, setLayout] = useState<ItemInfo[][] | null>(null);
+  const [all, setAll] = useState<{ name: string; tiers: ItemInfo[][] }[] | null>(null);
   useEffect(() => {
     let alive = true;
-    artifactLayout ??= loadouts.artifactLayout().catch(() => {
-      artifactLayout = null;
+    artifactOptions ??= loadouts.artifactOptions().catch(() => {
+      artifactOptions = null;
       return [];
     });
-    void artifactLayout.then((l) => alive && setLayout(l));
+    void artifactOptions.then((l) => alive && setAll(l));
     return () => {
       alive = false;
     };
   }, []);
   const picked = new Set(chosen.map((c) => c.hash));
-  const columns = layout && layout.length > 0 ? layout : null;
-  if (!columns && chosen.length === 0) return null;
+  // The artifact its perks are from: the one with the most of them (a perk
+  // can be on several, e.g. Armorsmith: the first with any one was wrong).
+  const count = (a: { tiers: ItemInfo[][] }) => a.tiers.flat().filter((p) => picked.has(p.hash)).length;
+  const artifact = (all ?? []).filter((a) => count(a) > 0).sort((x, y) => count(y) - count(x))[0] ?? null;
+  if (!artifact && chosen.length === 0) return null;
   return (
-    <Column title={t("loadouts.artifact")}>
-      {columns ? (
-        <div className="flex gap-3 overflow-x-auto px-1 pb-1">
-          {columns.map((column, c) => (
-            <div key={c} className="flex flex-col gap-1.5">
-              {column.map((perk, r) => {
+    <Column title={artifact ? `${t("loadouts.artifact")} · ${artifact.name}` : t("loadouts.artifact")}>
+      {artifact ? (
+        <div className="flex flex-col gap-1.5 px-1 pb-1">
+          {artifact.tiers.map((tier, ti) => (
+            <div key={ti} className="flex items-center gap-1.5">
+              <span className="w-8 shrink-0 text-[10px] tracking-widest text-white/35">{"◆".repeat(ti + 1)}</span>
+              {tier.map((perk, r) => {
                 const on = picked.has(perk.hash);
                 return (
                   <span
@@ -420,7 +441,7 @@ export function Gear({
 }
 
 /** A loadout's gear shown above an open preset. */
-export function LoadoutPreview({ loadout, onClose }: { loadout: DimLoadout; onClose: () => void }) {
+export function LoadoutPreview({ loadout, onClose, onOpen }: { loadout: DimLoadout; onClose: () => void; /** Leave the preset for the loadout itself (equip, edit, delete). */ onOpen?: () => void }) {
   const t = useT();
   return (
     <GlassPanel className="flex shrink-0 flex-col gap-3 p-3">
@@ -430,6 +451,11 @@ export function LoadoutPreview({ loadout, onClose }: { loadout: DimLoadout; onCl
         right={
           <div className="flex items-center gap-2 self-start">
             <span className="hidden text-[11.5px] text-white/40 xl:inline">{t("sets.previewHint")}</span>
+            {onOpen && (
+              <GlassButton size="sm" onClick={onOpen} title={t("sets.openLoadoutHint")}>
+                {t("sets.openLoadout")}
+              </GlassButton>
+            )}
             <button
               onClick={onClose}
               className="grid size-8 place-items-center rounded-lg text-white/50 hover:bg-white/[0.08] hover:text-white"
@@ -688,14 +714,17 @@ export function LoadoutDetail({
   onDelete,
   onBack,
   onChanged,
+  onEdit,
 }: {
   loadout: DimLoadout;
   game: GameLoadout[];
   character: string | null;
   onRunning: (running: boolean) => void;
   onWritten: () => void;
-  /** Delete the loadout from DIM. */
+  /** Delete the loadout. */
   onDelete: () => Promise<void>;
+  /** Open it in the builder (the optimizer as it was built). */
+  onEdit?: () => Promise<void>;
   /** Back to the in-game loadouts. */
   onBack?: () => void;
   /** The loadout changed (an item's perks / mods were edited). */
@@ -718,6 +747,16 @@ export function LoadoutDetail({
   };
   const run = useSyncExternalStore(onRuns, () => runs.get(loadout.id) ?? IDLE);
   const running = useApplyRunning();
+  const [opening, setOpening] = useState(false);
+  const edit = async () => {
+    if (!onEdit) return;
+    setOpening(true);
+    try {
+      await onEdit();
+    } finally {
+      setOpening(false);
+    }
+  };
 
   const apply = async (slot: number | null) => {
     setConfirmSlot(null);
@@ -733,6 +772,12 @@ export function LoadoutDetail({
         loadout={loadout}
         right={
           <div className="flex shrink-0 items-center gap-2 self-start">
+            {onEdit && (
+              <GlassButton onClick={() => void edit()} disabled={opening || !!loadout.pending} title={t("loadouts.openEditHint")}>
+                {opening ? t("builder.loading") : t("loadouts.edit")}
+              </GlassButton>
+            )}
+            <DimPushButton key={`dim-${loadout.id}`} id={loadout.id} />
             <FuseButton
               key={loadout.id}
               label={t("loadouts.delete")}
@@ -785,7 +830,8 @@ export function LoadoutDetail({
           <span className="text-[10.5px] font-semibold tracking-[0.14em] text-white/40 uppercase">{t("loadouts.writeTitle")}</span>
           <span className="truncate text-[11px] text-white/35">{t("loadouts.writeHintShort")}</span>
         </div>
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        {/* One under the other, with the game's slot number. */}
+        <div className="flex flex-col gap-1">
           {game.map((slot) => {
             const confirming = confirmSlot === slot.index;
             return (
@@ -795,16 +841,18 @@ export function LoadoutDetail({
                 title={slot.empty ? t("loadouts.emptySlot", { n: slot.index + 1 }) : slot.name}
                 onClick={() => (slot.empty || confirming ? void apply(slot.index) : setConfirmSlot(slot.index))}
                 className={cx(
-                  "flex w-[76px] shrink-0 flex-col items-center gap-1 rounded-xl border p-1.5 text-center transition-[background-color,border-color,transform] duration-150 hover:-translate-y-0.5 disabled:opacity-50",
+                  "flex w-full items-center gap-3 rounded-xl border px-2.5 py-1.5 text-left transition-[background-color,border-color] duration-150 disabled:opacity-50",
                   confirming
                     ? "border-amber-300/60 bg-amber-400/10"
                     : "border-transparent hover:border-(--accent-glow) hover:bg-(--accent-soft)",
                 )}
               >
-                <SlotBadge icon={slot.icon} color={slot.color} size={44} />
-                <span className="w-full truncate text-[10.5px] text-white/65">
-                  {confirming ? t("loadouts.overwrite") : slot.empty ? `${slot.index + 1} · ${t("sets.slotEmpty")}` : slot.name}
+                <span className="w-5 shrink-0 text-right text-[12px] font-semibold text-white/40 tabular-nums">{slot.index + 1}</span>
+                <SlotBadge icon={slot.icon} color={slot.color} size={32} />
+                <span className={cx("min-w-0 flex-1 truncate text-[12.5px]", slot.empty ? "text-white/40" : "text-white/85")}>
+                  {slot.empty ? t("sets.slotEmpty") : slot.name}
                 </span>
+                {confirming && <span className="shrink-0 text-[11.5px] font-semibold text-amber-200">{t("loadouts.overwrite")}</span>}
               </button>
             );
           })}
@@ -861,5 +909,28 @@ function RunStatus({ run, slotName }: { run: Run; slotName?: string }) {
         </ul>
       )}
     </div>
+  );
+}
+
+/** Send the loadout to DIM as well (Radar keeps it either way). The first
+ *  time can take a minute: DIM sets up Radar's access then. */
+function DimPushButton({ id }: { id: string }) {
+  const t = useT();
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const push = async () => {
+    setState("busy");
+    try {
+      await loadouts.push(id);
+      setState("done");
+    } catch (e) {
+      setRunOf(id, { kind: "error", message: String(e) });
+      setState("idle");
+    }
+  };
+  return (
+    <GlassButton onClick={() => void push()} disabled={state !== "idle"} title={t("loadouts.toDimTitle")}>
+      {state === "done" && <IconCheck />}
+      {state === "busy" ? t("loadouts.toDimBusy") : state === "done" ? t("loadouts.toDimDone") : t("loadouts.toDim")}
+    </GlassButton>
   );
 }

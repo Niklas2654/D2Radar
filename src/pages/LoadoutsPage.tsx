@@ -3,7 +3,7 @@ import { useScrollTopOn } from "../lib/scrollTop";
 import { CharacterPicker } from "../components/CharacterPicker";
 import { cx, GlassButton, GlassInput, GlassPanel, PanelHeader } from "../components/glass";
 import { IconClose, IconDownload, IconPlus, IconRefresh, IconSwap } from "../components/icons";
-import { LoadoutBuilder } from "../components/LoadoutBuilder";
+import { discardNewDraft, LoadoutBuilder, startEdit } from "../components/LoadoutBuilder";
 import {
   IssueDot,
   ItemIcon,
@@ -26,7 +26,7 @@ import {
 } from "../lib/loadouts";
 import { REFRESHED_EVENT } from "../lib/preload";
 import { loadoutSets, type LoadoutSet, type SetEntry } from "../lib/presets";
-import { isTauri, navigate } from "../lib/tauri";
+import { isTauri, navigate, subscribe } from "../lib/tauri";
 
 /** Drag-and-drop type of a DIM loadout id. */
 const DRAG_TYPE = "application/x-radar-loadout";
@@ -361,7 +361,8 @@ type View =
   | { kind: "loadout"; id: string }
   | { kind: "set"; id: string }
   | { kind: "newSet" }
-  | { kind: "newLoadout" }
+  /** `edit`: a saved loadout opened again (its id). */
+  | { kind: "newLoadout"; edit?: string }
   | null;
 
 /**
@@ -390,6 +391,8 @@ function withCleared(character: string | null, list: GameLoadout[]): GameLoadout
   });
 }
 
+const BUILDING_KEY = "radar.loadouts.building";
+
 export function LoadoutsPage() {
   const t = useT();
   const [connected, setConnected] = useState<boolean | null>(null);
@@ -407,7 +410,26 @@ export function LoadoutsPage() {
   const [sets, setSets] = useState<LoadoutSet[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<View>(null);
+  // Building a loadout stays open across tab switches and restarts.
+  const [view, setView] = useState<View>(() => {
+    try {
+      // "1": a new one, else the id of the one edited.
+      const kept = localStorage.getItem(BUILDING_KEY);
+      return kept ? (kept === "1" ? { kind: "newLoadout" } : { kind: "newLoadout", edit: kept }) : null;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try {
+      if (view?.kind === "newLoadout") localStorage.setItem(BUILDING_KEY, view.edit ?? "1");
+      else localStorage.removeItem(BUILDING_KEY);
+    } catch {
+      // Not kept; fine.
+    }
+  }, [view]);
+  const editing = view?.kind === "newLoadout" ? (view.edit ?? null) : null;
+  const building = view?.kind === "newLoadout";
   // Another loadout / preset / character: from the top.
   const detailScroll = useScrollTopOn(`${character}|${view?.kind ?? ""}|${view && "id" in view ? view.id : ""}`);
   const [preview, setPreview] = useState<string | null>(null);
@@ -499,7 +521,9 @@ export function LoadoutsPage() {
     setList(null);
     setDetails({});
     setGame([]);
-    setView(null);
+    // Building a new loadout stays open (for the new character); the rest
+    // (an edit too: the loadout is the other character's) closes.
+    setView((v) => (v?.kind === "newLoadout" && !v.edit ? v : null));
     setPreview(null);
   };
 
@@ -520,8 +544,9 @@ export function LoadoutsPage() {
     setView(next);
     setPreview(null);
   };
-  // With a preset open, a click only previews the gear (the preset stays).
-  const clickLoadout = (id: string) => (editingSet ? setPreview(id) : openView({ kind: "loadout", id }));
+  // A click always opens the loadout itself (equip, edit, delete), also from
+  // a preset (dragging still puts it into the preset's slots).
+  const clickLoadout = (id: string) => openView({ kind: "loadout", id });
 
   const classSets = sets.filter((s) => s.classType === classType);
   // Search: by name, and (once loaded) by subclass, items and mods.
@@ -607,7 +632,12 @@ export function LoadoutsPage() {
         .catch(() => {});
     };
     window.addEventListener(REFRESHED_EVENT, refresh);
-    return () => window.removeEventListener(REFRESHED_EVENT, refresh);
+    // Weapons no longer owned were taken out of loadouts (backend).
+    const stop = subscribe("loadouts-changed", refresh);
+    return () => {
+      window.removeEventListener(REFRESHED_EVENT, refresh);
+      stop();
+    };
   }, [character, load, running]);
   // Stay on a page that exists (fewer loadouts, other character).
   useEffect(() => {
@@ -641,8 +671,12 @@ export function LoadoutsPage() {
       {characters.length > 0 && (
         <CharacterPicker characters={characters} value={character} onChange={pickCharacter} disabled={running} />
       )}
-      <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] gap-4">
-        <GlassPanel className="flex min-h-0 flex-col p-4">
+      {/* Building a loadout: the list slides away to the left and the
+          builder takes the whole width (the columns animate, see
+          .loadouts-grid). */}
+      <div className={cx("loadouts-grid grid min-h-0 flex-1", building && "is-building")}>
+        <div className="loadouts-list flex min-h-0 min-w-0" inert={building}>
+        <GlassPanel className="flex min-h-0 w-[320px] shrink-0 flex-col p-4">
           <PanelHeader
             icon={<IconSwap />}
             title={t("loadouts.tabTitle")}
@@ -705,7 +739,11 @@ export function LoadoutsPage() {
               action={
                 <SmallAdd
                   label={t("loadouts.newLoadout")}
-                  onClick={() => openView({ kind: "newLoadout" })}
+                  onClick={() => {
+                    // "+ Loadout": an empty one (not the last one left unsaved).
+                    if (!(view?.kind === "newLoadout" && !view.edit)) discardNewDraft(character);
+                    openView({ kind: "newLoadout" });
+                  }}
                   disabled={!connected || running}
                 />
               }
@@ -776,6 +814,7 @@ export function LoadoutsPage() {
             )}
           </div>
         </GlassPanel>
+        </div>
 
         <div ref={detailScroll} className="-m-4 flex min-h-0 flex-col gap-4 overflow-y-auto p-4 [&>*]:shrink-0">
           {view?.kind === "set" && (
@@ -790,9 +829,13 @@ export function LoadoutsPage() {
               ← {t("loadouts.backToGame")}
             </GlassButton>
           )}
-          {previewed && <LoadoutPreview loadout={previewed} onClose={() => setPreview(null)} />}
+          {previewed && (
+            <LoadoutPreview loadout={previewed} onClose={() => setPreview(null)} onOpen={() => openView({ kind: "loadout", id: previewed.id })} />
+          )}
           {view?.kind === "newLoadout" ? (
             <LoadoutBuilder
+              key={editing ?? "new"}
+              edit={editing}
               character={character}
               onCancel={() => openView(null)}
               onSaved={(id) => {
@@ -827,6 +870,15 @@ export function LoadoutsPage() {
               onWritten={refreshGame}
               onBack={() => openView(null)}
               onChanged={(l) => setDetails((d) => ({ ...d, [l.id]: l }))}
+              onEdit={async () => {
+                const id = loadout.id;
+                try {
+                  await startEdit(character, id);
+                  openView({ kind: "newLoadout", edit: id });
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}
               onDelete={async () => {
                 // Gone from the list at once; DIM catches up in the background.
                 const id = loadout.id;
