@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TaskPanel } from "./components/TaskPanel";
 import { Badge, Tooltip } from "./components/glass";
 import { IconChat, IconCrosshair, IconDim, IconRadar, IconSettings, IconSwap, IconUsers } from "./components/icons";
 import { Navbar, type NavItem } from "./components/Navbar";
@@ -6,6 +7,7 @@ import { Backdrop } from "./components/Backdrop";
 import { CopySwap } from "./components/CopySwap";
 import { UpdateBadge } from "./components/UpdateButton";
 import { UpdateScreen } from "./components/UpdateScreen";
+import { WhatsNew } from "./components/WhatsNew";
 import { Splash } from "./components/Splash";
 import { PageTransition } from "./components/PageTransition";
 import { useBungie } from "./lib/bungie";
@@ -116,7 +118,9 @@ export function App() {
       <Backdrop />
       {loading && <Splash startWebviews={startWebviews} onDone={() => setLoading(false)} />}
       <UpdateScreen />
+      <WhatsNew ready={!loading} />
       <LanguageRestart />
+      <TaskPanel />
       <Navbar items={pages} active={page} onChange={setPage} right={status} />
       <PageTransition
         page={page}

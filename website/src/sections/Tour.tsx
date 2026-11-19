@@ -1,265 +1,273 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { LiveDemo } from "../components/LiveDemo";
+import { useEffect, useRef, useState } from "react";
 import { RECORDED_ACCENT, recolor } from "../components/recolor";
+import { Stage } from "../components/Stage";
 import { ACCENT_EVENT, savedAccent, type SiteAccent } from "../fx";
-import { useStrings } from "../i18n";
-import { Arrow, PrismCarousel, type CarouselControl, type FrontCard } from "../components/PrismCarousel";
+import { useStrings, type Strings } from "../i18n";
+import { SectionTitle } from "./Features";
 
-/** One snippet of the app: a short clip of it (public/clips, recorded in
- *  the real app, 16:10) with a still from it; its caption and what to know
- *  about it are in the site's texts (tour.snippets, in the same order). */
-interface Snippet {
-  src: string;
-  video: string;
-}
+/** The tour's steps: each a scene of the demo's autopilot (the app's
+ *  src/web/autopilot.ts), in the order of the site's texts (tour.snippets).
+ *  A scene has a picture of its start (public/clips/<scene>-<colour>.webp)
+ *  and, the older ones, a clip (<scene>.mp4). */
+const SCENES = ["fireteam", "lowman", "runs", "weapon", "source", "meta", "armor", "armor2", "loadouts", "build", "builder", "optimize", "optimizeRules", "optimizeBuild"];
+/** Scenes with a clip (for screens the live app isn't on). */
+const CLIPS = new Set(["fireteam", "lowman", "runs", "weapon", "source", "meta", "armor", "armor2", "loadouts", "build"]);
 
-const SNIPPETS: Snippet[] = [
-  { src: "clips/fireteam.webp", video: "clips/fireteam.mp4" },
-  { src: "clips/lowman.webp", video: "clips/lowman.mp4" },
-  { src: "clips/runs.webp", video: "clips/runs.mp4" },
-  { src: "clips/weapon.webp", video: "clips/weapon.mp4" },
-  { src: "clips/source.webp", video: "clips/source.mp4" },
-  { src: "clips/meta.webp", video: "clips/meta.mp4" },
-  { src: "clips/armor.webp", video: "clips/armor.mp4" },
-  { src: "clips/armor2.webp", video: "clips/armor2.mp4" },
-  { src: "clips/loadouts.webp", video: "clips/loadouts.mp4" },
-  { src: "clips/build.webp", video: "clips/build.mp4" },
+/** The chapters, each with its steps (indices into SCENES and the texts);
+ *  their names and texts: tour.chapters, in the same order. The last
+ *  chapter, the game with Radar over it, is a section of its own
+ *  (GamePreview). */
+const ALL_CHAPTERS = [
+  { id: "fireteam", steps: [0, 1, 2, 9] },
+  { id: "database", steps: [3, 4, 5, 6, 7] },
+  { id: "loadouts", steps: [8, 10] },
+  { id: "optimizer", steps: [11, 12, 13] },
 ];
+const CHAPTERS = ALL_CHAPTERS.map((c, index) => ({ ...c, index }));
+/** The game chapter's place in tour.chapters, and its number on the page. */
+export const GAME_CHAPTER = { index: ALL_CHAPTERS.length, number: CHAPTERS.length + 1 };
 
-/** The app's own accent colours: each has pictures (clips/<scene>-<id>.webp). */
+/** The app's own accent colours: each has pictures of its own. */
 const PRESET_ACCENTS = ["solar", "arc", "void", "stasis", "strand", "prismatic"];
 
-/** The site's header (h-16), which stays over the cinema mode. */
-const HEADER_HEIGHT = 64;
+const two = (n: number) => String(n).padStart(2, "0");
 
-/** The demo's scene for each snippet (its clip's name). */
-const SCENES = SNIPPETS.map((s) => s.video.replace(/^clips\/|\.mp4$/g, ""));
-
-/** The tour: the app's clips in a coverflow (PrismCarousel), under the
- *  hero. It fades in once the page is scrolled a little (its clips start
- *  only then). */
-export function Tour() {
-  const s = useStrings().tour;
-  const [index, setIndex] = useState(0);
-  const shown = s.snippets[index] ?? s.snippets[0];
-  const box = useRef<HTMLElement>(null);
-  const [ready, setReady] = useState(false);
-  // Wide screens with a mouse: the real app in front (LiveDemo), driven by
-  // its autopilot until clicked; else the clips.
-  const [live] = useState(() => matchMedia("(min-width: 900px) and (pointer: fine)").matches);
-  // Text beside the cards (else under them).
-  const [wide] = useState(() => matchMedia("(min-width: 900px)").matches);
-  const front = useRef<FrontCard | null>(null);
-  // With the live app: the pictures stay dark until it's up, then all come.
-  const [demoUp, setDemoUp] = useState(false);
-  // The site's colour (picked in the front app): the pictures beside it in
-  // it too. The app's own colours have pictures of their own, taken from the
-  // demo in each (scripts: website-stills); a colour of the visitor's own
-  // recolours the Void ones. (Live apps beside the front one made the page
-  // stutter: they share its one thread.)
+/** The scenes' pictures in the site's colour (picked in the live app): the
+ *  app's own colours have pictures of their own; a colour of the visitor's
+ *  own recolours the Void ones. */
+function useStills(): Record<string, string> {
   const [accent, setAccent] = useState<SiteAccent>(() => savedAccent() ?? { accent: "void", color: RECORDED_ACCENT });
   useEffect(() => {
     const on = (e: Event) => setAccent((e as CustomEvent<SiteAccent>).detail);
     window.addEventListener(ACCENT_EVENT, on);
     return () => window.removeEventListener(ACCENT_EVENT, on);
   }, []);
-  const demoSrc = (a: string) => `app/index.html?demo&accent=${encodeURIComponent(a)}`;
-  const still = (s: Snippet, id: string) => s.src.replace(/\.webp$/, `-${id}.webp`);
   const preset = PRESET_ACCENTS.includes(accent.accent);
-  // (A picture missing: the recorded one stands in, `fallback`.)
-  const [items, setItems] = useState(() => SNIPPETS.map((s) => ({ ...s, src: still(s, preset ? accent.accent : "void"), fallback: s.src })));
+  const of = (id: string) => Object.fromEntries(SCENES.map((s) => [s, `clips/${s}-${id}.webp`]));
+  const [stills, setStills] = useState(() => of(preset ? accent.accent : "void"));
   useEffect(() => {
-    if (preset) return setItems(SNIPPETS.map((s) => ({ ...s, src: still(s, accent.accent), fallback: s.src })));
+    if (preset) return setStills(of(accent.accent));
     let alive = true;
-    void Promise.all(SNIPPETS.map((s) => recolor(still(s, "void"), accent.color))).then((srcs) => {
-      if (alive) setItems(SNIPPETS.map((s, i) => ({ ...s, src: srcs[i], fallback: s.src })));
+    void Promise.all(SCENES.map((s) => recolor(`clips/${s}-void.webp`, accent.color).catch(() => `clips/${s}.webp`))).then((srcs) => {
+      if (alive) setStills(Object.fromEntries(SCENES.map((s, i) => [s, srcs[i]])));
     });
     return () => {
       alive = false;
     };
-  }, [accent, preset]);
-  // Every colour's pictures loaded (and decoded) ahead, once the app is up:
-  // a colour picked in the app swaps them at once. Its own colour first.
-  const preloaded = useRef<HTMLImageElement[]>([]);
-  useEffect(() => {
-    if (!demoUp || !live) return;
-    const order = [accent.accent, ...PRESET_ACCENTS.filter((a) => a !== accent.accent)].filter((a) => PRESET_ACCENTS.includes(a));
-    const all = order.flatMap((id) => SNIPPETS.map((s) => still(s, id)));
-    let i = 0;
-    let timer = 0;
-    const next = () => {
-      for (const src of all.slice(i, i + 5)) {
-        const img = new Image();
-        img.src = src;
-        void img.decode().catch(() => {});
-        preloaded.current.push(img);
-      }
-      i += 5;
-      if (i < all.length) timer = window.setTimeout(next, 250);
-    };
-    next();
-    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demoUp, live]);
-  // The pictures' alt texts in the site's language.
-  const titled = useMemo(() => items.map((item, i) => ({ ...item, title: s.snippets[i]?.title })), [items, s]);
-  const control = useRef<CarouselControl | null>(null);
-  const opener = useRef<(() => void) | null>(null);
+  }, [accent, preset]);
+  return stills;
+}
 
-  // Cinema mode: the nearer the carousel is to the middle of the window (of
-  // the part under the header, which stays), the darker everything around it
-  // (--cine, 0…1). Stopping on the way to it, the page glides on until it's
-  // in the middle; going away from it, it lets go.
-  const stage = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = stage.current;
-    if (!el) return;
-    const root = document.documentElement;
-    const offset = () => {
-      const r = el.getBoundingClientRect();
-      return r.top + r.height / 2 - (HEADER_HEIGHT + (innerHeight - HEADER_HEIGHT) / 2);
-    };
-    const reach = () => innerHeight * 0.55;
-    let before = Math.abs(offset());
-    let toward = false;
-    let gliding = false;
-    let timer = 0;
-    const paint = () => {
-      const p = Math.max(0, 1 - Math.abs(offset()) / reach());
-      root.style.setProperty("--cine", p.toFixed(3));
-      root.classList.toggle("cine", p > 0.6);
-      return p;
-    };
-    const onScroll = () => {
-      const dist = Math.abs(offset());
-      toward = dist < before - 0.5;
-      before = dist;
-      paint();
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (gliding) {
-          gliding = false;
-          return;
-        }
-        const off = offset();
-        const p = paint();
-        if (toward && p > 0.2 && Math.abs(off) > 4) {
-          gliding = true;
-          window.scrollBy({ top: off, behavior: "smooth" });
-        }
-      }, 140);
-    };
-    paint();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", paint);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", paint);
-      window.clearTimeout(timer);
-      root.style.removeProperty("--cine");
-      root.classList.remove("cine");
-    };
-  }, []);
-  useEffect(() => {
-    const check = () => {
-      const top = box.current?.getBoundingClientRect().top ?? Infinity;
-      if (window.scrollY > 40 || top < window.innerHeight * 0.7) {
-        setReady(true);
-        window.removeEventListener("scroll", check);
-      }
-    };
-    check();
-    window.addEventListener("scroll", check, { passive: true });
-    return () => window.removeEventListener("scroll", check);
-  }, []);
-
+/** The tour: the app's areas as chapters, each a few steps. On wide
+ *  screens with a mouse the real app stays beside the texts and plays the
+ *  step the page is scrolled to (Stage); elsewhere each step has its picture
+ *  and clip. */
+export function Tour() {
+  const s = useStrings().tour;
+  const [live] = useState(() => matchMedia("(min-width: 1024px) and (pointer: fine)").matches);
+  const stills = useStills();
   return (
-    <section ref={box} id="tour" className="relative z-30 scroll-mt-10 pt-4 pb-20">
-      {/* The dark around it in cinema mode. */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-[#030306]"
-        style={{ opacity: "calc(var(--cine, 0) * 0.94)" }}
-      />
-      {/* What the front card shows on the left, the cards on the right (out
-          to the window's edge, the next ones waiting there); on narrow
-          screens the text under them. */}
-      <div
-        className={`flex flex-col gap-6 transition-[opacity,translate] duration-1000 ease-out min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-0 min-[900px]:pl-[max(40px,calc((100vw-1440px)/2))] ${ready ? "" : "translate-y-8 opacity-0"}`}
-      >
-        <div className="order-2 px-5 min-[900px]:order-1 min-[900px]:w-[290px] min-[900px]:shrink-0 min-[900px]:px-0 xl:w-[320px]">
-          {/* As tall as the longest text (all of them there, unseen, in the
-              same spot): the arrows under it stay put from one to the next. */}
-          <div className="grid">
-            {s.snippets.map((snippet, i) => (
-              <div key={i} aria-hidden className="invisible col-start-1 row-start-1">
-                <SnippetText snippet={snippet} index={i} />
-              </div>
-            ))}
-            <div key={index} className="tour-swap col-start-1 row-start-1">
-              <SnippetText snippet={shown} index={index} />
-            </div>
-          </div>
-          <div className="mt-7 flex items-center gap-3">
-            <Arrow side="left" label={s.previous} onClick={() => control.current?.prev()} />
-            <Arrow side="right" label={s.next} onClick={() => control.current?.next()} />
-          </div>
-          {live ? (
-            // The tip that the app beside is the real one, to be used.
-            <p className="mt-6 flex items-start gap-2.5 text-[14px] leading-snug text-white/80">
-              <svg viewBox="0 0 24 24" className="mt-px size-[18px] shrink-0 text-(--accent)" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M9 9l10.5 4-4.5 1.5L13.5 19 9 9z" />
-                <path d="M5 5l2 2M12 3v2.5M3 12h2.5" />
-              </svg>
-              <span>
-                {s.tryIt}
-                <span className="mt-1 block text-[12.5px] text-white/40">{s.tryItHint}</span>
-              </span>
-            </p>
-          ) : (
-            <p className="mt-5 text-[12px] leading-relaxed text-white/30">{s.swipe}</p>
-          )}
-        </div>
-
-        <div ref={stage} className="relative order-1 aspect-[1.85] w-full min-w-0 min-[900px]:order-2 min-[900px]:aspect-auto min-[900px]:h-[min(calc(100svh-120px),820px)] min-[900px]:flex-1">
-          {ready && (
-            <PrismCarousel
-              items={titled}
-              label={s.pictures}
-              onChange={setIndex}
-              tilt={50}
-              neighborScale={0.62}
-              neighborAspect={16 / 10}
-              size={0.94}
-              // Moves on only when the visitor does (arrows, wheel, a swipe).
-              autoplay={0}
-              queue
-              inset={wide ? 48 : 16}
-              captions={false}
-              live={live}
-              veiled={live && !demoUp}
-              front={front}
-              control={control}
-              onFrontClick={() => opener.current?.()}
-            />
-          )}
-          {ready && live && <LiveDemo labels={s} src={demoSrc(savedAccent()?.accent ?? "void")} scenes={SCENES} front={front} control={control} opener={opener} onReady={() => setDemoUp(true)} />}
-        </div>
-      </div>
+    <section id="tour" className="relative scroll-mt-16 pt-10 pb-6">
+      <SectionTitle kicker={s.kicker} title={s.title} text={s.text} />
+      {live ? <Scrolly s={s} stills={stills} /> : <Cards s={s} stills={stills} />}
     </section>
   );
 }
 
-/** A picture's text: its number, title, subtitle and points. */
-function SnippetText({ snippet, index }: { snippet: { title: string; subtitle: string; points: readonly string[] }; index: number }) {
+type TourStrings = Strings["tour"];
+
+/** Wide screens: the texts scroll past on the left, the app stays on the
+ *  right and plays the step nearest the middle of the window. */
+function Scrolly({ s, stills }: { s: TourStrings; stills: Record<string, string> }) {
+  const box = useRef<HTMLDivElement>(null);
+  const steps = useRef(new Map<number, HTMLElement>());
+  const [active, setActive] = useState(CHAPTERS[0].steps[0]);
+  const [playing, setPlaying] = useState(false);
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const middle = (64 + innerHeight) / 2;
+      let best = -1;
+      let dist = Infinity;
+      for (const [i, el] of steps.current) {
+        const r = el.getBoundingClientRect();
+        const d = Math.abs(r.top + r.height / 2 - middle);
+        if (d < dist) {
+          dist = d;
+          best = i;
+        }
+      }
+      if (best >= 0) setActive(best);
+      const r = box.current?.getBoundingClientRect();
+      if (r) {
+        setPlaying(r.top < innerHeight * 0.7 && r.bottom > innerHeight * 0.3);
+        if (r.top < innerHeight * 1.8) setNear(true);
+      }
+    };
+    const on = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    check();
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on);
+    return () => {
+      window.removeEventListener("scroll", on);
+      window.removeEventListener("resize", on);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const scene = SCENES[active];
+  const chapter = CHAPTERS.find((c) => c.steps.includes(active)) ?? CHAPTERS[0];
+  const go = (step: number) => steps.current.get(step)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const pill = (on: boolean) =>
+    `inline-flex h-8 items-center gap-2 rounded-full px-3.5 text-[13px] transition-colors ${on ? "bg-(--accent-soft) text-(--accent-text)" : "bg-white/[0.05] text-white/55 hover:bg-white/[0.09] hover:text-white"}`;
+
   return (
-    <>
-      <div className="text-[12.5px] text-white/40 tabular-nums">
-        {String(index + 1).padStart(2, "0")} / {String(SNIPPETS.length).padStart(2, "0")}
+    <div ref={box} className="mx-auto mt-4 grid max-w-[1720px] grid-cols-[minmax(280px,360px)_minmax(0,1fr)] gap-10 px-8 xl:gap-14">
+      <div>
+        {CHAPTERS.map((c, n) => (
+          <div key={c.id} id={`tour-${c.id}`}>
+            {c.steps.map((i, k) => (
+              <div
+                key={i}
+                ref={(el) => {
+                  if (el) steps.current.set(i, el);
+                  else steps.current.delete(i);
+                }}
+                className={`flex min-h-[78svh] flex-col justify-center py-10 transition-opacity duration-300 ${active === i ? "" : "opacity-30"}`}
+              >
+                {k === 0 && <ChapterHead number={n + 1} chapter={s.chapters[c.index]} />}
+                <StepText snippet={s.snippets[i]} number={k + 1} of={c.steps.length} />
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
-      <h3 className="mt-2 font-display text-[26px] leading-tight font-semibold text-white">{snippet.title}</h3>
+
+      <div>
+        <div className="tour-sticky sticky top-16 flex h-[calc(100svh-4rem)] flex-col justify-center">
+          <div className="w-full" style={{ maxWidth: "calc((100svh - 14.5rem) * 1.6)" }}>
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {CHAPTERS.map((c, n) => (
+                <button key={c.id} onClick={() => go(c.steps[0])} className={pill(c === chapter)}>
+                  <span className="text-[11.5px] tabular-nums opacity-60">{two(n + 1)}</span>
+                  {s.chapters[c.index].name}
+                </button>
+              ))}
+              <a href="#ingame" className={pill(false)}>
+                <span className="text-[11.5px] tabular-nums opacity-60">{two(GAME_CHAPTER.number)}</span>
+                {s.chapters[GAME_CHAPTER.index].name}
+              </a>
+            </div>
+            <Stage
+              labels={s}
+              src={`app/index.html?demo&accent=${encodeURIComponent(savedAccent()?.accent ?? "void")}`}
+              scene={scene}
+              still={stills[scene]}
+              fallback={`clips/${scene}.webp`}
+              alt={s.snippets[active].title}
+              playing={playing}
+              load={near}
+            />
+            {/* The tip that the app here is the real one, to be used. */}
+            <p className="mt-4 flex items-start gap-2.5 text-[13.5px] leading-snug text-white/75">
+              <svg viewBox="0 0 24 24" className="mt-px size-[17px] shrink-0 text-(--accent)" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M9 9l10.5 4-4.5 1.5L13.5 19 9 9z" />
+                <path d="M5 5l2 2M12 3v2.5M3 12h2.5" />
+              </svg>
+              <span>
+                {s.tryIt} <span className="text-white/40">{s.tryItHint}</span>
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Narrow screens and touch: every step with its picture (its clip plays
+ *  while it's on screen) and its text under it. */
+function Cards({ s, stills }: { s: TourStrings; stills: Record<string, string> }) {
+  return (
+    <div className="mx-auto mt-12 max-w-2xl px-5">
+      {CHAPTERS.map((c, n) => (
+        <div key={c.id} id={`tour-${c.id}`} className={n ? "mt-20" : ""}>
+          <ChapterHead number={n + 1} chapter={s.chapters[c.index]} />
+          {c.steps.map((i, k) => {
+            const scene = SCENES[i];
+            return (
+              <article key={i} className="reveal mt-10 first:mt-0">
+                <Clip still={stills[scene]} fallback={`clips/${scene}.webp`} video={CLIPS.has(scene) ? `clips/${scene}.mp4` : null} alt={s.snippets[i].title} />
+
+                <div className="mt-5">
+                  <StepText snippet={s.snippets[i]} number={k + 1} of={c.steps.length} />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ))}
+      <p className="mt-10 text-center text-[12px] text-white/30">{s.swipe}</p>
+    </div>
+  );
+}
+
+/** A step's picture; its clip plays (silently, over and over) while it's
+ *  on screen. */
+function Clip({ still, fallback, video, alt }: { still: string; fallback: string; video: string | null; alt: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [poster, setPoster] = useState(still);
+  useEffect(() => setPoster(still), [still]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) void el.play().catch(() => {});
+        else el.pause();
+      },
+      { threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [video]);
+  const frame = "block aspect-[16/10] w-full rounded-[14px] border border-white/[0.07] bg-[#0b0c12] object-cover";
+  return video ? (
+    <video ref={ref} src={video} poster={poster} muted loop playsInline preload="none" aria-label={alt} className={frame} />
+  ) : (
+    <img src={poster} alt={alt} loading="lazy" className={frame} onError={() => poster !== fallback && setPoster(fallback)} />
+  );
+}
+
+/** A chapter's heading: its number and name, what it's about. */
+function ChapterHead({ number, chapter }: { number: number; chapter: { name: string; title: string; text: string } }) {
+  return (
+    <div className="mb-9">
+      <p className="text-[12px] font-semibold tracking-[0.18em] text-(--accent-text) uppercase">
+        {two(number)} · {chapter.name}
+      </p>
+      <h3 className="headline mt-3 font-display text-[28px] leading-[1.15] font-bold tracking-tight">{chapter.title}</h3>
+      <p className="mt-3 text-[15px] leading-relaxed text-white/55">{chapter.text}</p>
+    </div>
+  );
+}
+
+/** A step's text: its number in the chapter, title, subtitle and points. */
+function StepText({ snippet, number, of }: { snippet: { title: string; subtitle: string; points: readonly string[] }; number: number; of: number }) {
+  return (
+    <div>
+      <div className="text-[12.5px] text-white/40 tabular-nums">
+        {two(number)} / {two(of)}
+      </div>
+      <h4 className="mt-2 font-display text-[22px] leading-tight font-semibold text-white">{snippet.title}</h4>
       <p className="mt-2 text-[15px] leading-snug text-white/60">{snippet.subtitle}</p>
-      <ul className="mt-5 space-y-2.5">
+      <ul className="mt-4 space-y-2.5">
         {snippet.points.map((p) => (
           <li key={p} className="flex gap-2.5 text-[14px] leading-snug text-white/70">
             <span aria-hidden className="mt-[7px] size-1.5 shrink-0 rounded-full bg-(--accent)" />
@@ -267,6 +275,6 @@ function SnippetText({ snippet, index }: { snippet: { title: string; subtitle: s
           </li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }

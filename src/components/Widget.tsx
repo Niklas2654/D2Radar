@@ -51,6 +51,8 @@ export const DEFAULT_POSITIONS: Record<string, (w: number, h: number) => Point> 
   stats: (w) => ({ x: w - 300 - 32, y: 120 }),
   // The "… recognized" notice: top middle.
   notice: (w) => ({ x: Math.round(w / 2 - 190), y: 24 }),
+  // The auto-join's message: under it.
+  join: (w) => ({ x: Math.round(w / 2 - 190), y: 84 }),
   weapon: (_w, h) => ({ x: 32, y: Math.round(h * 0.42) }),
   // Beside the weapon's, so both can be told apart while placing them.
   armor: (_w, h) => ({ x: 32 + 560 + 24, y: Math.round(h * 0.42) }),
@@ -146,6 +148,7 @@ export function Widget({
   opacity,
   delay = 0,
   reveal = false,
+  fit = false,
   children,
 }: {
   id: string;
@@ -157,6 +160,9 @@ export function Widget({
   delay?: number;
   /** Open like a Destiny panel (line, then unfolding) instead of settling in. */
   reveal?: boolean;
+  /** Always as wide as its content (a one-line notice): a width set in
+   *  edit mode doesn't cut it off. */
+  fit?: boolean;
   children: ReactNode;
 }) {
   const [pos, setPos] = useState<Point>(() => readLayout()[id] ?? defaultPosition());
@@ -246,14 +252,15 @@ export function Widget({
       }}
     >
       <div
-        className={cx(reveal ? "hud-reveal" : "animate-widget-in", "relative", size && "widget-sized")}
+        className={cx(reveal ? "hud-reveal" : "animate-widget-in", "relative", size && !fit && "widget-sized")}
         style={
           {
             animationDelay: `${delay}ms`,
             "--hud-font": `${font}px`,
             // Editing: as wide as it may get, so the box and handle follow the
             // pointer; in game only as wide as its text needs, up to that.
-            ...(size ? { width: edit ? size.w : "max-content", maxWidth: size.w, minHeight: size.h } : {}),
+            ...(size && fit ? { width: "max-content", minHeight: size.h } : {}),
+            ...(size && !fit ? { width: edit ? size.w : "max-content", maxWidth: size.w, minHeight: size.h } : {}),
           } as CSSProperties
         }
       >

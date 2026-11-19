@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ACCENT_EVENT, savedAccent, type SiteAccent } from "../fx";
+import { useStrings, type Strings } from "../i18n";
 import { SectionTitle } from "./Features";
+import { GAME_CHAPTER } from "./Tour";
 
 /** The game screen the preview draws, in its own pixels (scaled to fit). */
 const W = 1920;
@@ -50,11 +52,15 @@ const ARTIFACT_NAME = "Encrypted Data Disk";
 
 type Looked = { weapon?: number; armor?: number[]; artifact?: string };
 
-/** An in-game screen to look around in, with Radar over it as in the game:
- *  the character screen (weapons, armor) and the artifact. Hovering an item
- *  is inspecting it: the real overlay (the app's, in its demo) shows its
- *  notice; a click or F10 opens Radar's inspect page on it. */
+/** The tour's last chapter: an in-game screen to look around in, with Radar
+ *  over it as in the game: the character screen (weapons, armor) and the
+ *  artifact. Hovering an item is inspecting it: the real overlay (the app's,
+ *  in its demo) shows its notice; a click or F10 opens Radar's inspect page
+ *  on it. (The screen's own words stay English, as the demo's data is.) */
 export function GamePreview() {
+  const strings = useStrings();
+  const s = strings.game;
+  const chapter = strings.tour.chapters[GAME_CHAPTER.index];
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
   const [near, setNear] = useState(false);
@@ -159,51 +165,46 @@ export function GamePreview() {
     `app/${kind === "overlay" ? "overlay.html" : "index.html"}?demo${kind === "inspect" ? "&inspect" : ""}&accent=${encodeURIComponent(accent.accent)}`;
 
   return (
-    <section id="preview" className="relative mx-auto max-w-[1500px] px-5 py-24">
-      <SectionTitle
-        kicker="In-game overlay preview"
-        title="Look around, as in the game."
-        text="Hover a weapon or armor piece: Radar recognizes it and shows its notice. Click it or press F10 for Radar's page on it. Open the artifact too."
-      />
-      <div
-        ref={box}
-        className="reveal relative mt-12 w-full overflow-hidden rounded-2xl border border-white/[0.08]"
-        style={{ aspectRatio: `${W} / ${H}` }}
-      >
-        <div className="absolute top-0 left-0 origin-top-left" style={{ width: W, height: H, transform: `scale(${scale})` }}>
-          <GameScreen demo={demo} tab={tab} setTab={setTab} enter={enter} exit={exit} open={(l) => openInspect(l)} hover={hover} />
-          {near && (
-            <iframe
-              ref={overlay}
-              src={src("overlay")}
-              title="Radar overlay"
-              tabIndex={-1}
-              className="pointer-events-none absolute inset-0 border-0"
-              style={{ width: W, height: H, background: "transparent" }}
-              allowTransparency
-            />
-          )}
-          {near && (
-            <div
-              className={`absolute inset-0 transition-opacity duration-200 ${inspecting ? "opacity-100" : "pointer-events-none opacity-0"}`}
-              onClick={() => setInspecting(false)}
-            >
+    <section id="ingame" className="relative mx-auto max-w-[1500px] scroll-mt-16 px-5 py-24">
+      <SectionTitle kicker={`${String(GAME_CHAPTER.number).padStart(2, "0")} · ${chapter.name}`} title={chapter.title} text={chapter.text} />
+      {/* On narrow screens it keeps a size its items can be hit at, and scrolls sideways. */}
+      <div className="reveal mt-12 overflow-x-auto rounded-2xl">
+        <div
+          ref={box}
+          className="relative w-full min-w-[860px] overflow-hidden rounded-2xl border border-white/[0.08]"
+          style={{ aspectRatio: `${W} / ${H}` }}
+        >
+          <div className="absolute top-0 left-0 origin-top-left" style={{ width: W, height: H, transform: `scale(${scale})` }}>
+            <GameScreen s={s} demo={demo} tab={tab} setTab={setTab} enter={enter} exit={exit} open={(l) => openInspect(l)} hover={hover} />
+            {near && (
               <iframe
-                ref={inspect}
-                src={src("inspect")}
-                title="Radar inspect page"
-                className="absolute border-0"
-                style={{ left: 240, top: 110, width: 1440, height: 860, background: "transparent" }}
-                onClick={(e) => e.stopPropagation()}
-                allowTransparency
+                ref={overlay}
+                src={src("overlay")}
+                title="Radar overlay"
+                tabIndex={-1}
+                className="pointer-events-none absolute inset-0 border-0"
+                style={{ width: W, height: H, background: "transparent" }}
               />
-            </div>
-          )}
+            )}
+            {near && (
+              <div
+                className={`absolute inset-0 transition-opacity duration-200 ${inspecting ? "opacity-100" : "pointer-events-none opacity-0"}`}
+                onClick={() => setInspecting(false)}
+              >
+                <iframe
+                  ref={inspect}
+                  src={src("inspect")}
+                  title="Radar inspect page"
+                  className="absolute border-0"
+                  style={{ left: 240, top: 110, width: 1440, height: 860, background: "transparent" }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      <p className="mt-4 text-center text-[12px] text-white/30">
-        A drawn game screen with your gear; the notice and the page over it are the real Radar · Destiny 2 isn't running here
-      </p>
+      <p className="mt-4 text-center text-[12px] text-white/30">{s.note}</p>
     </section>
   );
 }
@@ -244,6 +245,7 @@ function Slot({
 /** The game's character and artifact screens, drawn (no game art: the
  *  player's real items and icons from Bungie's API on a calm ground). */
 function GameScreen({
+  s,
   demo,
   tab,
   setTab,
@@ -252,6 +254,7 @@ function GameScreen({
   open,
   hover,
 }: {
+  s: Strings["game"];
   demo: Demo | null;
   tab: "character" | "artifact";
   setTab: (t: "character" | "artifact") => void;
@@ -332,18 +335,18 @@ function GameScreen({
       {tab === "artifact" && demo && <ArtifactScreen columns={demo.artifact} open={() => open({ artifact: ARTIFACT_NAME })} />}
 
       {/* The game's own tooltip for what's hovered. */}
-      {hover && <Tooltip {...hover} />}
+      {hover && <Tooltip {...hover} tip={s.tip} />}
 
       {/* The keys, as at the bottom of the game's screens. */}
       <div className="absolute inset-x-0 bottom-0 flex h-[62px] items-center justify-end gap-10 pr-[120px]" style={{ background: "#0d0c10cc", fontSize: 22 }}>
         <span>
-          <Key>Hover</Key> Inspect
+          <Key>{s.hover}</Key> {s.inspect}
         </span>
         <span>
-          <Key>F10</Key> Radar page
+          <Key>F10</Key> {s.page}
         </span>
         <span>
-          <Key>Esc</Key> Close
+          <Key>Esc</Key> {s.close}
         </span>
       </div>
     </div>
@@ -356,7 +359,7 @@ function Key({ children }: { children: string }) {
 
 /** A game-like tooltip beside the hovered item: name in its rarity's colour,
  *  its perks or mods. */
-function Tooltip({ item, x, y, side }: { item: Item; x: number; y: number; side: "left" | "right" }) {
+function Tooltip({ item, x, y, side, tip }: { item: Item; x: number; y: number; side: "left" | "right"; tip: string }) {
   const parts = (item.perks ?? item.mods ?? []).filter((p) => p.icon).slice(0, 6);
   return (
     <div
@@ -375,7 +378,7 @@ function Tooltip({ item, x, y, side }: { item: Item; x: number; y: number; side:
           </div>
         ))}
         <div className="pt-1 text-white/55" style={{ fontSize: 16 }}>
-          Click or F10: Radar's page on it
+          {tip}
         </div>
       </div>
     </div>

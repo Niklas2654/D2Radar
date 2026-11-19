@@ -5,6 +5,7 @@ import { useT } from "../lib/i18n";
 import { loadouts, type DimLoadout, type EditSocket, type GameLoadout } from "../lib/loadouts";
 import { ARMOR_BUCKETS, WEAPON_BUCKETS } from "../lib/presets";
 import { subscribe } from "../lib/tauri";
+import { finishTask, startTask, stepTask } from "../lib/tasks";
 import { cx, GlassButton, GlassInput, GlassPanel } from "./glass";
 import { ExoticArmorHover, PerkHover } from "./Clarity";
 import { FuseButton } from "./FuseButton";
@@ -494,26 +495,61 @@ function onRuns(listener: () => void) {
   return () => void runListeners.delete(listener);
 }
 const anyRunning = () => [...runs.values()].some((r) => r.kind === "running");
+
+/* Deleting a loadout waits for the delete button's fuse. Kept here, not in
+ * the button: the delete goes through when another loadout (or tab) is
+ * opened meanwhile, and coming back shows the fuse still burning (Undo
+ * stops it). By loadout id: when the fuse was lit, and its timer. */
+const DELETE_FUSE_MS = 4500;
+const deletes = new Map<string, { at: number; timer: number }>();
+const deleteListeners = new Set<() => void>();
+const deletesChanged = () => deleteListeners.forEach((l) => l());
+function onDeletes(listener: () => void) {
+  deleteListeners.add(listener);
+  return () => void deleteListeners.delete(listener);
+}
+function armDelete(id: string, commit: () => void) {
+  if (deletes.has(id)) return;
+  const timer = window.setTimeout(() => {
+    deletes.delete(id);
+    deletesChanged();
+    commit();
+  }, DELETE_FUSE_MS);
+  deletes.set(id, { at: Date.now(), timer });
+  deletesChanged();
+}
+function undoDelete(id: string) {
+  const pending = deletes.get(id);
+  if (!pending) return;
+  window.clearTimeout(pending.timer);
+  deletes.delete(id);
+  deletesChanged();
+}
 /** Whether a loadout is being equipped / written right now (any page). */
 export function useApplyRunning() {
   return useSyncExternalStore(onRuns, anyRunning);
 }
 
 /** Equip a loadout (slot null) or write it onto an in-game slot. */
-async function startApply(id: string, slot: number | null, character: string | null, startText: string) {
+async function startApply(id: string, slot: number | null, character: string | null, startText: string, title: string) {
   setRunOf(id, { kind: "running", step: startText, steps: [startText] });
+  // In the task panel too (seen on every page).
+  const task = startTask(title, null, startText);
   // Every step as it happens (Radar's apply.rs reports them).
   const off = subscribe<string>("loadout-progress", (step) => {
     const run = runs.get(id);
     if (step && run?.kind === "running") setRunOf(id, { kind: "running", step, steps: [...run.steps, step] });
+    stepTask(task, step);
   });
   try {
     const warnings = await loadouts.apply(id, slot, character);
     const before = runs.get(id);
     setRunOf(id, { kind: "done", warnings, slot, steps: before?.kind === "running" ? before.steps : [] });
+    finishTask(task, true, warnings.join(" · ") || undefined);
     return true;
   } catch (e) {
     setRunOf(id, { kind: "error", message: String(e) });
+    finishTask(task, false, String(e));
     return false;
   } finally {
     off();
@@ -735,13 +771,16 @@ export function LoadoutDetail({
   useEffect(() => setEditing(null), [loadout.id]);
   const [confirmSlot, setConfirmSlot] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // Runs once the delete button's fuse has burnt down (Undo stops it).
+  const deleteArmedAt = useSyncExternalStore(onDeletes, () => deletes.get(loadout.id)?.at ?? null);
+  // Runs once the delete button's fuse has burnt down (Undo stops it), also
+  // when this loadout isn't open anymore by then (see `deletes`).
   const remove = async () => {
+    const id = loadout.id;
     setDeleting(true);
     try {
       await onDelete();
     } catch (e) {
-      setRunOf(loadout.id, { kind: "error", message: String(e) });
+      setRunOf(id, { kind: "error", message: String(e) });
       setDeleting(false);
     }
   };
@@ -761,7 +800,8 @@ export function LoadoutDetail({
   const apply = async (slot: number | null) => {
     setConfirmSlot(null);
     onRunning(true);
-    const ok = await startApply(loadout.id, slot, character, t("loadouts.starting"));
+    const title = slot === null ? t("tasks.equip", { name: loadout.name }) : t("tasks.write", { name: loadout.name, n: slot + 1 });
+    const ok = await startApply(loadout.id, slot, character, t("loadouts.starting"), title);
     onRunning(false);
     if (ok && slot !== null) onWritten();
   };
@@ -785,7 +825,10 @@ export function LoadoutDetail({
               busyLabel={t("loadouts.deleting")}
               busy={deleting}
               disabled={running || !!loadout.pending}
-              onCommit={() => void remove()}
+              window={DELETE_FUSE_MS}
+              armedAt={deleteArmedAt}
+              onArm={() => armDelete(loadout.id, () => void remove())}
+              onUndo={() => undoDelete(loadout.id)}
             />
             <GlassButton variant="primary" onClick={() => void apply(null)} disabled={running || !!loadout.pending}>
               {t("loadouts.equip")}

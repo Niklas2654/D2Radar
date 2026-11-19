@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BUNGIE_ORIGIN } from "../lib/bungie";
 import { useT } from "../lib/i18n";
-import { call, isTauri } from "../lib/tauri";
+import { call, hasBackend } from "../lib/tauri";
 import { PerkHover } from "./Clarity";
 import { cx } from "./glass";
 
@@ -57,7 +57,7 @@ export function ArtifactPicker({ value, onChange }: { character?: string | null;
   const t = useT();
   const [all, setAll] = useState<ArtifactOption[] | null>(null);
   useEffect(() => {
-    if (!isTauri) return;
+    if (!hasBackend) return;
     let alive = true;
     void loadArtifacts().then((list) => alive && setAll(list ?? [])).catch(() => alive && setAll([]));
     return () => {

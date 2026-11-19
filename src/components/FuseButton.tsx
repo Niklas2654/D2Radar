@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cx } from "./glass";
 
 /**
  * A destructive action with a grace period: pressed, the pill turns into
  * "Undo" and a lit fuse burns once around its rim; only when it has burnt
  * down does `onCommit` run. Undo (or Escape) puts it back.
+ *
+ * Controlled (`armedAt` given): the fuse is kept outside, so it burns on
+ * when the button goes away (another page opened); `onArm` / `onUndo` start
+ * and stop it, whoever holds it commits, and the button only shows it (with
+ * the time already burnt, when it comes back mid-way).
  */
 export function FuseButton({
   label,
@@ -14,6 +19,9 @@ export function FuseButton({
   disabled = false,
   window: windowMs = 4500,
   onCommit,
+  armedAt,
+  onArm,
+  onUndo,
 }: {
   label: string;
   undoLabel: string;
@@ -23,30 +31,48 @@ export function FuseButton({
   disabled?: boolean;
   /** How long the fuse burns, in ms. */
   window?: number;
-  onCommit: () => void;
+  onCommit?: () => void;
+  /** Controlled: when the fuse was lit (Date.now()), null: not lit. */
+  armedAt?: number | null;
+  onArm?: () => void;
+  onUndo?: () => void;
 }) {
-  const [armed, setArmed] = useState(false);
+  const controlled = armedAt !== undefined;
+  const [armedHere, setArmedHere] = useState(false);
+  const armed = controlled ? armedAt !== null : armedHere;
+  const undo = () => (controlled ? onUndo?.() : setArmedHere(false));
+  const toggle = () => (controlled ? (armed ? onUndo?.() : onArm?.()) : setArmedHere((a) => !a));
+  // How much of the fuse had burnt when it was shown (back on the page
+  // mid-way); taken once, so a re-render doesn't move it.
+  const burnt = useMemo(() => (armedAt ? Math.min(windowMs, Math.max(0, Date.now() - armedAt)) : 0), [armedAt, windowMs]);
   const button = useRef<HTMLButtonElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
   // Escape takes it back while armed.
   useEffect(() => {
     if (!armed) return;
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setArmed(false);
+    const key = (e: KeyboardEvent) => e.key === "Escape" && undo();
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [armed]);
 
   // Its size before arming, kept while the fuse burns: "Undo" is narrower
-  // than the label, and the rim changing size mid-way jumped.
+  // than the label, and the rim changing size mid-way jumped. Shown armed
+  // already (back on a loadout whose fuse burns on): its size as it is.
   useEffect(() => {
     const el = button.current;
-    if (!el || armed) return;
+    if (!el) return;
     const measure = () => setSize({ w: el.offsetWidth, h: el.offsetHeight });
+    if (armed) {
+      if (size.w === 0) measure();
+      return;
+    }
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [armed]);
 
   const r = Math.min(12, size.h / 2);
@@ -56,7 +82,7 @@ export function FuseButton({
       type="button"
       disabled={(disabled && !armed) || busy}
       aria-live="polite"
-      onClick={() => setArmed((a) => !a)}
+      onClick={toggle}
       style={armed && size.w > 0 ? { width: size.w } : undefined}
       className={cx(
         "fuse group/fuse relative inline-flex h-10 items-center justify-center rounded-xl border px-4 text-[13.5px] font-medium transition-[background-color,border-color,color] duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40",
@@ -85,10 +111,11 @@ export function FuseButton({
             strokeLinecap="round"
             pathLength={100}
             strokeDasharray="100"
-            style={{ animationDuration: `${windowMs}ms` }}
+            style={{ animationDuration: `${windowMs}ms`, animationDelay: burnt ? `-${burnt}ms` : undefined }}
             onAnimationEnd={() => {
-              setArmed(false);
-              onCommit();
+              if (controlled) return;
+              setArmedHere(false);
+              onCommit?.();
             }}
           />
         </svg>

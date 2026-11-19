@@ -8,7 +8,7 @@
 //! back to the front (after a while), on the reload button, and before
 //! anything that moves or equips items (`invalidate`).
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -38,7 +38,7 @@ fn location_of<'de, D: Deserializer<'de>>(d: D) -> Result<&'static str, D::Error
     })
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Hash, Serialize, Deserialize)]
 pub struct OwnedItem {
     pub item_hash: u32,
     pub instance_id: String,
@@ -71,6 +71,30 @@ static CACHE: Mutex<Option<(Instant, Vec<OwnedItem>)>> = Mutex::new(None);
 static STALE: AtomicBool = AtomicBool::new(false);
 /// When the items were last fetched (unix seconds; 0: not yet).
 static FETCHED_AT: Mutex<i64> = Mutex::new(0);
+/// `stamp` of the items kept (0: none yet).
+static REVISION: AtomicU64 = AtomicU64::new(0);
+/// The copy on disk is written this often at most (it's the whole profile,
+/// megabytes): the app starts with items a few minutes older at worst, and
+/// fetches them anew then anyway.
+const DISK_EVERY: Duration = Duration::from_secs(5 * 60);
+
+/// A number for these items as they are: another one as soon as any of
+/// them is somewhere else, has other plugs in it, came or went.
+pub(crate) fn stamp(items: &[OwnedItem]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    items.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// `stamp` of the items as kept; None: none kept, or they're to be fetched
+/// anew first (after `invalidate`).
+pub(crate) fn revision() -> Option<u64> {
+    if STALE.load(Ordering::SeqCst) {
+        return None;
+    }
+    Some(REVISION.load(Ordering::SeqCst)).filter(|&r| r != 0)
+}
 
 /// The whole profile as last fetched (every component Radar reads, see
 /// `SNAPSHOT`), for the membership it's of: `own_profile` answers from it.
@@ -255,6 +279,7 @@ fn from_disk(app: &AppHandle) -> Option<(Instant, Vec<OwnedItem>)> {
     let age = (chrono::Utc::now().timestamp() - saved.at).max(0) as u64;
     let at = Instant::now().checked_sub(Duration::from_secs(age)).unwrap_or_else(Instant::now);
     let items = items_of(&saved.profile);
+    REVISION.store(stamp(&items), Ordering::SeqCst);
     *CACHE.lock().unwrap() = Some((at, items.clone()));
     *PROFILE.lock().unwrap() = Some((membership, std::sync::Arc::new(saved.profile)));
     *FETCHED_AT.lock().unwrap() = saved.at;
@@ -345,14 +370,29 @@ async fn fetch(app: &AppHandle) -> Option<Vec<OwnedItem>> {
     let path = format!("/Destiny2/{mt}/Profile/{mid}/?components={SNAPSHOT}&cb={}", chrono::Utc::now().timestamp_millis());
     let profile = api_as_user(&state.http, &key, &token, &path).await.ok()?;
     let items = items_of(&profile);
+    // Everything the account has is in it (not a part of it, as when Bungie
+    // has a component off).
+    let complete = profile["profileInventory"]["data"]["items"].is_array()
+        && profile["characterInventories"]["data"].is_object()
+        && profile["characterEquipment"]["data"].is_object();
     let profile = std::sync::Arc::new(profile);
     *PROFILE.lock().unwrap() = Some((mid.clone(), profile.clone()));
+    REVISION.store(stamp(&items), Ordering::SeqCst);
     *CACHE.lock().unwrap() = Some((Instant::now(), items.clone()));
     STALE.store(false, Ordering::SeqCst);
     let at = chrono::Utc::now().timestamp();
     *FETCHED_AT.lock().unwrap() = at;
-    // The copy on disk (written aside, then put in place).
-    {
+    // The copy on disk: the first fetch of a run, then every few minutes.
+    static WRITTEN: Mutex<Option<Instant>> = Mutex::new(None);
+    let due = {
+        let mut written = WRITTEN.lock().unwrap();
+        let due = written.is_none_or(|w| w.elapsed() >= DISK_EVERY);
+        if due {
+            *written = Some(Instant::now());
+        }
+        due
+    };
+    if due {
         let (app, mid) = (app.clone(), mid.clone());
         let old = saved_path(&app, &mid);
         tauri::async_runtime::spawn_blocking(move || {
@@ -366,7 +406,9 @@ async fn fetch(app: &AppHandle) -> Option<Vec<OwnedItem>> {
     // Weapons gone from the account: out of the loadouts too.
     {
         let (app, items) = (app.clone(), items.clone());
-        tauri::async_runtime::spawn(async move { crate::dimsync::drop_missing_weapons(&app, &mid, &items).await });
+        tauri::async_runtime::spawn(async move {
+            crate::dimsync::drop_missing_weapons(&app, &mid, &items, complete).await
+        });
     }
     Some(items)
 }

@@ -1,28 +1,19 @@
 import type { ReactNode } from "react";
 import { useStrings } from "../i18n";
-import { IconBolt, IconChart, IconChat, IconCheck, IconCrosshair, IconOverlay, IconSwap, IconUsers } from "../components/icons";
+import { IconBolt, IconChat, IconCheck, IconColor, IconOverlay, IconUsers } from "../components/icons";
 
-/** What else Radar does — the parts the tour's pictures don't show (their
+/** What else Radar does — the parts the tour's chapters don't show (their
  *  texts: features.items, in the same order). */
-const FEATURE_ICONS: ReactNode[] = [
-  <IconCrosshair />,
-  <IconUsers />,
-  <IconChart />,
-  <IconSwap />,
-  <IconChat />,
-  <IconOverlay />,
-  <IconCheck />,
-  <IconBolt />,
-];
+const FEATURE_ICONS: ReactNode[] = [<IconUsers />, <IconChat />, <IconOverlay />, <IconCheck />, <IconBolt />, <IconColor />];
 
 export function Features() {
   const s = useStrings().features;
   return (
     <section id="features" className="relative mx-auto max-w-6xl px-5 py-24">
       <SectionTitle kicker={s.kicker} title={s.title} text={s.text} />
-      <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {s.items.map((f, i) => (
-          <article key={f.title} className="reveal glass p-5" style={{ ["--r" as string]: "16px", ["--delay" as string]: `${(i % 4) * 0.06}s` }}>
+          <article key={f.title} className="reveal glass p-5" style={{ ["--r" as string]: "16px", ["--delay" as string]: `${(i % 3) * 0.06}s` }}>
             <div className="grid size-10 place-items-center rounded-xl bg-(--accent-soft) text-(--accent-text)">{FEATURE_ICONS[i]}</div>
             <h3 className="mt-4 font-display text-[16px] font-semibold">{f.title}</h3>
             <p className="mt-1.5 text-[13.5px] leading-relaxed text-white/55">{f.text}</p>

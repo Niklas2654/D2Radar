@@ -49,19 +49,11 @@ function StartupPanel() {
 
 const PRIVACY_URL = "https://d2radar.vercel.app/privacy";
 
-/** What Radar sends on its own, each to turn off: the update checks
- *  (GitHub) and being counted among Radar's users (its token service). */
+/** What Radar sends on its own that can be turned off: the update checks
+ *  (GitHub). */
 function PrivacyPanel() {
   const t = useT();
   const [settings, update] = useSettings();
-  const [count, setCount] = useState(true);
-  useEffect(() => {
-    if (isTauri) void call<boolean>("usage_count_get").then((v) => setCount(v !== false));
-  }, []);
-  const changeCount = (on: boolean) => {
-    setCount(on);
-    void call<boolean>("usage_count_set", { on }).catch(() => setCount(!on));
-  };
   return (
     <GlassPanel className="p-5">
       <PanelHeader icon={<IconLink />} title={t("privacy.title")} subtitle={t("privacy.subtitle")} />
@@ -71,7 +63,6 @@ function PrivacyPanel() {
         checked={settings.updateChecks}
         onChange={(updateChecks) => update({ updateChecks })}
       />
-      <GlassSwitch label={t("privacy.count")} description={t("privacy.countHint")} checked={count} onChange={changeCount} />
       <button
         type="button"
         onClick={() => (isTauri ? void openUrl(PRIVACY_URL) : window.open(PRIVACY_URL))}

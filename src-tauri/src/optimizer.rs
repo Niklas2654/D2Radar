@@ -10,6 +10,8 @@
 //!   archetype doesn't favor (5 at most); older Armor 2.0 adds 2 to all;
 //! - each piece has one general mod socket: +10 (major) or +5 (minor) to one
 //!   stat;
+//! - a tier 5 piece's tuning: +5 to its Tuned stat and -5 from another, or
+//!   Balanced Tuning: +1 to the three stats it doesn't roll in;
 //! - a stat counts up to 200;
 //! - one exotic at most.
 //!
@@ -39,8 +41,13 @@ const MINOR_MOD: i32 = 5;
 /// An artifice socket's mod; a tuning's +5 (and -5).
 const ARTIFICE_MOD: i32 = 3;
 const TUNING: i32 = 5;
+/// Balanced Tuning's plug: +1 to the three stats a piece doesn't roll in.
+const BALANCED_TUNING: u64 = 3122197216;
 /// Masterwork levels of Armor 3.0.
 const MAX_MASTERWORK: u8 = 5;
+/// Energy a general +10 / +5 stat mod costs.
+const MAJOR_COST: i32 = 3;
+const MINOR_COST: i32 = 1;
 
 /// One owned armor piece, as the search sees it.
 #[derive(Clone, Debug)]
@@ -72,14 +79,33 @@ pub struct Piece {
     /// stat the tuning plug taking 5 from it (0: none).
     pub tuned: Option<usize>,
     pub tunings: [u32; 6],
+    /// Tier 5: every tuning plug its tuning socket offers (an exotic: any
+    /// +5 / -5).
+    pub offered: Vec<u32>,
+    /// Tier 5: its Balanced Tuning plug (+1 to the three stats it doesn't
+    /// roll in), 0: none offered.
+    pub balanced: u32,
     /// Its stats in game now (mods, tuning and masterwork as they are).
     pub now: [i32; 6],
     /// Its stat plugs in now: general-socket mods, an artifice +3, its
     /// tuning (each with its plug's hash).
     pub mods_now: Vec<StatMod>,
+    /// Its energy capacity now (None: not read).
+    pub energy: Option<i32>,
 }
 
 impl Piece {
+    /// Its energy: full (tier 5: 11, else 10) when counted as fully
+    /// masterworked or not known, else as it is now.
+    fn energy(&self, assume: bool) -> i32 {
+        let full = if self.gear_tier == 5 { 11 } else { 10 };
+        match self.energy {
+            Some(e) if !assume => e,
+            Some(e) => e.max(full),
+            None => full,
+        }
+    }
+
     /// Its stats with the masterwork it has, or full with `assume`.
     fn stats(&self, assume: bool) -> [i32; 6] {
         let level = if assume { MAX_MASTERWORK } else { self.masterwork };
@@ -97,6 +123,17 @@ impl Piece {
         }
         out
     }
+
+    /// The stats its Balanced Tuning raises (those it doesn't roll in), a
+    /// bit each.
+    fn balanced_stats(&self) -> u8 {
+        (0..6).filter(|&x| self.base[x] == 0).fold(0u8, |m, x| m | (1 << x))
+    }
+}
+
+/// Whether stat `x` is in `mask` (a bit per stat).
+fn has(mask: u8, x: usize) -> bool {
+    (mask >> x) & 1 == 1
 }
 
 /// Which exotic the build is built around.
@@ -135,6 +172,9 @@ pub struct Request {
     /// Pieces picked by hand per slot (instance ids, `SLOTS` order): in
     /// every build, whatever the rest asks of the armor.
     pub pinned: [Option<String>; 5],
+    /// Mods set by hand per slot (`SLOTS` order): on every build's piece
+    /// there, the stat mods fitted around them.
+    pub fixed: [Fixed; 5],
     /// Artifice and tuning counted on.
     pub extras: Extras,
     /// Given up once the counter moved past this ask's number (a newer ask
@@ -151,20 +191,42 @@ pub struct Extras {
     pub artifice_class: bool,
     pub artifice_legendary: bool,
     pub artifice_exotic: bool,
-    /// Tier 5 pieces' tuning: +5 to their Tuned stat, -5 from another.
+    /// Tier 5 pieces' tuning: +5 to their Tuned stat and -5 from another,
+    /// or Balanced Tuning (+1 to the three stats they don't roll in).
     pub tuning: bool,
 }
 
-/// What a build's pieces have past the general socket, by slot.
-#[derive(Clone, Copy, Debug, Default)]
-struct PieceExtras {
-    artifice: [bool; 5],
-    tuned: [Option<usize>; 5],
+/// What a piece has past its general socket for a search.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Extra {
+    /// An artifice +3 (its own, or counted on).
+    artifice: bool,
+    /// The stats its tuning can raise by 5, a bit each (more than one for
+    /// pieces alike but for their Tuned stat, see `candidates`).
+    tuned: u8,
+    /// The stats its Balanced Tuning raises by 1 (0: it has none).
+    balanced: u8,
 }
 
-impl PieceExtras {
+impl Extra {
     fn any(&self) -> bool {
-        self.artifice.iter().any(|&a| a) || self.tuned.iter().any(Option::is_some)
+        self.artifice || self.tuned != 0 || self.balanced != 0
+    }
+
+    /// The most its tuning takes off the deficits (a +5, or the +1s).
+    fn tune_lift(&self) -> i32 {
+        let five = if self.tuned != 0 { TUNING } else { 0 };
+        five.max(self.balanced.count_ones() as i32)
+    }
+
+    /// The most it takes off the deficits, its +3 too.
+    fn lift(&self) -> i32 {
+        self.tune_lift() + if self.artifice { ARTIFICE_MOD } else { 0 }
+    }
+
+    /// Mod sockets it can save at most (each +3, +5 or +1 one).
+    fn spare(&self) -> usize {
+        self.artifice as usize + ((self.tuned != 0) as usize).max(self.balanced.count_ones() as usize)
     }
 }
 
@@ -244,36 +306,135 @@ pub enum ModCap {
     Empty,
 }
 
+impl ModCap {
+    /// How much it takes: higher is more.
+    fn rank(self) -> u8 {
+        match self {
+            ModCap::Any => 2,
+            ModCap::Minor => 1,
+            ModCap::Empty => 0,
+        }
+    }
+
+    /// The lesser of the two.
+    fn min(self, other: ModCap) -> ModCap {
+        if self.rank() <= other.rank() { self } else { other }
+    }
+}
+
+/// The mod sockets with `caps`: (taking a +10, in all).
+fn counts(caps: &[ModCap; 5]) -> (i32, i32) {
+    let majors = caps.iter().filter(|&&c| c == ModCap::Any).count() as i32;
+    let all = caps.iter().filter(|&&c| c != ModCap::Empty).count() as i32;
+    (majors, all)
+}
+
+/// Mods set by hand on a slot's piece: in every build, the stat mods fitted
+/// around them (in the energy they leave).
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Fixed {
+    /// Their energy in all.
+    pub cost: i32,
+    /// The general socket is taken (no stat mod goes there).
+    pub general: bool,
+    /// The artifice socket is taken (no +3 counted on).
+    pub artifice: bool,
+    /// What they add, the tuning's apart (`STATS` order).
+    pub stats: [i32; 6],
+    /// A tuning plug (0: none): only pieces offering it.
+    pub tuning: u32,
+    /// What that tuning adds (`STATS` order; +5 / -5; all 0: not sent).
+    pub tuning_stats: [i32; 6],
+}
+
 impl Request {
     /// The mod sockets there are: (taking a +10, in all).
     fn sockets(&self) -> (i32, i32) {
         if !self.mods {
             return (0, 0);
         }
-        let majors = self.mod_caps.iter().filter(|&&c| c == ModCap::Any).count() as i32;
-        let all = self.mod_caps.iter().filter(|&&c| c != ModCap::Empty).count() as i32;
-        (majors, all)
+        counts(&std::array::from_fn(|i| if self.fixed[i].general { ModCap::Empty } else { self.mod_caps[i] }))
+    }
+
+    /// What the mods set by hand on `p`'s slot add to it; None when it
+    /// doesn't offer the tuning set.
+    fn fixed_adds(&self, p: &Piece) -> Option<[i32; 6]> {
+        let f = &self.fixed[p.slot];
+        let mut adds = f.stats;
+        if f.tuning != 0 {
+            if f.tuning == p.balanced {
+                let each = p.balanced_stats();
+                (0..6).filter(|&x| has(each, x)).for_each(|x| adds[x] += 1);
+            } else if f.tuning_stats.iter().any(|&a| a != 0) {
+                // As the plug says (an exotic's: any +5 / -5 it offers).
+                if !p.offered.contains(&f.tuning) && !p.tunings.contains(&f.tuning) {
+                    return None;
+                }
+                adds.iter_mut().zip(f.tuning_stats).for_each(|(a, t)| *a += t);
+            } else {
+                let t = p.tuned?;
+                let d = (0..6).find(|&d| p.tunings[d] == f.tuning)?;
+                adds[t] += TUNING;
+                adds[d] -= TUNING;
+            }
+        }
+        Some(adds)
+    }
+
+    /// `p`'s stats for this search: masterwork and the mods set by hand;
+    /// None when it doesn't offer the tuning set.
+    fn stats_of(&self, p: &Piece) -> Option<[i32; 6]> {
+        let mut s = p.stats(self.assumes(p));
+        let adds = self.fixed_adds(p)?;
+        s.iter_mut().zip(adds).for_each(|(s, a)| *s += a);
+        Some(s)
+    }
+
+    /// As `stats_of`; a piece not offering the tuning set (picked by hand)
+    /// with the rest of them.
+    fn piece_stats(&self, p: &Piece) -> [i32; 6] {
+        self.stats_of(p).unwrap_or_else(|| {
+            let mut s = p.stats(self.assumes(p));
+            s.iter_mut().zip(self.fixed[p.slot].stats).for_each(|(s, a)| *s += a);
+            s
+        })
+    }
+
+    /// What `p`'s general socket may take: as asked for its slot, in the
+    /// energy the mods set by hand leave (none when it's set itself).
+    fn cap(&self, p: &Piece) -> ModCap {
+        let f = &self.fixed[p.slot];
+        if !self.mods || f.general {
+            return ModCap::Empty;
+        }
+        let left = p.energy(self.assumes(p)) - f.cost;
+        let room = if left >= MAJOR_COST {
+            ModCap::Any
+        } else if left >= MINOR_COST {
+            ModCap::Minor
+        } else {
+            ModCap::Empty
+        };
+        room.min(self.mod_caps[p.slot])
     }
 
     /// What `p` has past its general socket for this search: an artifice
-    /// +3 (its own, or counted on), the stat its tuning raises.
-    fn extra(&self, p: &Piece) -> (bool, Option<usize>) {
+    /// +3 (its own, or counted on), its tuning (Tuned stat, Balanced).
+    fn extra(&self, p: &Piece) -> Extra {
         if !self.mods {
-            return (false, None);
+            return Extra::default();
         }
         let e = &self.extras;
+        let f = &self.fixed[p.slot];
         let counted = if p.exotic { e.artifice_exotic } else { e.artifice_legendary || (p.slot == 4 && e.artifice_class) };
-        let artifice = !p.armor3 && (p.artifice || counted);
-        let tuned = if e.tuning && p.gear_tier == 5 { p.tuned } else { None };
-        (artifice, tuned)
-    }
-
-    fn extras_of(&self, pieces: &[Piece], five: [usize; 5]) -> PieceExtras {
-        let mut out = PieceExtras::default();
-        for (slot, &i) in five.iter().enumerate() {
-            (out.artifice[slot], out.tuned[slot]) = self.extra(&pieces[i]);
+        // (A tuning or artifice mod set by hand: none to count on there.)
+        let five = e.tuning && p.gear_tier == 5 && f.tuning == 0;
+        Extra {
+            artifice: !p.armor3 && !f.artifice && (p.artifice || counted),
+            tuned: if five { p.tuned.map_or(0, |t| 1u8 << t) } else { 0 },
+            balanced: if five && p.balanced != 0 { p.balanced_stats() } else { 0 },
         }
-        out
     }
 }
 
@@ -313,6 +474,8 @@ pub enum ModKind {
     Artifice,
     /// A tuning: +5 to the stat, -5 from `from`.
     Tuning,
+    /// Balanced Tuning: +1 to each stat in `each`.
+    Balanced,
 }
 
 /// A stat mod a build needs: which stat (index into `STATS`), how much.
@@ -327,11 +490,21 @@ pub struct StatMod {
     pub kind: ModKind,
     /// A tuning: the stat it takes from.
     pub from: Option<usize>,
+    /// Balanced Tuning: the stats it raises, a bit each (`stat` the first).
+    pub each: u8,
 }
 
 /// `mods` added to `stats` (a tuning's minus too).
 fn add_mods(stats: &mut [i32; 6], mods: &[StatMod]) {
     for m in mods {
+        if m.kind == ModKind::Balanced {
+            for (x, s) in stats.iter_mut().enumerate() {
+                if has(m.each, x) {
+                    *s += m.value;
+                }
+            }
+            continue;
+        }
         stats[m.stat] += m.value;
         if let Some(d) = m.from {
             stats[d] -= m.value;
@@ -339,37 +512,41 @@ fn add_mods(stats: &mut [i32; 6], mods: &[StatMod]) {
     }
 }
 
-/// Tuning and artifice +3s toward the minimums (into `stats` and `mods`):
-/// each tuning +5 to its piece's Tuned stat while that's short, from the
-/// stat with the most to spare; each +3 where it saves the most; tunings
-/// left over move points past 200 to their stat (still below it).
-fn extra_mods(stats: &mut [i32; 6], mins: &[i32; 6], extra: &PieceExtras, mods: &mut Vec<StatMod>) {
-    extra_mods_with(stats, mins, extra, |m| mods.push(m));
+/// A piece's tuning in a build (one at most).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Tune {
+    None,
+    /// Balanced Tuning: +1 to the three stats it doesn't roll in.
+    Balanced,
+    /// +5 to the first stat, -5 from the second.
+    Move(u8, u8),
 }
 
-/// `extra_mods`, each plug handed to `put` (no list built: the maxima ask
-/// this millions of times).
-fn extra_mods_with(stats: &mut [i32; 6], mins: &[i32; 6], extra: &PieceExtras, mut put: impl FnMut(StatMod)) {
-    let donor = |stats: &[i32; 6], t: usize, past: bool| {
-        (0..6)
-            .filter(|&d| d != t && stats[d] - TUNING >= if past { MAX_STAT } else { mins[d] })
-            .max_by_key(|&d| stats[d] - mins[d])
-    };
-    let mut used = [false; 5];
-    for slot in 0..5 {
-        let Some(t) = extra.tuned[slot] else { continue };
-        if stats[t] >= mins[t] {
-            continue;
+/// Tuning `t` of a piece with `e` applied to `s`.
+fn tune(s: &mut [i32; 6], e: &Extra, t: Tune) {
+    match t {
+        Tune::None => {}
+        Tune::Balanced => {
+            for (x, v) in s.iter_mut().enumerate() {
+                if has(e.balanced, x) {
+                    *v += 1;
+                }
+            }
         }
-        let Some(d) = donor(stats, t, false) else { continue };
-        stats[t] += TUNING;
-        stats[d] -= TUNING;
-        used[slot] = true;
-        put(StatMod { stat: t, value: TUNING, slot, hash: 0, kind: ModKind::Tuning, from: Some(d) });
+        Tune::Move(to, from) => {
+            s[to as usize] += TUNING;
+            s[from as usize] -= TUNING;
+        }
     }
+}
+
+/// Artifice +3s toward `mins` (into `stats`), each where it saves the most
+/// steps of 5; `put(slot, stat)` for each. How many it took.
+fn artifice_mods(stats: &mut [i32; 6], mins: &[i32; 6], extra: &[Extra; 5], mut put: impl FnMut(usize, usize)) -> i32 {
     // Steps of 5 a deficit takes.
     let units = |d: i32| (d.max(0) + MINOR_MOD - 1) / MINOR_MOD;
-    for slot in (0..5).filter(|&s| extra.artifice[s]) {
+    let mut took = 0;
+    for slot in (0..5).filter(|&s| extra[s].artifice) {
         let deficit = |x: usize| mins[x] - stats[x];
         // The most steps saved, then the smallest deficit.
         let best = (0..6)
@@ -377,18 +554,266 @@ fn extra_mods_with(stats: &mut [i32; 6], mins: &[i32; 6], extra: &PieceExtras, m
             .max_by_key(|&x| (units(deficit(x)) - units(deficit(x) - ARTIFICE_MOD), -deficit(x)));
         let Some(x) = best else { break };
         stats[x] += ARTIFICE_MOD;
-        put(StatMod { stat: x, value: ARTIFICE_MOD, slot, hash: 0, kind: ModKind::Artifice, from: None });
+        took += 1;
+        put(slot, x);
     }
-    for slot in 0..5 {
-        let Some(t) = extra.tuned[slot] else { continue };
-        if used[slot] || stats[t] > MAX_STAT - TUNING {
-            continue;
+    took
+}
+
+/// A build's stats with its +3s and the mods for the minimums.
+#[derive(Clone, Copy)]
+struct Fill {
+    stats: [i32; 6],
+    /// The +10s, the mods in all, the +3s taken.
+    tens: i32,
+    used: i32,
+    artifice: i32,
+}
+
+/// `s` (tuned) lifted to `mins`: the +3s first, then the fewest mods; None
+/// when the sockets don't do it.
+fn fill(s: &[i32; 6], mins: &[i32; 6], majors: i32, all: i32, extra: &[Extra; 5]) -> Option<Fill> {
+    let mut stats = *s;
+    let artifice = artifice_mods(&mut stats, mins, extra, |_, _| {});
+    let deficits: [i32; 6] = std::array::from_fn(|x| (mins[x] - stats[x]).max(0));
+    let plan = mod_plan(&deficits, majors, all)?;
+    for (v, (tens, fives)) in stats.iter_mut().zip(plan) {
+        *v += tens * MAJOR_MOD + fives * MINOR_MOD;
+    }
+    Some(Fill { stats, tens: plan.iter().map(|p| p.0).sum(), used: plan.iter().map(|p| p.0 + p.1).sum(), artifice })
+}
+
+/// A tuning search's ranking: higher is better.
+type Key = (i32, i32, i32);
+
+/// Every tuning of a build's five pieces tried (each piece: none, Balanced
+/// Tuning, or +5 / -5), for the fewest mods (`best_fit`) or the most of one
+/// stat (`best_reach`). Only the +5s that can matter are tried: to a stat
+/// that's short (from the stat with the most to spare, else from any, which
+/// mods may fill again), or past 200 moved.
+struct Tuner<'a> {
+    /// What the deficits count against.
+    mins: &'a [i32; 6],
+    majors: i32,
+    all: i32,
+    extra: &'a [Extra; 5],
+    /// The stat raised as far as it goes; None: the fewest mods.
+    reach: Option<usize>,
+    /// The maxima: what it has to beat.
+    floor: i32,
+    /// Artifice +3s in the build.
+    artifice: i32,
+    /// From slot i on: what the tunings take off the deficits at most, and
+    /// add to `reach` at most.
+    lift_from: [i32; 6],
+    add_from: [i32; 6],
+    tunes: [Tune; 5],
+    /// (slot, stats) gone through already: tunings in another order come
+    /// to the same.
+    seen: Vec<(usize, [i32; 6])>,
+    best: Option<(Key, [Tune; 5], Fill)>,
+}
+
+impl<'a> Tuner<'a> {
+    fn new(mins: &'a [i32; 6], majors: i32, all: i32, extra: &'a [Extra; 5], reach: Option<usize>, floor: i32) -> Self {
+        let (mut lift_from, mut add_from) = ([0; 6], [0; 6]);
+        for i in (0..5).rev() {
+            let e = &extra[i];
+            lift_from[i] = lift_from[i + 1] + e.tune_lift();
+            let adds = reach.map_or(0, |x| if has(e.tuned, x) { TUNING } else { has(e.balanced, x) as i32 });
+            add_from[i] = add_from[i + 1] + adds;
         }
-        let Some(d) = donor(stats, t, true) else { continue };
-        stats[t] += TUNING;
-        stats[d] -= TUNING;
-        put(StatMod { stat: t, value: TUNING, slot, hash: 0, kind: ModKind::Tuning, from: Some(d) });
+        let artifice = extra.iter().filter(|e| e.artifice).count() as i32;
+        Tuner { mins, majors, all, extra, reach, floor, artifice, lift_from, add_from, tunes: [Tune::None; 5], seen: Vec::new(), best: None }
     }
+
+    /// The most `reach` has reached so far (or is to beat).
+    fn to_beat(&self) -> i32 {
+        self.best.as_ref().map_or(self.floor, |(k, ..)| k.0.max(self.floor))
+    }
+
+    /// Slot `i` on, the build at `s`.
+    fn visit(&mut self, i: usize, s: [i32; 6]) {
+        // Mods the deficits take at least, whatever the rest's tunings.
+        let short: i32 = (0..6).map(|x| (self.mins[x] - s[x]).max(0)).sum();
+        let at_least = (short - self.lift_from[i] - ARTIFICE_MOD * self.artifice).max(0);
+        let at_least = (at_least + MAJOR_MOD - 1) / MAJOR_MOD;
+        if at_least > self.all {
+            return;
+        }
+        match self.reach {
+            None => {
+                if self.best.as_ref().is_some_and(|(k, ..)| at_least > -k.0) {
+                    return;
+                }
+            }
+            Some(x) => {
+                let most = s[x] + self.add_from[i] + ARTIFICE_MOD * self.artifice + MAJOR_MOD * (self.all - at_least);
+                if most.min(MAX_STAT) <= self.to_beat() {
+                    return;
+                }
+            }
+        }
+        if i == 5 {
+            self.leaf(&s);
+            return;
+        }
+        let (options, n) = self.options(i, &s);
+        if n > 1 {
+            if self.seen.contains(&(i, s)) {
+                return;
+            }
+            self.seen.push((i, s));
+        }
+        for &t in &options[..n] {
+            let mut next = s;
+            tune(&mut next, &self.extra[i], t);
+            self.tunes[i] = t;
+            self.visit(i + 1, next);
+        }
+        self.tunes[i] = Tune::None;
+    }
+
+    /// Every piece tuned: the mods it takes, how it ranks.
+    fn leaf(&mut self, s: &[i32; 6]) {
+        let Some(f) = fill(s, self.mins, self.majors, self.all, self.extra) else { return };
+        let key: Key = match self.reach {
+            None => {
+                let total = f.stats.iter().map(|v| (*v).clamp(0, MAX_STAT)).sum();
+                let waste: i32 = f.stats.iter().map(|v| (v - MAX_STAT).max(0)).sum();
+                (-f.used, total, -waste)
+            }
+            Some(x) => {
+                // The mods left over go to it, and the +3s not taken.
+                let left = self.all - f.used;
+                let left_tens = (self.majors - f.tens).min(left);
+                (f.stats[x] + left_tens * MAJOR_MOD + (left - left_tens) * MINOR_MOD + (self.artifice - f.artifice) * ARTIFICE_MOD, 0, 0)
+            }
+        };
+        if self.best.as_ref().is_none_or(|(k, ..)| key > *k) {
+            self.best = Some((key, self.tunes, f));
+        }
+    }
+
+    /// What slot `i`'s piece may take with the build at `s`: its Balanced
+    /// Tuning where that adds (else none), then the +5s worth trying.
+    fn options(&self, i: usize, s: &[i32; 6]) -> ([Tune; 32], usize) {
+        let e = &self.extra[i];
+        let (mins, reach) = (self.mins, self.reach);
+        let mut out = [Tune::None; 32];
+        let mut n = 1;
+        if (0..6).any(|x| has(e.balanced, x) && s[x] < MAX_STAT) {
+            out[0] = Tune::Balanced;
+        }
+        // Gives 5 without going short (and isn't the stat raised).
+        let free = |t: usize, d: usize| d != t && Some(d) != reach && s[d] >= TUNING && s[d] - TUNING >= mins[d];
+        // Of those: one past 200 first, then the one with the most to spare.
+        let best_free = |t: usize| (0..6).filter(|&d| free(t, d)).max_by_key(|&d| (s[d] - TUNING >= MAX_STAT, s[d] - mins[d]));
+        for t in (0..6).filter(|&t| has(e.tuned, t) && s[t] < MAX_STAT) {
+            let mut put = |d: usize| {
+                out[n] = Tune::Move(t as u8, d as u8);
+                n += 1;
+            };
+            if Some(t) == reach {
+                if let Some(d) = best_free(t) {
+                    put(d);
+                }
+            } else if s[t] < mins[t] {
+                match best_free(t) {
+                    Some(d) => put(d),
+                    // None to spare: from any (going short, mods may fill it).
+                    None => (0..6).filter(|&d| d != t && s[d] >= TUNING).for_each(&mut put),
+                }
+            } else if reach.is_none() && s[t] <= MAX_STAT - TUNING {
+                // Points past 200 moved to it.
+                if let Some(d) = (0..6).filter(|&d| d != t && s[d] - TUNING >= MAX_STAT).max_by_key(|&d| s[d]) {
+                    put(d);
+                }
+            }
+        }
+        (out, n)
+    }
+}
+
+/// A build's best tuning: the fewest mods, then the highest total, then
+/// the least past 200.
+struct Fit {
+    tunes: [Tune; 5],
+    /// Mod sockets taken.
+    used: i32,
+    /// With the tunings, +3s and mods.
+    stats: [i32; 6],
+}
+
+/// The tuning that gets `stats` to `mins` with the fewest mods (see
+/// `Fit`); None when none does.
+fn best_fit(stats: &[i32; 6], mins: &[i32; 6], majors: i32, all: i32, extra: &[Extra; 5]) -> Option<Fit> {
+    let mut t = Tuner::new(mins, majors, all, extra, None, 0);
+    t.visit(0, *stats);
+    t.best.map(|(_, tunes, f)| Fit { tunes, used: f.used, stats: f.stats })
+}
+
+/// The most stat `x` reaches with the others at `mins` (the mods, +3s and
+/// tunings left going to it), if more than `floor`.
+fn best_reach(stats: &[i32; 6], x: usize, mins: &[i32; 6], majors: i32, all: i32, extra: &[Extra; 5], floor: i32) -> Option<i32> {
+    let mut others = *mins;
+    others[x] = 0;
+    let mut t = Tuner::new(&others, majors, all, extra, Some(x), floor);
+    t.visit(0, *stats);
+    t.best.map(|(k, ..)| k.0).filter(|&v| v > floor)
+}
+
+/// A build's plugs with tunings `tunes`: those, the +3s, then the mods for
+/// `mins`, each on a piece whose socket takes it (`caps`, by slot).
+fn fit_mods(stats: &[i32; 6], mins: &[i32; 6], caps: &[ModCap; 5], extra: &[Extra; 5], tunes: &[Tune; 5]) -> Vec<StatMod> {
+    let plug = |stat: usize, value: i32, slot: usize, kind: ModKind, from: Option<usize>, each: u8| StatMod { stat, value, slot, hash: 0, kind, from, each };
+    let mut s = *stats;
+    let mut mods = Vec::new();
+    for (slot, &t) in tunes.iter().enumerate() {
+        match t {
+            Tune::None => {}
+            Tune::Balanced => {
+                let each = extra[slot].balanced;
+                mods.push(plug((each.trailing_zeros() as usize).min(5), 1, slot, ModKind::Balanced, None, each));
+            }
+            Tune::Move(to, from) => mods.push(plug(to as usize, TUNING, slot, ModKind::Tuning, Some(from as usize), 0)),
+        }
+        tune(&mut s, &extra[slot], t);
+    }
+    artifice_mods(&mut s, mins, extra, |slot, stat| mods.push(plug(stat, ARTIFICE_MOD, slot, ModKind::Artifice, None, 0)));
+    let (majors, all) = counts(caps);
+    let deficits: [i32; 6] = std::array::from_fn(|x| (mins[x] - s[x]).max(0));
+    let Some(plan) = mod_plan(&deficits, majors, all) else { return mods };
+    // The +10s on the pieces taking them, then the +5s on what's left.
+    let mut free: Vec<usize> = (0..5).filter(|&i| caps[i] == ModCap::Any).collect();
+    let mut minor_only: Vec<usize> = (0..5).filter(|&i| caps[i] == ModCap::Minor).collect();
+    for (stat, &(tens, _)) in plan.iter().enumerate() {
+        for _ in 0..tens {
+            let slot = free.remove(0);
+            mods.push(plug(stat, MAJOR_MOD, slot, ModKind::Mod, None, 0));
+        }
+    }
+    minor_only.append(&mut free);
+    for (stat, &(_, fives)) in plan.iter().enumerate() {
+        for _ in 0..fives {
+            let slot = minor_only.remove(0);
+            mods.push(plug(stat, MINOR_MOD, slot, ModKind::Mod, None, 0));
+        }
+    }
+    mods
+}
+
+/// The plugs that lift `stats` to `mins` (see `fit_mods`), or None when the
+/// sockets don't do it.
+#[cfg(test)]
+fn mods_for(stats: &[i32; 6], mins: &[i32; 6], caps: &[ModCap; 5], allowed: bool, extra: &[Extra; 5]) -> Option<Vec<StatMod>> {
+    let caps = if allowed { *caps } else { [ModCap::Empty; 5] };
+    let extra = if allowed { *extra } else { [Extra::default(); 5] };
+    let (majors, all) = counts(&caps);
+    // (A stat below 0, a fragment's minus, counts as 0, as in game.)
+    let stats = stats.map(|s| s.max(0));
+    let fit = best_fit(&stats, mins, majors, all, &extra)?;
+    Some(fit_mods(&stats, mins, &caps, &extra, &fit.tunes))
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -407,40 +832,18 @@ pub struct Build {
     pub total: i32,
     /// Points past 200.
     pub waste: i32,
+    /// Each piece's part in it (`SLOTS` order).
+    pub pieces: Vec<PieceStats>,
 }
 
-/// The mods that lift `stats` to `mins`, each on a piece whose socket takes
-/// it (`caps`, by slot), or None when the sockets don't do it; the pieces'
-/// tuning and artifice +3s (`extra`) first.
-fn mods_for(stats: &[i32; 6], mins: &[i32; 6], caps: &[ModCap; 5], allowed: bool, extra: &PieceExtras) -> Option<Vec<StatMod>> {
-    let req_caps = if allowed { *caps } else { [ModCap::Empty; 5] };
-    let majors = req_caps.iter().filter(|&&c| c == ModCap::Any).count() as i32;
-    let all = req_caps.iter().filter(|&&c| c != ModCap::Empty).count() as i32;
-    // (A stat below 0, a fragment's minus, counts as 0, as in game.)
-    let mut stats = stats.map(|s| s.max(0));
-    let mut mods = Vec::new();
-    if allowed && extra.any() {
-        extra_mods(&mut stats, mins, extra, &mut mods);
-    }
-    let deficits: [i32; 6] = std::array::from_fn(|x| (mins[x] - stats[x]).max(0));
-    let plan = mod_plan(&deficits, majors, all)?;
-    // The +10s on the pieces taking them, then the +5s on what's left.
-    let mut free: Vec<usize> = (0..5).filter(|&i| req_caps[i] == ModCap::Any).collect();
-    let mut minor_only: Vec<usize> = (0..5).filter(|&i| req_caps[i] == ModCap::Minor).collect();
-    for (stat, &(tens, _)) in plan.iter().enumerate() {
-        for _ in 0..tens {
-            let slot = free.remove(0);
-            mods.push(StatMod { stat, value: MAJOR_MOD, slot, hash: 0, kind: ModKind::Mod, from: None });
-        }
-    }
-    minor_only.append(&mut free);
-    for (stat, &(_, fives)) in plan.iter().enumerate() {
-        for _ in 0..fives {
-            let slot = minor_only.remove(0);
-            mods.push(StatMod { stat, value: MINOR_MOD, slot, hash: 0, kind: ModKind::Mod, from: None });
-        }
-    }
-    Some(mods)
+/// A piece's stats in a build (`STATS` order): its roll, with the
+/// masterwork counted, and with its mods and tuning too.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PieceStats {
+    pub roll: [i32; 6],
+    pub masterwork: [i32; 6],
+    pub stats: [i32; 6],
 }
 
 /// Mod sockets the deficits need at least (each takes up to 10).
@@ -450,7 +853,7 @@ fn slots_needed(stats: &[i32; 6], mins: &[i32; 6]) -> usize {
 
 /// Pieces no other piece of its kind beats in every stat (its kind: the
 /// same exotic, or legendary): the dominated can't make a better build.
-fn undominated(pieces: Vec<(usize, [i32; 6])>, of: &[Piece], req: &Request, each_exotic: bool) -> Vec<(usize, [i32; 6])> {
+fn undominated(pieces: Vec<(usize, [i32; 6])>, of: &[Piece], req: &Request, each_exotic: bool, extra: &[Extra], cap: &[ModCap]) -> Vec<(usize, [i32; 6])> {
     // Its kind: which exotic (or legendary), and which wanted set (or none):
     // a piece of a wanted set counts for more than its stats.
     let kind = |i: usize| {
@@ -463,14 +866,22 @@ fn undominated(pieces: Vec<(usize, [i32; 6])>, of: &[Piece], req: &Request, each
         (exotic, set)
     };
     // Another beats a piece only above what it can make of its stats: +3
-    // on any with an artifice socket (with one too: above its stats). Its
-    // tuning only moves 5 points (the total stays), so it doesn't count
-    // here: telling pieces apart by it kept nearly every piece (half a
-    // minute per search with any exotic).
-    let artifice = |i: usize| req.extra(&of[i]).0;
+    // on any with an artifice socket (with one too: above its stats); +5 on
+    // each Tuned stat the other can't tune too, +1 on each Balanced Tuning
+    // raises unless the other's raises the same. (Nor with less room for a
+    // stat mod: the energy the mods set by hand leave.)
     let beats = |a: usize, sa: &[i32; 6], b: usize, sb: &[i32; 6]| {
-        let lift = if artifice(b) && !artifice(a) { ARTIFICE_MOD } else { 0 };
-        kind(a) == kind(b) && sa.iter().zip(sb).all(|(x, y)| *x >= y + lift)
+        if kind(a) != kind(b) || cap[a].rank() < cap[b].rank() {
+            return false;
+        }
+        let (ea, eb) = (extra[a], extra[b]);
+        let art = if eb.artifice && !ea.artifice { ARTIFICE_MOD } else { 0 };
+        let tuned = eb.tuned & !ea.tuned;
+        let balanced = if eb.balanced != ea.balanced { eb.balanced } else { 0 };
+        (0..6).all(|x| {
+            let tune = if has(tuned, x) { TUNING } else { has(balanced, x) as i32 };
+            sa[x] >= sb[x] + art + tune
+        })
     };
     let mut keep: Vec<(usize, [i32; 6])> = Vec::new();
     for (i, s) in pieces {
@@ -487,28 +898,94 @@ fn undominated(pieces: Vec<(usize, [i32; 6])>, of: &[Piece], req: &Request, each
 /// then the least waste; the pieces by index.
 type Ranked = (i32, usize, Reverse<i32>, [usize; 5]);
 
-/// The best builds of `pieces` for `req`, best first.
-/// Per slot: the pieces that may go there for `req`, with their stats
-/// (the dominated ones dropped); None when a slot has none.
+/// The pieces a search goes through.
+struct Candidates {
+    /// Per slot: the pieces that may go there, with their stats.
+    by_slot: Vec<Vec<(usize, [i32; 6])>>,
+    /// Per piece (index into the pieces): what it has past its general
+    /// socket; one standing for pieces alike has their Tuned stats too.
+    extra: Vec<Extra>,
+    /// Per piece, per Tuned stat: the piece alike with it (usize::MAX: none).
+    alike: Vec<[usize; 6]>,
+    /// Per piece: what its general socket may take (see `Request::cap`).
+    cap: Vec<ModCap>,
+}
+
+impl Candidates {
+    fn extras_of(&self, five: [usize; 5]) -> [Extra; 5] {
+        five.map(|i| self.extra[i])
+    }
+
+    fn caps_of(&self, five: [usize; 5]) -> [ModCap; 5] {
+        five.map(|i| self.cap[i])
+    }
+
+    /// The most mod sockets any build has: (taking a +10, in all).
+    fn bound(&self) -> (i32, i32) {
+        counts(&std::array::from_fn(|s| {
+            self.by_slot[s].iter().map(|&(i, _)| self.cap[i]).max_by_key(|c| c.rank()).unwrap_or(ModCap::Empty)
+        }))
+    }
+
+    /// The pieces of a build with tunings `tunes`: for a +5, the piece alike
+    /// with that Tuned stat.
+    fn pieces_for(&self, five: [usize; 5], tunes: &[Tune; 5]) -> [usize; 5] {
+        std::array::from_fn(|s| match tunes[s] {
+            Tune::Move(t, _) => Some(self.alike[five[s]][t as usize]).filter(|&a| a != usize::MAX).unwrap_or(five[s]),
+            _ => five[s],
+        })
+    }
+}
+
+/// Per slot: the pieces that may go there for `req`, with their stats (the
+/// dominated ones dropped; pieces alike but for their Tuned stat as one);
+/// None when a slot has none.
 /// `each_exotic`: every exotic its own kind (a list of builds shows each
 /// one); else only stats count among exotics (the maxima: far fewer pieces).
-fn candidates(pieces: &[Piece], req: &Request, each_exotic: bool) -> Option<Vec<Vec<(usize, [i32; 6])>>> {
+fn candidates(pieces: &[Piece], req: &Request, each_exotic: bool) -> Option<Candidates> {
     let perks_fit = |p: &Piece| p.perks.iter().zip(req.perks).all(|(&have, want)| want == 0 || have == want);
     let allowed = |p: &Piece| match &req.exotic {
         Exotic::None => !p.exotic,
         Exotic::Piece(h) => !p.exotic || (h.contains(&p.hash) && perks_fit(p)),
         Exotic::Any => true,
     };
+    let own_alike = |i: usize, e: &Extra| -> [usize; 6] { std::array::from_fn(|t| if has(e.tuned, t) { i } else { usize::MAX }) };
+    let mut extra: Vec<Extra> = pieces.iter().map(|p| req.extra(p)).collect();
+    let mut alike: Vec<[usize; 6]> = extra.iter().enumerate().map(|(i, e)| own_alike(i, e)).collect();
+    let cap: Vec<ModCap> = pieces.iter().map(|p| req.cap(p)).collect();
+    // Pieces alike but for their Tuned stat: the first stands for them all
+    // (any of their tunings; the build then shows the one with it).
+    type Look = (usize, [i32; 6], u32, u32, [u32; 2], bool, u8, u8);
+    let mut first: HashMap<Look, usize> = HashMap::new();
     let mut by_slot: Vec<Vec<(usize, [i32; 6])>> = vec![Vec::new(); SLOTS.len()];
     for (i, p) in pieces.iter().enumerate().filter(|(_, p)| allowed(p) && req.filter.takes(p)) {
-        by_slot[p.slot].push((i, p.stats(req.assumes(p))));
+        // (Not offering the tuning set by hand: out.)
+        let Some(stats) = req.stats_of(p) else { continue };
+        let look = (p.slot, stats, if p.exotic { p.hash } else { 0 }, p.set, p.perks, extra[i].artifice, extra[i].balanced, cap[i].rank());
+        match first.get(&look) {
+            Some(&r) => {
+                extra[r].tuned |= extra[i].tuned;
+                let theirs = alike[i];
+                for (mine, their) in alike[r].iter_mut().zip(theirs) {
+                    if *mine == usize::MAX {
+                        *mine = their;
+                    }
+                }
+            }
+            None => {
+                first.insert(look, i);
+                by_slot[p.slot].push((i, stats));
+            }
+        }
     }
-    let mut by_slot: Vec<Vec<(usize, [i32; 6])>> = by_slot.into_iter().map(|s| undominated(s, pieces, req, each_exotic)).collect();
+    let mut by_slot: Vec<Vec<(usize, [i32; 6])>> = by_slot.into_iter().map(|s| undominated(s, pieces, req, each_exotic, &extra, &cap)).collect();
     // A piece picked by hand: only it in its slot (filters or not).
     for (slot, id) in req.pinned.iter().enumerate() {
         let Some(id) = id else { continue };
-        let Some(i) = pieces.iter().position(|p| &p.id == id && p.slot == slot) else { return None };
-        by_slot[slot] = vec![(i, pieces[i].stats(req.assumes(&pieces[i])))];
+        let i = pieces.iter().position(|p| &p.id == id && p.slot == slot)?;
+        extra[i] = req.extra(&pieces[i]);
+        alike[i] = own_alike(i, &extra[i]);
+        by_slot[slot] = vec![(i, req.piece_stats(&pieces[i]))];
     }
     if by_slot.iter().any(|s| s.is_empty()) {
         return None;
@@ -529,7 +1006,7 @@ fn candidates(pieces: &[Piece], req: &Request, each_exotic: bool) -> Option<Vec<
             }
         })
         .collect();
-    (!by_slot.iter().any(|s| s.is_empty())).then_some(by_slot)
+    (!by_slot.iter().any(|s| s.is_empty())).then_some(Candidates { by_slot, extra, alike, cap })
 }
 
 /// Every allowed set of five (one exotic at most, the wanted sets in),
@@ -592,18 +1069,22 @@ fn each_build<T: Send + Default>(
 /// minimums: mods left over after those go to it. 0 for a stat no build
 /// reaches anything in (no build at all: all 0).
 pub fn limits(pieces: &[Piece], req: &Request) -> [i32; 6] {
-    let Some(by_slot) = candidates(pieces, req, false) else { return [0; 6] };
-    let (majors, all) = req.sockets();
+    let Some(c) = candidates(pieces, req, false) else { return [0; 6] };
     each_build(
         pieces,
         req,
-        &by_slot,
+        &c.by_slot,
         |best: &mut [i32; 6], five, stats| {
-            let extra = req.extras_of(pieces, five);
-            if extra.any() {
-                for x in 0..6 {
-                    let most = reach_with_extras(&stats, x, req, &extra);
-                    best[x] = best[x].max(most.min(MAX_STAT));
+            let extra = c.extras_of(five);
+            let (majors, all) = counts(&c.caps_of(five));
+            if extra.iter().any(Extra::any) {
+                for (x, b) in best.iter_mut().enumerate() {
+                    if *b >= MAX_STAT {
+                        continue;
+                    }
+                    if let Some(most) = best_reach(&stats, x, &req.mins, majors, all, &extra, *b) {
+                        *b = most.min(MAX_STAT);
+                    }
                 }
                 return;
             }
@@ -643,6 +1124,10 @@ fn own_build(pieces: &[Piece], own: &[String], req: &Request) -> Option<(Build, 
     let mods: Vec<StatMod> = mine.iter().flat_map(|p| p.mods_now.iter().copied()).collect();
     let general = mods.iter().filter(|m| m.kind == ModKind::Mod).count();
     let short = (0..6).any(|i| stats[i] < req.mins[i]);
+    let parts = mine
+        .iter()
+        .map(|p| PieceStats { roll: p.base, masterwork: p.stats(false), stats: p.now })
+        .collect();
     let build = Build {
         items: mine.iter().map(|p| p.id.clone()).collect(),
         hashes: mine.iter().map(|p| p.hash).collect(),
@@ -651,81 +1136,49 @@ fn own_build(pieces: &[Piece], own: &[String], req: &Request) -> Option<(Build, 
         free_mods: 5usize.saturating_sub(general),
         total: stats.iter().map(|s| (*s).clamp(0, MAX_STAT)).sum(),
         waste: stats.iter().map(|s| (s - MAX_STAT).max(0)).sum(),
+        pieces: parts,
     };
     Some((build, short))
 }
 
-/// How far stat `x` gets with the others at their minimums, the pieces'
-/// artifice +3s and tuning counted (see `limits`).
-fn reach_with_extras(stats: &[i32; 6], x: usize, req: &Request, extra: &PieceExtras) -> i32 {
-    let (majors, all) = req.sockets();
-    let mut others = req.mins;
-    others[x] = 0;
-    let mut s = stats.map(|v| v.max(0));
-    // Tuning and artifice first (which slots' are taken), then the stat mods.
-    let (mut artifice_taken, mut tuning_taken) = ([false; 5], [false; 5]);
-    if req.mods {
-        extra_mods_with(&mut s, &others, extra, |m| match m.kind {
-            ModKind::Artifice => artifice_taken[m.slot] = true,
-            ModKind::Tuning => tuning_taken[m.slot] = true,
-            ModKind::Mod => {}
-        });
-    }
-    let deficits: [i32; 6] = std::array::from_fn(|i| (others[i] - s[i]).max(0));
-    let Some(plan) = mod_plan(&deficits, majors, all) else { return 0 };
-    for (v, (tens, fives)) in s.iter_mut().zip(plan) {
-        *v += tens * MAJOR_MOD + fives * MINOR_MOD;
-    }
-    let tens: i32 = plan.iter().map(|p| p.0).sum();
-    let left = all - plan.iter().map(|p| p.0 + p.1).sum::<i32>();
-    let left_tens = (majors - tens).min(left);
-    // Artifice +3s and tunings for it not taken go to it too (a tuning as
-    // far as the other stats can give 5 each).
-    let artifice = (0..5).filter(|&sl| extra.artifice[sl] && !artifice_taken[sl]).count() as i32;
-    let spare: i32 = (0..6).filter(|&d| d != x).map(|d| (s[d] - req.mins[d]).max(0) / TUNING).sum();
-    let tunings = ((0..5).filter(|&sl| extra.tuned[sl] == Some(x) && !tuning_taken[sl]).count() as i32).min(spare);
-    s[x] + left_tens * MAJOR_MOD + (left - left_tens) * MINOR_MOD + artifice * ARTIFICE_MOD + tunings * TUNING
-}
-
 /// The best builds of `pieces` for `req`, best first.
 pub fn search(pieces: &[Piece], req: &Request) -> Vec<Build> {
-    let Some(by_slot) = candidates(pieces, req, true) else { return Vec::new() };
+    let Some(c) = candidates(pieces, req, true) else { return Vec::new() };
+    // The most any build has (to give up early); each build its own.
+    let (_, all) = c.bound();
     // The most a class item adds to each stat (to give up on four pieces early).
     let mut best_class = [0; 6];
-    for (_, s) in &by_slot[4] {
+    for (_, s) in &c.by_slot[4] {
         for (b, v) in best_class.iter_mut().zip(s) {
             *b = (*b).max(*v);
         }
     }
-    // Each artifice +3 or tuning saves one mod socket at most: the early
-    // give-up allows for as many (the class item's at most one).
-    let has_extra = |i: usize| {
-        let (a, t) = req.extra(&pieces[i]);
-        a || t.is_some()
-    };
-    let class_extra = by_slot[4].iter().any(|&(k, _)| has_extra(k)) as usize;
+    // What a class item's +3 and tuning save at most: mod sockets, deficit
+    // points (the early give-up allows for them).
+    let class_spare = c.by_slot[4].iter().map(|&(k, _)| c.extra[k].spare()).max().unwrap_or(0);
+    let class_lift = c.by_slot[4].iter().map(|&(k, _)| c.extra[k].lift()).max().unwrap_or(0);
     // The most mods, artifice +3s and tuning (points past 200 moved) can
     // add to a build's total: for giving up on four pieces that can't make
     // the list even with the best class item.
-    let extra_cap = req.sockets().1 * MAJOR_MOD + 5 * ARTIFICE_MOD + 5 * TUNING;
+    let extra_cap = all * MAJOR_MOD + 5 * ARTIFICE_MOD + 5 * TUNING;
     let limit = req.limit.max(1);
-    let threads = search_threads().min(by_slot[0].len()).max(1);
-    let helmets: Vec<&(usize, [i32; 6])> = by_slot[0].iter().collect();
+    let threads = search_threads().min(c.by_slot[0].len()).max(1);
+    let helmets: Vec<&(usize, [i32; 6])> = c.by_slot[0].iter().collect();
     let found: Vec<Ranked> = std::thread::scope(|scope| {
         let workers: Vec<_> = helmets
             .chunks(helmets.len().div_ceil(threads))
             .map(|chunk| {
-                let by_slot = &by_slot;
+                let c = &c;
                 scope.spawn(move || {
                     let mut top: BinaryHeap<Reverse<Ranked>> = BinaryHeap::new();
                     for &&(h, hs) in chunk {
                         if req.cancelled() {
                             break;
                         }
-                        for &(g, gs) in &by_slot[1] {
-                            for &(c, cs) in &by_slot[2] {
-                                for &(l, ls) in &by_slot[3] {
-                                    let four = [h, g, c, l];
+                        for &(g, gs) in &c.by_slot[1] {
+                            for &(ch, cs) in &c.by_slot[2] {
+                                for &(l, ls) in &c.by_slot[3] {
+                                    let four = [h, g, ch, l];
                                     let exotics = four.iter().filter(|&&i| pieces[i].exotic).count();
                                     if exotics > 1 {
                                         continue;
@@ -741,16 +1194,23 @@ pub fn search(pieces: &[Piece], req: &Request) -> Vec<Build> {
                                     if top.len() >= limit && top.peek().is_some_and(|Reverse(worst)| best_total < worst.0) {
                                         continue;
                                     }
-                                    let spare = four.iter().filter(|&&i| has_extra(i)).count() + class_extra;
-                                    if slots_needed(&bound, &req.mins) > req.sockets().1 as usize + spare {
+                                    // Short of the minimums even with the best class item, every
+                                    // +3 and tuning: skip.
+                                    let spare = four.iter().map(|&i| c.extra[i].spare()).sum::<usize>() + class_spare;
+                                    if slots_needed(&bound, &req.mins) > all as usize + spare {
                                         continue;
                                     }
-                                    for &(k, ks) in &by_slot[4] {
+                                    let lift = four.iter().map(|&i| c.extra[i].lift()).sum::<i32>() + class_lift;
+                                    let short: i32 = (0..6).map(|x| (req.mins[x] - bound[x].max(0)).max(0)).sum();
+                                    if short - lift > all * MAJOR_MOD {
+                                        continue;
+                                    }
+                                    for &(k, ks) in &c.by_slot[4] {
                                         if exotics == 1 && pieces[k].exotic {
                                             continue;
                                         }
                                         // The wanted sets: enough pieces of each.
-                                        let five = [h, g, c, l, k];
+                                        let five = [h, g, ch, l, k];
                                         if !req.sets.iter().all(|&(set, n)| five.iter().filter(|&&i| pieces[i].set == set).count() >= n) {
                                             continue;
                                         }
@@ -758,13 +1218,24 @@ pub fn search(pieces: &[Piece], req: &Request) -> Vec<Build> {
                                         stats.iter_mut().zip(ks).for_each(|(s, v)| *s += v);
                                         // Below 0 (a fragment's minus) is 0 in game; mods add from there.
                                         stats.iter_mut().for_each(|s| *s = (*s).max(0));
-                                        let extra = req.extras_of(pieces, five);
-                                        let Some(mods) = mods_for(&stats, &req.mins, &req.mod_caps, req.mods, &extra) else { continue };
-                                        add_mods(&mut stats, &mods);
-                                        let total = stats.iter().map(|s| (*s).clamp(0, MAX_STAT)).sum();
-                                        let waste = stats.iter().map(|s| (s - MAX_STAT).max(0)).sum();
-                                        let used = mods.iter().filter(|m| m.kind == ModKind::Mod).count();
-                                        let ranked = (total, req.sockets().1 as usize - used, Reverse(waste), [h, g, c, l, k]);
+                                        let extra = c.extras_of(five);
+                                        let (majors, all) = counts(&c.caps_of(five));
+                                        // The most it can come to (every short point filled and a
+                                        // little past, every tuning and +3 adding): not enough to
+                                        // make the list, skip.
+                                        if top.len() >= limit {
+                                            let short: i32 = (0..6).map(|x| (req.mins[x] - stats[x]).max(0)).sum();
+                                            let tuned = extra.iter().filter(|e| e.tuned != 0).count() as i32;
+                                            let mods = if short == 0 { 0 } else { (short + 24 + TUNING * tuned).min(all * MAJOR_MOD) };
+                                            let most = stats.iter().map(|s| (*s).clamp(0, MAX_STAT)).sum::<i32>() + mods + extra.iter().map(Extra::lift).sum::<i32>();
+                                            if top.peek().is_some_and(|Reverse(worst)| most < worst.0) {
+                                                continue;
+                                            }
+                                        }
+                                        let Some(fit) = best_fit(&stats, &req.mins, majors, all, &extra) else { continue };
+                                        let total = fit.stats.iter().map(|s| (*s).clamp(0, MAX_STAT)).sum();
+                                        let waste = fit.stats.iter().map(|s| (s - MAX_STAT).max(0)).sum();
+                                        let ranked = (total, (all - fit.used) as usize, Reverse(waste), five);
                                         if top.len() < limit {
                                             top.push(Reverse(ranked));
                                         } else if top.peek().is_some_and(|Reverse(worst)| ranked > *worst) {
@@ -790,12 +1261,28 @@ pub fn search(pieces: &[Piece], req: &Request) -> Vec<Build> {
         .map(|(total, free_mods, Reverse(waste), idx)| {
             let mut stats = req.bonus;
             for &i in &idx {
-                stats.iter_mut().zip(pieces[i].stats(req.assumes(&pieces[i]))).for_each(|(s, v)| *s += v);
+                stats.iter_mut().zip(req.piece_stats(&pieces[i])).for_each(|(s, v)| *s += v);
             }
             stats.iter_mut().for_each(|s| *s = (*s).max(0));
-            let extra = req.extras_of(pieces, idx);
-            let mods = mods_for(&stats, &req.mins, &req.mod_caps, req.mods, &extra).unwrap_or_default();
+            let extra = c.extras_of(idx);
+            let caps = c.caps_of(idx);
+            let (majors, all) = counts(&caps);
+            let tunes = best_fit(&stats, &req.mins, majors, all, &extra).map_or([Tune::None; 5], |f| f.tunes);
+            let mods = fit_mods(&stats, &req.mins, &caps, &extra, &tunes);
             add_mods(&mut stats, &mods);
+            // A +5 on pieces alike: the one with that Tuned stat.
+            let idx = c.pieces_for(idx, &tunes);
+            let parts = idx
+                .iter()
+                .enumerate()
+                .map(|(slot, &i)| {
+                    let p = &pieces[i];
+                    let mut own = req.piece_stats(p);
+                    let on: Vec<StatMod> = mods.iter().filter(|m| m.slot == slot).copied().collect();
+                    add_mods(&mut own, &on);
+                    PieceStats { roll: p.base, masterwork: p.stats(req.assumes(p)), stats: own }
+                })
+                .collect();
             Build {
                 items: idx.iter().map(|&i| pieces[i].id.clone()).collect(),
                 hashes: idx.iter().map(|&i| pieces[i].hash).collect(),
@@ -804,6 +1291,7 @@ pub fn search(pieces: &[Piece], req: &Request) -> Vec<Build> {
                 free_mods,
                 total,
                 waste,
+                pieces: parts,
             }
         })
         .collect()
@@ -911,8 +1399,11 @@ async fn pieces(app: &AppHandle, profile: &Value, class_type: i64) -> Result<Vec
             artifice: false,
             tuned: None,
             tunings: [0; 6],
+            offered: Vec::new(),
+            balanced: 0,
             now: base,
             mods_now: Vec::new(),
+            energy: components["instances"]["data"][id]["energy"]["energyCapacity"].as_i64().map(|e| e as i32),
         };
         found.push((piece, plugs));
     }
@@ -961,7 +1452,10 @@ async fn pieces(app: &AppHandle, profile: &Value, class_type: i64) -> Result<Vec
                 // A stat plug in now (as the game counts it).
                 let plus = part.adds.iter().position(|&a| a > 0);
                 let minus = part.adds.iter().position(|&a| a < 0);
-                if let Some(stat) = plus.filter(|_| part.level.is_none()) {
+                if part.tuning && minus.is_none() && (h == BALANCED_TUNING || plus.is_some()) {
+                    // Balanced Tuning (its stats: once its roll is known).
+                    piece.mods_now.push(StatMod { stat: 0, value: 1, slot: piece.slot, hash: h as u32, kind: ModKind::Balanced, from: None, each: 0 });
+                } else if let Some(stat) = plus.filter(|_| part.level.is_none()) {
                     let value = part.adds[stat];
                     let (kind, from) = if part.tuning {
                         (Some(ModKind::Tuning), minus)
@@ -973,7 +1467,7 @@ async fn pieces(app: &AppHandle, profile: &Value, class_type: i64) -> Result<Vec
                         (None, None)
                     };
                     if let Some(kind) = kind {
-                        piece.mods_now.push(StatMod { stat, value, slot: piece.slot, hash: h as u32, kind, from });
+                        piece.mods_now.push(StatMod { stat, value, slot: piece.slot, hash: h as u32, kind, from, each: 0 });
                     }
                 }
                 if part.counts {
@@ -999,14 +1493,28 @@ async fn pieces(app: &AppHandle, profile: &Value, class_type: i64) -> Result<Vec
                     piece.base = base;
                 }
             }
-            // "+Health / -Melee": +5 to the Tuned stat, -5 from one other.
+            // Balanced Tuning in now: the stats it raises.
+            let each = piece.balanced_stats();
+            for m in piece.mods_now.iter_mut().filter(|m| m.kind == ModKind::Balanced) {
+                m.each = each;
+                m.stat = (each.trailing_zeros() as usize).min(5);
+            }
+            // "+Health / -Melee": +5 to the Tuned stat, -5 from one other;
+            // Balanced Tuning: +1 to the three it doesn't roll in.
+            piece.offered = tunings.iter().map(|&h| h as u32).collect();
             for h in tunings {
+                if h == BALANCED_TUNING {
+                    piece.balanced = h as u32;
+                    continue;
+                }
                 let Some(part) = parts.get(&h) else { continue };
                 let plus = part.adds.iter().position(|&a| a == TUNING);
                 let minus = part.adds.iter().position(|&a| a == -TUNING);
                 if let (Some(t), Some(d)) = (plus, minus) {
                     piece.tuned = Some(t);
                     piece.tunings[d] = h as u32;
+                } else if part.tuning && part.adds.iter().all(|&a| a >= 0) && part.adds.iter().any(|&a| a > 0) {
+                    piece.balanced = h as u32;
                 }
             }
             piece
@@ -1139,6 +1647,9 @@ pub struct OptimizeRequest {
     /// Pieces picked by hand per slot (instance ids, "" none).
     #[serde(default)]
     pinned: Vec<String>,
+    /// Mods set by hand per slot (helmet … class item).
+    #[serde(default)]
+    fixed: Vec<Fixed>,
     /// Armor 2.0 counted as artifice: legendary class items, legendary
     /// pieces, exotics; tier 5 tuning counted on.
     #[serde(default)]
@@ -1196,10 +1707,12 @@ pub async fn optimize_armor(app: AppHandle, character_id: Option<String>, mut re
             if m.hash != 0 {
                 continue;
             }
-            m.hash = match m.from {
-                // A tuning: the piece's own plug for it.
-                Some(d) => all.iter().find(|p| Some(&p.id) == b.items.get(m.slot)).map_or(0, |p| p.tunings[d]),
-                None => items.get(&(m.stat, m.value)).copied().unwrap_or(0),
+            // A tuning: the piece's own plug for it.
+            let piece = all.iter().find(|p| Some(&p.id) == b.items.get(m.slot));
+            m.hash = match (m.kind, m.from) {
+                (ModKind::Tuning, Some(d)) => piece.map_or(0, |p| p.tunings[d]),
+                (ModKind::Balanced, _) => piece.map_or(0, |p| p.balanced),
+                _ => items.get(&(m.stat, m.value)).copied().unwrap_or(0),
             };
         }
     }
@@ -1289,6 +1802,7 @@ async fn request_of(app: &AppHandle, pieces: &[Piece], request: OptimizeRequest)
             }
         },
         pinned: std::array::from_fn(|i| request.pinned.get(i).filter(|id| !id.is_empty()).cloned()),
+        fixed: std::array::from_fn(|i| request.fixed.get(i).copied().unwrap_or_default()),
         extras: Extras {
             artifice_class: request.artifice_class,
             artifice_legendary: request.artifice_legendary,
@@ -1955,7 +2469,7 @@ mod tests {
     use super::*;
 
     fn piece(id: &str, slot: usize, base: [i32; 6]) -> Piece {
-        Piece { id: id.into(), hash: 1000 + slot as u32, slot, exotic: false, base, armor3: true, masterwork: 0, perks: [0, 0], set: 0, tier: 5, masterwork_plug: 0, gear_tier: 5, artifice: false, tuned: None, tunings: [0; 6], now: [0; 6], mods_now: Vec::new() }
+        Piece { id: id.into(), hash: 1000 + slot as u32, slot, exotic: false, base, armor3: true, masterwork: 0, perks: [0, 0], set: 0, tier: 5, masterwork_plug: 0, gear_tier: 5, artifice: false, tuned: None, tunings: [0; 6], offered: Vec::new(), balanced: 0, now: [0; 6], mods_now: Vec::new(), energy: None }
     }
 
     fn exotic(id: &str, slot: usize, hash: u32, base: [i32; 6]) -> Piece {
@@ -1963,12 +2477,17 @@ mod tests {
     }
 
     fn req(mins: [i32; 6]) -> Request {
-        Request { mins, exotic: Exotic::Any, masterwork_legendary: false, masterwork_exotic: false, mods: true, mod_caps: [ModCap::Any; 5], limit: 10, perks: [0, 0], bonus: [0; 6], sets: Vec::new(), filter: Filter::default(), pinned: Default::default(), extras: Extras::default(), cancel: None }
+        Request { mins, exotic: Exotic::Any, masterwork_legendary: false, masterwork_exotic: false, mods: true, mod_caps: [ModCap::Any; 5], limit: 10, perks: [0, 0], bonus: [0; 6], sets: Vec::new(), filter: Filter::default(), pinned: Default::default(), fixed: Default::default(), extras: Extras::default(), cancel: None }
     }
 
     /// One plain piece per slot: 30 health, 25 melee, 20 grenade.
     fn plain() -> Vec<Piece> {
         (0..5).map(|s| piece(&format!("p{s}"), s, [30, 25, 20, 0, 0, 0])).collect()
+    }
+
+    /// No artifice, no tuning on any piece.
+    fn none() -> [Extra; 5] {
+        [Extra::default(); 5]
     }
 
     #[test]
@@ -1986,26 +2505,84 @@ mod tests {
     #[test]
     fn fills_with_the_fewest_mods() {
         let any = [ModCap::Any; 5];
-        assert_eq!(mods_for(&[0; 6], &[0; 6], &any, true, &PieceExtras::default()), Some(vec![]));
+        assert_eq!(mods_for(&[0; 6], &[0; 6], &any, true, &none()), Some(vec![]));
         // 23 missing: 10, 10, then 5 for the last 3.
-        let m = mods_for(&[0; 6], &[0, 0, 0, 23, 0, 0], &any, true, &PieceExtras::default()).unwrap();
+        let m = mods_for(&[0; 6], &[0, 0, 0, 23, 0, 0], &any, true, &none()).unwrap();
         assert_eq!(m.iter().map(|m| m.value).collect::<Vec<_>>(), [10, 10, 5]);
         // 60 missing: more than five sockets.
-        assert_eq!(mods_for(&[0; 6], &[60, 0, 0, 0, 0, 0], &any, true, &PieceExtras::default()), None);
-        assert_eq!(mods_for(&[0; 6], &[5, 0, 0, 0, 0, 0], &any, false, &PieceExtras::default()), None);
+        assert_eq!(mods_for(&[0; 6], &[60, 0, 0, 0, 0, 0], &any, true, &none()), None);
+        assert_eq!(mods_for(&[0; 6], &[5, 0, 0, 0, 0, 0], &any, false, &none()), None);
         // Legs take a +5 at most, the class item none: 30 still goes
         // (+10 +10 +10 on helmet, arms, chest), 40 not (+10 x3, +5 on legs).
         let caps = [ModCap::Any, ModCap::Any, ModCap::Any, ModCap::Minor, ModCap::Empty];
-        let m = mods_for(&[0; 6], &[0, 0, 0, 30, 0, 0], &caps, true, &PieceExtras::default()).unwrap();
+        let m = mods_for(&[0; 6], &[0, 0, 0, 30, 0, 0], &caps, true, &none()).unwrap();
         assert_eq!(m.iter().map(|m| (m.value, m.slot)).collect::<Vec<_>>(), [(10, 0), (10, 1), (10, 2)]);
-        let m = mods_for(&[0; 6], &[0, 0, 0, 35, 0, 0], &caps, true, &PieceExtras::default()).unwrap();
+        let m = mods_for(&[0; 6], &[0, 0, 0, 35, 0, 0], &caps, true, &none()).unwrap();
         assert_eq!(m.last().map(|m| (m.value, m.slot)), Some((5, 3)));
-        assert_eq!(mods_for(&[0; 6], &[0, 0, 0, 40, 0, 0], &caps, true, &PieceExtras::default()), None);
+        assert_eq!(mods_for(&[0; 6], &[0, 0, 0, 40, 0, 0], &caps, true, &none()), None);
         // Short of +10 sockets: two +5s for a +10.
         let caps = [ModCap::Any, ModCap::Minor, ModCap::Minor, ModCap::Minor, ModCap::Empty];
-        let m = mods_for(&[0; 6], &[0, 0, 0, 20, 0, 0], &caps, true, &PieceExtras::default()).unwrap();
+        let m = mods_for(&[0; 6], &[0, 0, 0, 20, 0, 0], &caps, true, &none()).unwrap();
         assert_eq!(m.iter().map(|m| m.value).sum::<i32>(), 20);
         assert!(m.iter().all(|m| m.value == 5 || m.slot == 0));
+    }
+
+    #[test]
+    fn fixed_mods_take_energy_and_sockets() {
+        // The helmet's general socket set by hand (a +10 super), the legs
+        // with 9 of 11 energy taken (a +5 at most): 40 super from three +10s.
+        let mut r = req([150, 0, 0, 40, 0, 0]);
+        r.fixed[0] = Fixed { general: true, cost: 3, stats: [0, 0, 0, 10, 0, 0], ..Fixed::default() };
+        r.fixed[3] = Fixed { cost: 9, ..Fixed::default() };
+        let b = &search(&plain(), &r)[0];
+        assert_eq!(b.stats[3], 40);
+        assert!(b.mods.iter().all(|m| m.slot != 0 && m.slot != 3 && m.value == 10));
+        // 45: the last +5 on the legs; 50: no room.
+        r.mins[3] = 45;
+        let b = &search(&plain(), &r)[0];
+        assert_eq!(b.mods.iter().find(|m| m.slot == 3).map(|m| m.value), Some(5));
+        r.mins[3] = 50;
+        assert!(search(&plain(), &r).is_empty());
+        // Less energy now: none on the legs; counted as masterworked: full.
+        let mut pieces = plain();
+        pieces[3].energy = Some(9);
+        r.mins[3] = 45;
+        assert!(search(&pieces, &r).is_empty());
+        r.masterwork_legendary = true;
+        r.mins[3] = 70;
+        let b = &search(&pieces, &r)[0];
+        assert_eq!(b.mods.iter().find(|m| m.slot == 3).map(|m| m.value), Some(5));
+        // A tuning set by hand: only helmets offering it, tuned with it.
+        let mut pieces = plain();
+        let mut tuned = piece("t", 0, [30, 25, 20, 0, 0, 0]);
+        tuned.tuned = Some(5);
+        tuned.tunings[0] = 77;
+        pieces.push(tuned);
+        let mut r = req([0; 6]);
+        r.fixed[0].tuning = 77;
+        let builds = search(&pieces, &r);
+        assert!(!builds.is_empty() && builds.iter().all(|b| b.items[0] == "t"));
+        assert_eq!(builds[0].stats[5], 5);
+        // An exotic's tuning (any +5 / -5 it offers): as its plug says.
+        let mut pieces = plain();
+        let mut exotic = piece("x", 0, [30, 25, 20, 0, 0, 0]);
+        exotic.offered = vec![88, 99];
+        pieces.push(exotic);
+        r.fixed[0].tuning = 99;
+        r.fixed[0].tuning_stats = [-5, 0, 0, 0, 5, 0];
+        let builds = search(&pieces, &r);
+        assert!(!builds.is_empty() && builds.iter().all(|b| b.items[0] == "x"));
+        assert_eq!(builds[0].stats[4], 5);
+        // Each piece's part (with its mods and tuning) adds up to the build.
+        for b in &builds {
+            assert_eq!(b.pieces.len(), 5);
+            assert_eq!(b.pieces[0].stats[4], 5);
+            let mut sum = r.bonus;
+            for p in &b.pieces {
+                sum.iter_mut().zip(p.stats).for_each(|(s, v)| *s += v);
+            }
+            assert_eq!(sum.map(|s| s.max(0)), b.stats);
+        }
     }
 
     #[test]
@@ -2024,10 +2601,10 @@ mod tests {
 
     #[test]
     fn artifice_and_tuning_fill_deficits() {
-        let none = PieceExtras::default();
         let any = [ModCap::Any; 5];
         // 63 short of 66: one +3, no mod.
-        let artifice = PieceExtras { artifice: [true, false, false, false, false], ..none };
+        let mut artifice = none();
+        artifice[0].artifice = true;
         let m = mods_for(&[0, 0, 0, 63, 0, 0], &[0, 0, 0, 66, 0, 0], &any, true, &artifice).unwrap();
         assert_eq!(m.len(), 1);
         assert_eq!((m[0].kind, m[0].value, m[0].stat), (ModKind::Artifice, 3, 3));
@@ -2035,7 +2612,8 @@ mod tests {
         let m = mods_for(&[0; 6], &[8, 0, 0, 0, 0, 0], &any, true, &artifice).unwrap();
         assert_eq!(m.iter().map(|m| m.value).sum::<i32>(), 8);
         // Tuning: +5 to the Tuned stat from the one with the most to spare.
-        let tuned = PieceExtras { tuned: [Some(0), None, None, None, None], ..none };
+        let mut tuned = none();
+        tuned[0].tuned = 1;
         let m = mods_for(&[95, 0, 0, 0, 0, 40], &[100, 0, 0, 0, 0, 30], &[ModCap::Empty; 5], true, &tuned).unwrap();
         assert_eq!((m[0].kind, m[0].stat, m[0].from), (ModKind::Tuning, 0, Some(5)));
         let mut s = [95, 0, 0, 0, 0, 40];
@@ -2046,6 +2624,47 @@ mod tests {
         // Points past 200 go to the Tuned stat.
         let m = mods_for(&[150, 0, 0, 0, 0, 210], &[0; 6], &any, true, &tuned).unwrap();
         assert_eq!((m[0].stat, m[0].from), (0, Some(5)));
+    }
+
+    #[test]
+    fn balanced_tuning_and_donors_gone_short() {
+        // Balanced Tuning: +1 to the three stats the piece doesn't roll in.
+        let mut balanced = none();
+        balanced[0].balanced = 0b111000;
+        let m = mods_for(&[0, 0, 0, 9, 0, 0], &[0, 0, 0, 10, 0, 0], &[ModCap::Empty; 5], true, &balanced).unwrap();
+        assert_eq!((m[0].kind, m[0].each), (ModKind::Balanced, 0b111000));
+        let mut s = [0, 0, 0, 9, 0, 0];
+        add_mods(&mut s, &m);
+        assert_eq!(s, [0, 0, 0, 10, 1, 1]);
+        // 15 health and 5 weapons short: three mods. 5 moved from weapons
+        // (shorter then) to health: two (+10 each).
+        let mut tuned = none();
+        tuned[0].tuned = 1;
+        let m = mods_for(&[85, 0, 0, 0, 0, 30], &[100, 0, 0, 0, 0, 35], &[ModCap::Any; 5], true, &tuned).unwrap();
+        assert_eq!(m.iter().filter(|m| m.kind == ModKind::Mod).count(), 2);
+        assert_eq!((m[0].kind, m[0].stat, m[0].from), (ModKind::Tuning, 0, Some(5)));
+        let mut s = [85, 0, 0, 0, 0, 30];
+        add_mods(&mut s, &m);
+        assert_eq!(s, [100, 0, 0, 0, 0, 35]);
+    }
+
+    #[test]
+    fn alike_pieces_keep_each_tuned_stat() {
+        // Two helmets alike but for their Tuned stat: health's comes first,
+        // super's makes the 5 super (from health) with no mod sockets.
+        let mut pieces = plain();
+        pieces[0].tuned = Some(0);
+        pieces[0].tunings = [7; 6];
+        let mut t3 = piece("t3", 0, [30, 25, 20, 0, 0, 0]);
+        t3.tuned = Some(3);
+        t3.tunings = [8; 6];
+        pieces.push(t3);
+        let r = Request { mod_caps: [ModCap::Empty; 5], extras: Extras { tuning: true, ..Extras::default() }, ..req([0, 0, 0, 5, 0, 0]) };
+        let builds = search(&pieces, &r);
+        assert_eq!(builds[0].items[0], "t3");
+        assert_eq!(builds[0].stats[3], 5);
+        assert!(builds[0].mods.iter().any(|m| (m.kind, m.stat, m.from) == (ModKind::Tuning, 3, Some(0))));
+        assert_eq!(limits(&pieces, &r)[3], 5);
     }
 
     #[test]
@@ -2231,12 +2850,149 @@ mod speed {
                 base[a] = 25 + next(6);
                 base[b] += 15 + next(6);
                 base[c] += 10 + next(6);
-                pieces.push(Piece { id: format!("{slot}-{i}"), hash: slot as u32, slot, exotic: false, base, armor3: true, masterwork: 5, perks: [0, 0], set: 0, tier: 5, masterwork_plug: 0, gear_tier: 5, artifice: false, tuned: None, tunings: [0; 6], now: [0; 6], mods_now: Vec::new() });
+                pieces.push(Piece { id: format!("{slot}-{i}"), hash: slot as u32, slot, exotic: false, base, armor3: true, masterwork: 5, perks: [0, 0], set: 0, tier: 5, masterwork_plug: 0, gear_tier: 5, artifice: false, tuned: None, tunings: [0; 6], offered: Vec::new(), balanced: 0, now: [0; 6], mods_now: Vec::new(), energy: None });
             }
         }
         let started = std::time::Instant::now();
-        let builds = search(&pieces, &Request { mins: [100, 0, 0, 0, 0, 100], exotic: Exotic::None, masterwork_legendary: true, masterwork_exotic: true, mods: true, mod_caps: [ModCap::Any; 5], limit: 50, perks: [0, 0], bonus: [0; 6], sets: Vec::new(), filter: Filter::default(), pinned: Default::default(), extras: Extras::default(), cancel: None });
+        let builds = search(&pieces, &Request { mins: [100, 0, 0, 0, 0, 100], exotic: Exotic::None, masterwork_legendary: true, masterwork_exotic: true, mods: true, mod_caps: [ModCap::Any; 5], limit: 50, perks: [0, 0], bonus: [0; 6], sets: Vec::new(), filter: Filter::default(), pinned: Default::default(), fixed: Default::default(), extras: Extras::default(), cancel: None });
         println!("{} builds in {:?}", builds.len(), started.elapsed());
         assert!(!builds.is_empty());
+    }
+
+    /// The same with every piece tier 5 (30 / 25 / 20, a Tuned stat) and
+    /// tuning counted: searches and maxima for an easy and a tight ask.
+    #[test]
+    #[ignore = "timing: cargo test --release -- --ignored tuned_vault --nocapture"]
+    fn tuned_vault() {
+        let mut seed = 11u32;
+        let mut next = |n: i32| {
+            seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            (seed >> 16) as i32 % n
+        };
+        let mut pieces = Vec::new();
+        for slot in 0..5 {
+            for i in 0..40 {
+                let mut base = [0; 6];
+                let a = i % 6;
+                let b = (a + 1 + next(5) as usize) % 6;
+                let mut c = next(6) as usize;
+                while c == a || c == b {
+                    c = (c + 1) % 6;
+                }
+                (base[a], base[b], base[c]) = (30, 25, 20);
+                let mut p = Piece { id: format!("{slot}-{i}"), hash: slot as u32, slot, exotic: false, base, armor3: true, masterwork: 5, perks: [0, 0], set: 0, tier: 5, masterwork_plug: 0, gear_tier: 5, artifice: false, tuned: None, tunings: [0; 6], offered: Vec::new(), balanced: 0, now: [0; 6], mods_now: Vec::new(), energy: None };
+                p.tuned = Some(next(6) as usize);
+                p.tunings = [1; 6];
+                p.balanced = 1;
+                pieces.push(p);
+            }
+        }
+        for mins in [[100, 0, 0, 0, 0, 100], [150, 0, 70, 0, 30, 180], [0, 100, 100, 100, 0, 100]] {
+            let r = Request { mins, exotic: Exotic::None, masterwork_legendary: true, masterwork_exotic: true, mods: true, mod_caps: [ModCap::Any; 5], limit: 50, perks: [0, 0], bonus: [0; 6], sets: Vec::new(), filter: Filter::default(), pinned: Default::default(), fixed: Default::default(), extras: Extras { tuning: true, ..Extras::default() }, cancel: None };
+            let kept: Vec<usize> = candidates(&pieces, &r, true).map(|c| c.by_slot.iter().map(Vec::len).collect()).unwrap_or_default();
+            let started = std::time::Instant::now();
+            let builds = search(&pieces, &r);
+            let took = started.elapsed();
+            let started = std::time::Instant::now();
+            let most = limits(&pieces, &r);
+            println!("{mins:?}: kept {kept:?}, {} builds in {took:?} (best {:?}), maxima {most:?} in {:?}", builds.len(), builds.first().map(|b| (b.total, b.free_mods)), started.elapsed());
+        }
+    }
+
+    /// Maxima and fewest mods against trying every tuning of every build.
+    #[test]
+    fn tuning_search_matches_brute_force() {
+        let mut seed = 5u32;
+        let mut next = |n: i32| {
+            seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12_345);
+            (seed >> 16) as i32 % n
+        };
+        for round in 0..40 {
+            let mut pieces = Vec::new();
+            for slot in 0..5 {
+                for i in 0..3 {
+                    let mut base = [0; 6];
+                    let a = next(6) as usize;
+                    let b = (a + 1 + next(5) as usize) % 6;
+                    let mut c = next(6) as usize;
+                    while c == a || c == b {
+                        c = (c + 1) % 6;
+                    }
+                    (base[a], base[b], base[c]) = (30, 25, 20);
+                    let mut p = Piece { id: format!("{slot}-{i}"), hash: slot as u32, slot, exotic: false, base, armor3: true, masterwork: 0, perks: [0, 0], set: 0, tier: 5, masterwork_plug: 0, gear_tier: 5, artifice: false, tuned: None, tunings: [0; 6], offered: Vec::new(), balanced: 0, now: [0; 6], mods_now: Vec::new(), energy: None };
+                    p.masterwork = 5;
+                    p.tuned = Some(next(6) as usize);
+                    p.balanced = next(2) as u32;
+                    pieces.push(p);
+                }
+            }
+            let mut mins = [0; 6];
+            for _ in 0..2 {
+                mins[next(6) as usize] = 50 + 10 * next(15);
+            }
+            let r = Request { mins, exotic: Exotic::None, masterwork_legendary: false, masterwork_exotic: false, mods: true, mod_caps: [ModCap::Any; 5], limit: 10, perks: [0, 0], bonus: [0; 6], sets: Vec::new(), filter: Filter::default(), pinned: Default::default(), fixed: Default::default(), extras: Extras { tuning: true, ..Extras::default() }, cancel: None };
+            let (majors, all) = r.sockets();
+            // Every tuning of a build: its stats.
+            let tunings = |five: &[usize; 5]| -> Vec<[i32; 6]> {
+                let mut out = vec![[0; 6]];
+                for &i in five {
+                    let p = &pieces[i];
+                    let s = p.stats(false);
+                    let mut options = vec![s];
+                    if p.balanced != 0 {
+                        let mut b = s;
+                        (0..6).filter(|&x| p.base[x] == 0).for_each(|x| b[x] += 1);
+                        options.push(b);
+                    }
+                    let t = p.tuned.unwrap();
+                    for d in (0..6).filter(|&d| d != t) {
+                        let mut m = s;
+                        m[t] += TUNING;
+                        m[d] -= TUNING;
+                        options.push(m);
+                    }
+                    out = out.iter().flat_map(|a| options.iter().map(move |o| std::array::from_fn(|x| a[x] + o[x]))).collect();
+                }
+                out.into_iter().filter(|s: &[i32; 6]| s.iter().all(|&v| v >= 0)).collect()
+            };
+            let mut most = [0; 6];
+            for h in 0..3 {
+                for g in 3..6 {
+                    for c in 6..9 {
+                        for l in 9..12 {
+                            for k in 12..15 {
+                                let five = [h, g, c, l, k];
+                                let all_tunings = tunings(&five);
+                                // Fewest mods.
+                                let fewest = all_tunings
+                                    .iter()
+                                    .filter_map(|s| mod_plan(&std::array::from_fn(|x| (mins[x] - s[x]).max(0)), majors, all))
+                                    .map(|p| p.iter().map(|p| p.0 + p.1).sum::<i32>())
+                                    .min();
+                                let stats: [i32; 6] = std::array::from_fn(|x| five.iter().map(|&i| pieces[i].stats(false)[x]).sum());
+                                let extra = five.map(|i| r.extra(&pieces[i]));
+                                let fit = best_fit(&stats, &mins, majors, all, &extra).map(|f| f.used);
+                                assert_eq!(fit, fewest, "round {round}, build {five:?}, mins {mins:?}");
+                                // Maxima.
+                                for x in 0..6 {
+                                    let mut others = mins;
+                                    others[x] = 0;
+                                    for s in &all_tunings {
+                                        let d: [i32; 6] = std::array::from_fn(|y| (others[y] - s[y]).max(0));
+                                        let Some(plan) = mod_plan(&d, majors, all) else { continue };
+                                        let tens: i32 = plan.iter().map(|p| p.0).sum();
+                                        let used: i32 = plan.iter().map(|p| p.0 + p.1).sum();
+                                        let left = all - used;
+                                        let left_tens = (majors - tens).min(left);
+                                        most[x] = most[x].max((s[x] + left_tens * MAJOR_MOD + (left - left_tens) * MINOR_MOD).min(MAX_STAT));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            assert_eq!(limits(&pieces, &r), most, "round {round}, mins {mins:?}");
+        }
     }
 }

@@ -8,11 +8,41 @@ const de: Strings = {
     titleAccent: "nicht verrät.",
     text: "Alles über deinen Hüter, direkt neben dem Spiel. Radar erkennt die Waffe, Rüstung oder den Hüter, den du dir ansiehst, und zeigt, was das Spiel nicht zeigt: jeden Roll, exakte Zahlen, Clears, Lowmans und Builds. Dazu alle Loadouts an einem Ort und DIM und Discord nur einen Hotkey entfernt.",
     download: "Download für Windows",
-    features: "Alle Funktionen ansehen",
+    tour: "Zur Tour",
     meta: "{size} · Windows 10/11 · Nicht mit Bungie verbunden",
     inAction: "So sieht es aus",
   },
   tour: {
+    kicker: "Die Tour",
+    title: "Scroll durch die echte App.",
+    text: "Kapitel für Kapitel, vom Fireteam bis zum Overlay im Spiel.",
+    chapters: [
+      {
+        name: "Fireteam",
+        title: "Wisse, mit wem du spielst.",
+        text: "Clears, Lowmans, Bestzeiten und der Build jedes Hüters – deiner, die deines Fireteams und von jedem, den du nachschlägst.",
+      },
+      {
+        name: "Datenbank",
+        title: "Jede Waffe und Rüstung, mit echten Zahlen.",
+        text: "Alle Rolls, Quellen und exakte Perk-Werte, direkt neben deinen eigenen Exemplaren.",
+      },
+      {
+        name: "Loadouts",
+        title: "Alle deine Loadouts an einem Ort.",
+        text: "Ingame-Slots, DIM-Loadouts und Presets – ausrüsten, speichern und bauen, ohne Radar zu verlassen.",
+      },
+      {
+        name: "Rüstungs-Optimizer",
+        title: "Die beste Rüstung für die Werte, die du willst.",
+        text: "Leg deine Ziele fest, und Radar durchsucht deinen ganzen Tresor nach den Builds, die sie erreichen.",
+      },
+      {
+        name: "Im Spiel",
+        title: "Direkt über dem Spiel.",
+        text: "Fahr über eine Waffe oder ein Rüstungsteil wie im Spiel: Radar erkennt es und zeigt seinen Hinweis. Klick es an oder drück F10 für Radars Seite dazu. Öffne auch das Artefakt.",
+      },
+    ],
     snippets: [
       {
         title: "Fireteam-Scanner",
@@ -88,37 +118,66 @@ const de: Strings = {
           "Jemanden per Name suchen – oder direkt von seinem Charakterbildschirm im Spiel",
         ],
       },
+      {
+        title: "Ein Loadout bauen",
+        subtitle: "Slot für Slot – Waffen, Rüstung, Subklasse und Artefakt",
+        points: [
+          "Starte mit dem, was du trägst, oder ganz von vorn",
+          "Waffen mit den Perks, die du wählst – beim Ausrüsten gesetzt",
+          "Speichern und später mit einem Klick ausrüsten",
+        ],
+      },
+      {
+        title: "Rüstung für die Werte, die du willst",
+        subtitle: "Mindestwerte festlegen, und Radar kombiniert deinen ganzen Tresor",
+        points: [
+          "Zeigt, wie hoch jeder Wert noch gehen kann",
+          "Jedes Teil auf deinen Charakteren und im Tresor zählt",
+          "Meisterwerk, Mods und Tier-5-Tuning eingerechnet",
+        ],
+      },
+      {
+        title: "Dein Build, deine Regeln",
+        subtitle: "Exotic, Set-Boni und feste Mods – der Rest wird drumherum berechnet",
+        points: [
+          "Wähl ein Exotic – oder lass Radar eines aussuchen",
+          "Verlang einen Set-Bonus: So viele Teile stecken dann in jedem Build",
+          "Ein Teil oder eine Mod selbst festlegen – oder eines ausschließen",
+        ],
+      },
+      {
+        title: "Jeder Build im Detail",
+        subtitle: "Was jedes Teil beiträgt, was es kostet und was du bekommst",
+        points: [
+          "Werte pro Teil: Roll, Meisterwerk, Mods und Tuning",
+          "Was es kosten würde, den Build zum Meisterwerk zu machen",
+          "Fähigkeiten-Cooldowns und Schadensresistenz bei diesen Werten",
+        ],
+      },
     ],
     tryIt: "Klick die App an und probier sie selbst aus.",
-    tryItHint: "Eine Demo mit Beispieldaten (auf Englisch) – manche Funktionen gehen nur in der echten App. Scrollen oder die Pfeile zeigen mehr.",
-    swipe: "Wischen, ziehen oder die Pfeile nutzen · Clips aus der echten App",
-    pictures: "Bilder der App",
-    previous: "Zurück",
-    next: "Weiter",
+    tryItHint: "Eine Demo mit Beispieldaten (auf Englisch) – manche Funktionen gehen nur in der echten App.",
+    swipe: "Clips aus der echten App",
     demo: "Radar-Demo",
     clickToTry: "Klicken und selbst ausprobieren",
     backToTour: "Zurück zur Tour",
   },
+  game: {
+    note: "Ein gezeichneter Spielbildschirm mit Beispiel-Ausrüstung; der Hinweis und die Seite darüber sind das echte Radar · Destiny 2 läuft hier nicht",
+    hover: "Drüberfahren",
+    inspect: "Ansehen",
+    page: "Radar-Seite",
+    close: "Schließen",
+    tip: "Klick oder F10: Radars Seite dazu",
+  },
   features: {
-    kicker: "Funktionen",
+    kicker: "Außerdem",
     title: "Eine App statt fünf Tabs.",
     text: "Gebaut für Destiny 2 auf dem PC, gemacht, um nicht im Weg zu sein.",
     items: [
       {
-        title: "Erkennt, was du dir ansiehst",
-        text: "Sieh dir eine Waffe oder ein Rüstungsteil an, und ein Hinweis erscheint über dem Spiel. F10 öffnet die ganze Seite dazu.",
-      },
-      {
         title: "Liest Hüter-Namen",
         text: "Öffne den Charakterbildschirm von jemandem, und Radar findet ihn – auch mit Unterstrichen, Klammern, Symbolen, kyrillischen und CJK-Namen.",
-      },
-      {
-        title: "Artefakt-Perks, exakt",
-        text: "Auf dem Artefakt-Bildschirm listet Radar jeden Perk des Saison-Artefakts mit dem, was er wirklich tut.",
-      },
-      {
-        title: "Alle Loadouts an einem Ort",
-        text: "Ingame- und DIM-Loadouts mit einem Klick ausrüsten, neue in DIM speichern – oder ein ganzes Preset auf einmal wechseln.",
       },
       {
         title: "DIM und Discord über dem Spiel",
@@ -136,6 +195,10 @@ const de: Strings = {
         title: "Bremst dein Spiel nicht",
         text: "Radar braucht kaum etwas von deinem PC: Das Overlay zeichnet nur, wo seine Widgets sind, und alles, was du gerade nicht nutzt, pausiert.",
       },
+      {
+        title: "In deiner Farbe",
+        text: "Wähl eine Subklassen-Farbe oder eine eigene – App und Overlay ziehen mit.",
+      },
     ],
   },
   safety: {
@@ -143,7 +206,6 @@ const de: Strings = {
     title: "Finger weg vom Spiel.",
     text: "Radar sitzt neben Destiny 2, nicht darin. Es schaut auf den Bildschirm und fragt Bungie – sonst nichts.",
     items: [
-      "Schickt nie einen Tastendruck oder Klick an Destiny 2",
       "Liest oder ändert weder Speicher noch Dateien des Spiels",
       "Liest nur, was auf deinem Bildschirm ist, wie ein Screenshot",
       "Deine Daten kommen von Bungies offizieller API, wie bei DIM",
@@ -169,7 +231,7 @@ const de: Strings = {
     items: [
       {
         q: "Kann ich für Radar gebannt werden?",
-        a: "Radar injiziert nichts, liest nicht den Speicher des Spiels und schickt nie Eingaben an Destiny 2. Es liest, was auf deinem Bildschirm ist (wie ein Screenshot), und spricht mit Bungies offizieller API – genauso wie DIM und andere Companion-Apps.",
+        a: "Radar injiziert nichts und liest nicht den Speicher des Spiels. Es liest, was auf deinem Bildschirm ist (wie ein Screenshot), und spricht mit Bungies offizieller API – genauso wie DIM und andere Companion-Apps.",
       },
       { q: "Ist es kostenlos?", a: "Ja. Radar ist kostenlos herunterzuladen und zu benutzen." },
       { q: "Ist Radar Open Source?", a: "Ja. Der komplette Quellcode von Radar ist öffentlich auf GitHub – github.com/Niklas2654/D2Radar – unter der Lizenz GPL-3.0. Der Code jeder veröffentlichten Version steht dort." },

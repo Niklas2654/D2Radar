@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReveal } from "./fx";
 import { Features, Safety } from "./sections/Features";
+import { GamePreview } from "./sections/GamePreview";
 import { Header } from "./sections/Header";
 import { Hero } from "./sections/Hero";
 import { Legal, type LegalPage } from "./sections/Legal";
@@ -93,7 +94,7 @@ function Site() {
       <main className="relative z-10">
         <Hero />
         <Tour />
-        {/* The in-game preview (sections/GamePreview) waits for real in-game shots. */}
+        <GamePreview />
         <Features />
         <Safety />
         <HowItWorks />

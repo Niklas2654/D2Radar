@@ -98,16 +98,16 @@ body {
   color: white;
 }
 
-/* ---------- The tour's text: the next card's fades in ---------- */
+/* ---------- The tour's app, taken over: above the header ---------- */
 
-.tour-swap {
-  animation: tour-swap 0.45s ease both;
+/* The app in its big view (components/Stage) lies over the whole page, the
+   header too: the page's content rises above it, and the app's place beside
+   the texts above the rest of the content. */
+html.demo-open main {
+  z-index: 60;
 }
-@keyframes tour-swap {
-  from {
-    opacity: 0;
-    transform: translateX(10px);
-  }
+html.demo-open .tour-sticky {
+  z-index: 70;
 }
 
 /* ---------- Scroll reveal: a short fade up ---------- */
@@ -125,9 +125,6 @@ body {
   transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .tour-swap {
-    animation: none;
-  }
   .reveal {
     opacity: 1;
     transform: none;

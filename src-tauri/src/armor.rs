@@ -97,6 +97,9 @@ pub(crate) async fn identify(app: &AppHandle, hashes: &[u32]) -> Option<ArmorDet
 pub struct ModSlot {
     socket: usize,
     plug: Option<ModPlug>,
+    /// What the socket takes: "general", "tuning", "artifice" or "other"
+    /// (a slot's mods, an activity's).
+    kind: &'static str,
 }
 
 /// A mod: its name, icon, what it does (with exact numbers where known)
@@ -201,14 +204,16 @@ pub async fn armor_mods(app: AppHandle, hashes: Vec<u32>, instance_id: Option<St
                 None => None,
             };
             // The general mod first, its tuning right after it, then the rest.
-            let order = if kind == "enhancements.v2_general" {
-                0
+            let (order, kind) = if kind == "enhancements.v2_general" {
+                (0, "general")
             } else if kind.contains("tuning") {
-                1
+                (1, "tuning")
+            } else if kind.contains("artifice") {
+                (2, "artifice")
             } else {
-                2
+                (2, "other")
             };
-            Some((order, ModSlot { socket, plug }))
+            Some((order, ModSlot { socket, plug, kind }))
         }
     }))
     .await
@@ -235,6 +240,23 @@ pub async fn armor_mods(app: AppHandle, hashes: Vec<u32>, instance_id: Option<St
         energy: copy.energy_capacity,
         slots,
     }))
+}
+
+/// Of `ids` (copies of a slot), the one with the fewest mod sockets: a
+/// piece's sockets as most of the slot has them (no activity's extra ones).
+#[tauri::command]
+pub async fn armor_plain_piece(app: AppHandle, ids: Vec<(String, u32)>) -> Option<String> {
+    let mut best: Option<(usize, String)> = None;
+    for (id, hash) in ids {
+        let Some(info) = item(&app, hash as u64).await else {
+            continue;
+        };
+        let n = info.mod_sockets.len();
+        if n > 0 && best.as_ref().is_none_or(|(m, _)| n < *m) {
+            best = Some((n, id));
+        }
+    }
+    best.map(|(_, id)| id)
 }
 
 /// Every mod a socket of the piece takes (its plug set), the empty one
@@ -298,9 +320,34 @@ pub async fn armor_mod_options(
     // (missing newer mods) and full of old versions (a season's 1-energy
     // surges, an artifact's cheaper ones) no account can insert.
     if let Some(set) = set {
-        if let Some(usable) = usable_plugs(&app, set).await {
-            hashes = usable.into_iter().filter(|&h| Some(h) != empty).collect();
+        // (A set the account lists with nothing but its empty plug, as a
+        // piece's tuning: the definition's, what can roll on it.)
+        let usable: Vec<u64> = usable_plugs(&app, set)
+            .await
+            .map(|u| u.into_iter().filter(|&h| Some(h) != empty).collect())
+            .unwrap_or_default();
+        if !usable.is_empty() {
+            hashes = usable;
             hashes.sort_unstable();
+        } else {
+            {
+                let rolls: std::collections::HashSet<u64> =
+                    definition(&app, "DestinyPlugSetDefinition", set)
+                        .await
+                        .map(|d| {
+                            d["reusablePlugItems"]
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .filter(|p| p["currentlyCanRoll"].as_bool() != Some(false))
+                                .filter_map(|p| p["plugItemHash"].as_u64())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                if !rolls.is_empty() {
+                    hashes.retain(|h| rolls.contains(h));
+                }
+            }
         }
     }
     // A socket whose choice is the piece's own (its tuning): as Bungie

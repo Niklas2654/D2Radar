@@ -8,11 +8,41 @@ const it: Strings = {
     titleAccent: "non ti dice.",
     text: "Tutto sul tuo Guardiano, proprio accanto al gioco. Radar riconosce l'arma, l'armatura o il Guardiano che stai guardando e mostra ciò che il gioco non mostra: ogni roll, valori esatti, clear, lowman e build. In più tutte le tue dotazioni in un unico posto, e DIM e Discord a portata di scorciatoia.",
     download: "Scarica per Windows",
-    features: "Vedi tutte le funzioni",
+    tour: "Fai il tour",
     meta: "{size} · Windows 10/11 · Non affiliato a Bungie",
     inAction: "Guardalo in azione",
   },
   tour: {
+    kicker: "Il tour",
+    title: "Scorri la vera app.",
+    text: "Capitolo per capitolo, dalla tua squadra all'overlay in gioco.",
+    chapters: [
+      {
+        name: "Squadra",
+        title: "Scopri con chi giochi.",
+        text: "Clear, lowman, tempi migliori e la build di ogni Guardiano: la tua, quelle della tua squadra e di chiunque cerchi.",
+      },
+      {
+        name: "Database",
+        title: "Ogni arma e pezzo d'armatura, con numeri veri.",
+        text: "Tutti i roll, le fonti e i valori esatti delle peculiarità, accanto alle copie che possiedi.",
+      },
+      {
+        name: "Dotazioni",
+        title: "Tutte le tue dotazioni in un posto solo.",
+        text: "Slot di gioco, dotazioni DIM e preset: equipaggiale, salvale e creale senza uscire da Radar.",
+      },
+      {
+        name: "Ottimizzatore d'armatura",
+        title: "L'armatura migliore per le statistiche che vuoi.",
+        text: "Imposta i tuoi obiettivi e Radar cerca in tutto il deposito le build che li raggiungono.",
+      },
+      {
+        name: "In gioco",
+        title: "Proprio sopra il gioco.",
+        text: "Passa il mouse su un'arma o un pezzo d'armatura come in gioco: Radar lo riconosce e mostra il suo avviso. Cliccalo o premi F10 per la pagina di Radar. Apri anche l'artefatto.",
+      },
+    ],
     snippets: [
       {
         title: "Scanner della squadra",
@@ -88,37 +118,66 @@ const it: Strings = {
           "Cerca qualcuno per nome, o direttamente dalla sua schermata personaggio in gioco",
         ],
       },
+      {
+        title: "Crea una dotazione",
+        subtitle: "Uno slot alla volta: armi, armatura, sottoclasse e artefatto",
+        points: [
+          "Parti da ciò che indossi o da zero",
+          "Armi con le peculiarità che scegli, applicate quando equipaggi",
+          "Salvala ed equipaggiala più tardi con un clic",
+        ],
+      },
+      {
+        title: "L'armatura per le statistiche che vuoi",
+        subtitle: "Imposta i minimi e Radar combina tutto il tuo deposito",
+        points: [
+          "Mostra quanto può ancora salire ogni statistica",
+          "Conta ogni pezzo sui tuoi personaggi e nel deposito",
+          "Capolavoro, modifiche e calibrazione di livello 5 inclusi",
+        ],
+      },
+      {
+        title: "La tua build, le tue regole",
+        subtitle: "Esotico, bonus set e modifiche fisse: il resto viene calcolato attorno",
+        points: [
+          "Scegli un esotico, o lascia che lo scelga Radar",
+          "Chiedi un bonus set: quei pezzi entrano in ogni build",
+          "Fissa tu un pezzo o una modifica, oppure escludine uno",
+        ],
+      },
+      {
+        title: "Ogni build, in dettaglio",
+        subtitle: "Cosa aggiunge ogni pezzo, quanto costa e cosa ottieni",
+        points: [
+          "Statistiche per pezzo: roll, capolavoro, modifiche e calibrazione",
+          "Quanto costerebbe portare la build a capolavoro",
+          "Ricarica delle abilità e resistenza ai danni con quelle statistiche",
+        ],
+      },
     ],
     tryIt: "Clicca sull'app per provarla tu stesso.",
-    tryItHint: "Una demo con dati di esempio (in inglese) – alcune funzioni vanno solo nell'app vera. Scorri su di essa o usa le frecce per vedere di più.",
-    swipe: "Scorri, trascina o usa le frecce · clip dall'app vera",
-    pictures: "Immagini dell'app",
-    previous: "Precedente",
-    next: "Successivo",
+    tryItHint: "Una demo con dati di esempio (in inglese) – alcune funzioni vanno solo nell'app vera.",
+    swipe: "Clip dall'app vera",
     demo: "Demo di Radar",
     clickToTry: "Clicca per provarla",
     backToTour: "Torna al tour",
   },
+  game: {
+    note: "Una schermata di gioco disegnata con equipaggiamento di esempio; l'avviso e la pagina sopra sono il vero Radar · Destiny 2 qui non è in esecuzione",
+    hover: "Passa sopra",
+    inspect: "Ispeziona",
+    page: "Pagina di Radar",
+    close: "Chiudi",
+    tip: "Clic o F10: la pagina di Radar",
+  },
   features: {
-    kicker: "Funzioni",
+    kicker: "E inoltre",
     title: "Un'app invece di cinque schede.",
     text: "Fatta per Destiny 2 su PC, pensata per non intralciarti.",
     items: [
       {
-        title: "Riconosce ciò che guardi",
-        text: "Ispeziona un'arma o un pezzo d'armatura e un avviso compare sopra il gioco. F10 apre la sua pagina completa.",
-      },
-      {
         title: "Legge i nomi dei Guardiani",
         text: "Apri la schermata personaggio di qualcuno e Radar lo trova — anche con trattini bassi, parentesi, simboli, nomi cirillici e CJK.",
-      },
-      {
-        title: "Peculiarità dell'artefatto, esatte",
-        text: "Nella schermata dell'artefatto Radar elenca ogni peculiarità dell'artefatto stagionale con ciò che fa davvero.",
-      },
-      {
-        title: "Tutte le dotazioni in un posto",
-        text: "Equipaggia dotazioni di gioco e di DIM con un clic, salvane di nuove in DIM, o cambia un intero preset in un colpo.",
       },
       {
         title: "DIM e Discord sopra il gioco",
@@ -136,6 +195,10 @@ const it: Strings = {
         title: "Non rallenta il gioco",
         text: "Radar usa pochissimo il tuo PC: l'overlay disegna solo dove sono i suoi widget, e tutto ciò che non usi va in pausa.",
       },
+      {
+        title: "Nel tuo colore",
+        text: "Scegli il colore di una sottoclasse o uno tuo: l'app e l'overlay lo seguono.",
+      },
     ],
   },
   safety: {
@@ -143,7 +206,6 @@ const it: Strings = {
     title: "Giù le mani dal gioco.",
     text: "Radar sta accanto a Destiny 2, non dentro. Guarda lo schermo e chiede a Bungie — nient'altro.",
     items: [
-      "Non invia mai un tasto o un clic a Destiny 2",
       "Non legge né modifica la memoria o i file del gioco",
       "Legge solo ciò che è sullo schermo, come uno screenshot",
       "I tuoi dati vengono dall'API ufficiale di Bungie, come con DIM",
@@ -169,7 +231,7 @@ const it: Strings = {
     items: [
       {
         q: "Posso essere bannato per usare Radar?",
-        a: "Radar non inietta nulla, non legge la memoria del gioco e non invia mai input a Destiny 2. Legge ciò che è sullo schermo (come uno screenshot) e parla con l'API ufficiale di Bungie — proprio come DIM e le altre app companion.",
+        a: "Radar non inietta nulla e non legge la memoria del gioco. Legge ciò che è sullo schermo (come uno screenshot) e parla con l'API ufficiale di Bungie — proprio come DIM e le altre app companion.",
       },
       { q: "È gratis?", a: "Sì. Radar è gratuito da scaricare e usare." },
       { q: "Radar è open source?", a: "Sì. Tutto il codice sorgente di Radar è pubblico su GitHub – github.com/Niklas2654/D2Radar – con licenza GPL-3.0. Il codice di ogni versione pubblicata si trova lì." },

@@ -23,6 +23,10 @@ export const hasBackend = isTauri || isDemo;
 /** The demo's backend, loaded on first use (not in the app). */
 const web = isDemo ? import("../web/demo") : null;
 
+/** Recording for the website's demo (src/web/record): only in a dev run
+ *  started with VITE_DEMO_RECORD=1, never in a released build. */
+const recorder = import.meta.env.DEV && import.meta.env.VITE_DEMO_RECORD && isTauri ? import("../web/record") : null;
+
 let seqCount = 0;
 /** A rising number for the DIM and Discord tabs' show and hide calls: they
  *  run side by side, an older one coming in late is dropped. From the clock,
@@ -30,7 +34,16 @@ let seqCount = 0;
 export const nextSeq = () => Date.now() * 1000 + (++seqCount % 1000);
 
 export function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T | undefined> {
-  if (isTauri) return invoke<T>(cmd, args);
+  if (isTauri) {
+    const answer = invoke<T>(cmd, args);
+    if (recorder) {
+      void answer.then(
+        (result) => recorder.then((r) => r.note(cmd, args, result)),
+        () => {},
+      );
+    }
+    return answer;
+  }
   return web ? web.then((b) => b.call<T>(cmd, args)) : Promise.resolve(undefined);
 }
 
@@ -66,6 +79,9 @@ export function subscribe<T>(event: string, handler: (payload: T) => void): () =
       off?.();
     };
   }
-  const pending = listen<T>(event, (e) => handler(e.payload));
+  const pending = listen<T>(event, (e) => {
+    if (recorder) void recorder.then((r) => r.noteEvent(event, e.payload));
+    handler(e.payload);
+  });
   return () => void pending.then((unlisten) => unlisten());
 }

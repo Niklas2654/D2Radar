@@ -154,7 +154,9 @@ export const presets = {
     subclassPlugs: Record<number, number> | null = null,
     artifact: number[] | null = null,
     weaponPlugs: WeaponPlugs | null = null,
-  ) => (MOCK ? null : call<PresetPreview>("preset_preview", { characterId, items, statMods, subclassPlugs, artifact, weaponPlugs })),
+    /** The saved loadout opened in the builder: pieces kept from it keep the mods saved for them. */
+    from: string | null = null,
+  ) => (MOCK ? null : call<PresetPreview>("preset_preview", { characterId, items, statMods, subclassPlugs, artifact, weaponPlugs, from })),
   save: async (
     characterId: string | null,
     name: string,
@@ -166,7 +168,12 @@ export const presets = {
     id: string | null = null,
     artifact: number[] | null = null,
     weaponPlugs: WeaponPlugs | null = null,
-  ) => (MOCK ? (await wait(600), "1") : call<string>("preset_save", { characterId, name, items, statMods, subclassPlugs, id, artifact, weaponPlugs })),
+    /** The saved loadout it was opened from (also when saved as a new one). */
+    from: string | null = null,
+  ) =>
+    MOCK
+      ? (await wait(600), "1")
+      : call<string>("preset_save", { characterId, name, items, statMods, subclassPlugs, id, artifact, weaponPlugs, from }),
   /** A saved loadout as the builder and the optimizer start from it. */
   edit: (characterId: string | null, id: string) => call<Edit>("preset_edit", { characterId, id }),
 };

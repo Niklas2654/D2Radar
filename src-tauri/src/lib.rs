@@ -28,6 +28,7 @@ mod dimsync;
 mod discord;
 mod edit;
 mod fireteam;
+mod gamechat;
 mod hotkeys;
 mod inspect;
 mod i18n;
@@ -166,6 +167,9 @@ fn sync_window(app: &AppHandle) {
 }
 
 fn apply_edit_mode(app: &AppHandle, on: bool) {
+    // Only with the game running: without it nothing would show, while the
+    // hotkeys stayed taken everywhere.
+    let on = on && GAME_RUNNING.load(Ordering::SeqCst);
     let was_on = EDIT_MODE.swap(on, Ordering::SeqCst);
     // Placing widgets (hotkey or the app's button): no window over the
     // game, it would cover them.
@@ -191,10 +195,15 @@ fn apply_edit_mode(app: &AppHandle, on: bool) {
 
 fn apply_visible(app: &AppHandle, visible: bool) {
     WANTED.store(visible, Ordering::SeqCst);
-    if !visible {
-        EDIT_MODE.store(false, Ordering::SeqCst);
-    }
+    let was_editing = !visible && EDIT_MODE.swap(false, Ordering::SeqCst);
     sync_window(app);
+    if was_editing {
+        // Hidden out of the layout editor: back to the game, as on Done.
+        refit_overlay(app);
+        if GAME_RUNNING.load(Ordering::SeqCst) {
+            screen::focus_game();
+        }
+    }
     broadcast(app);
 }
 
@@ -207,6 +216,8 @@ fn watch_game(app: &AppHandle) {
         // Checks in a row with another app in front while DIM / Discord is
         // open over the game.
         let mut other_in_front = 0u32;
+        // Checks in a row with the front lost to a hidden Radar window.
+        let mut lost = 0u32;
         loop {
             let (active, why) = screen::destiny_active(OVERLAY_HWND.load(Ordering::SeqCst));
             let mut changed = GAME_ACTIVE.swap(active, Ordering::SeqCst) != active;
@@ -217,6 +228,10 @@ fn watch_game(app: &AppHandle) {
                 let running = active || screen::destiny_running();
                 let was_running = GAME_RUNNING.swap(running, Ordering::SeqCst);
                 changed |= was_running != running;
+                if was_running && !running {
+                    // The game quit while placing widgets: that is over.
+                    EDIT_MODE.store(false, Ordering::SeqCst);
+                }
                 if running && !was_running {
                     let handle = app.clone();
                     let _ = app.run_on_main_thread(move || launch::game_started(&handle));
@@ -247,8 +262,22 @@ fn watch_game(app: &AppHandle) {
             }
             // Hotkeys only while the game has the focus (or a Radar window
             // over it / the layout editor): elsewhere the keys stay free.
-            let keys_on =
-                screen::destiny_in_foreground() || EDIT_MODE.load(Ordering::SeqCst) || over_game(&app);
+            let editing = EDIT_MODE.load(Ordering::SeqCst) && GAME_RUNNING.load(Ordering::SeqCst);
+            // A Radar window closed over the game and the front stayed with
+            // it (hidden): back to the game, else no hotkey works.
+            if GAME_RUNNING.load(Ordering::SeqCst)
+                && !editing
+                && !over_game(&app)
+                && screen::front_lost()
+            {
+                lost += 1;
+                if lost == 2 {
+                    screen::focus_game();
+                }
+            } else {
+                lost = 0;
+            }
+            let keys_on = screen::destiny_in_foreground() || editing || over_game(&app);
             if HOTKEYS_ON.swap(keys_on, Ordering::SeqCst) != keys_on {
                 let handle = app.clone();
                 let _ = app.run_on_main_thread(move || hotkeys::set_active(&handle, keys_on));
@@ -429,6 +458,11 @@ pub fn run() {
             discord::discord_set_game_language,
             seasons::season_name,
             discord::discord_set_focus,
+            discord::discord_set_type_join,
+            discord::discord_watch_set,
+            discord::discord_watch_state,
+            discord::discord_watch_start,
+            discord::discord_watch_stop,
             discord::discord_set_accent,
             hotkeys::hotkeys_get,
             hotkeys::hotkey_set,
@@ -480,6 +514,7 @@ pub fn run() {
             armor::armor_compare,
             fireteam::guardian_candidates,
             armor::armor_mod_options,
+            armor::armor_plain_piece,
             armor::armor_set_mod,
             inspect::inspect_close,
             inspect::inspect_focus,
@@ -500,8 +535,6 @@ pub fn run() {
             oauth::oauth_set_client,
             oauth::oauth_login,
             oauth::oauth_logout,
-            oauth::usage_count_get,
-            oauth::usage_count_set,
             screen::overlay_set_areas,
             screen::overlay_set_capture_visible
         ])

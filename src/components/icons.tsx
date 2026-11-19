@@ -185,6 +185,13 @@ export const IconClose = () => (
   </svg>
 );
 
+export const IconLock = () => (
+  <svg {...base} width={10} height={10}>
+    <rect x="5" y="11" width="14" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
 export const IconMove = () => (
   <svg {...base} width={14} height={14}>
     <path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4" />

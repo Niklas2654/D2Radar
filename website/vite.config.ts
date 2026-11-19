@@ -41,5 +41,13 @@ function freshApp(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), freshApp()],
-  server: { port: 1440, strictPort: true },
+  server: {
+    port: 1440,
+    strictPort: true,
+    // The counters under the download (api/ runs on Vercel only): asked
+    // from the live site while developing, so they show here too.
+    proxy: Object.fromEntries(
+      ["/api/stats", "/api/downloads"].map((path) => [path, { target: "https://d2radar.vercel.app", changeOrigin: true }]),
+    ),
+  },
 });

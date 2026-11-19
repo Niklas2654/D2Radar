@@ -756,7 +756,7 @@ export function LoadoutBuilder({
     setPreviewing(true);
     const timer = window.setTimeout(() => {
       presets
-        .preview(character, ids, statMods, subclassPlugs, artifact, weaponPlugs)
+        .preview(character, ids, statMods, subclassPlugs, artifact, weaponPlugs, edit ?? null)
         .then((p) => !cancelled && setPreview(p ?? null))
         .catch(() => {})
         .finally(() => !cancelled && setPreviewing(false));
@@ -766,7 +766,7 @@ export function LoadoutBuilder({
       window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, character, statMods, subclassPlugs, artifact, weaponPlugs]);
+  }, [idsKey, character, statMods, subclassPlugs, artifact, weaponPlugs, edit]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -811,6 +811,7 @@ export function LoadoutBuilder({
         asNew ? null : edit,
         artifact,
         weaponPlugs,
+        edit ?? null,
       );
       // Saved: the next new loadout (or edit) starts afresh.
       try {

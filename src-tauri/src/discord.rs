@@ -5,7 +5,9 @@
 //!
 //! Radar never acts for the account: it navigates its own webview, looks at
 //! its address and title, and reads the messages shown, only locally, to put
-//! join buttons on "/join Name#1234" commands. Nothing is sent or stored.
+//! join buttons on "/join Name#1234" commands (and, while the player has a
+//! search running, to find the first new one with their keywords). Nothing
+//! is sent to Discord or stored.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -55,14 +57,22 @@ const HOME: &str = "https://discord.com/app";
 /// class names are hashed but keep their prefix.
 const SCRIPT: &str = r##"
 (() => {
+  // Discord's class names are "name_hash" (once "name__hash" for some):
+  // matched by the name as a whole, whatever the hash.
+  const cls = (name) => `:is([class^="${name}_"], [class*=" ${name}_"])`;
+  // Its page frame (the one that holds the content: other parts are
+  // called "base" too), and what the frame holds.
+  const FRAME = `div${cls("base")}:has(> ${cls("content")})`;
   // Width of the voice channels' bar on the right (focus mode).
   const VOICE = 230;
   // Focus mode lives in its own stylesheet, switched on and off (Discord
   // rewrites the classes on <html>, so a class there wouldn't stick).
   const focusCss = `
     :root, .theme-dark, .theme-midnight, .visual-refresh { --custom-app-top-bar-height: 0px !important; }
-    div[class*="base__"] { grid-template-rows: [top] 0 [titleBarEnd] min-content [noticeEnd] 1fr [end] !important; }
-    div[class*="base__"] > :not([class*="content__"]),
+    ${FRAME} { grid-template-rows: [top] 0 [titleBarEnd] min-content [noticeEnd] 1fr [end] !important; }
+    /* All but the content: Discord's bar on top (inbox, help: three icons
+       cut off by its height of 0 otherwise) and its notices. */
+    ${FRAME} > :not(${cls("content")}),
     nav[class*="guilds_"],
     div[class^="membersWrap_"], div[class*=" membersWrap_"] { display: none !important; }
     /* The channel list: out of sight, but still drawn (the voice channels
@@ -128,7 +138,7 @@ const SCRIPT: &str = r##"
     }
     /* See-through backgrounds only in the main view (chat, header); popups,
        menus and dialogs live in other layers and stay solid. */
-    div[class*="baseLayer__"], div[class*="baseLayer__"] [class*="theme-"], div[class*="baseLayer__"] [class*="visual-refresh"] {
+    div[class*="baseLayer_"], div[class*="baseLayer_"] [class*="theme-"], div[class*="baseLayer_"] [class*="visual-refresh"] {
       --background-primary: transparent !important;
       --background-secondary: transparent !important;
       --background-secondary-alt: rgb(255 255 255 / 0.03) !important;
@@ -160,7 +170,7 @@ const SCRIPT: &str = r##"
       --modal-background: #15171c !important;
       --modal-footer-background: #121419 !important;
     }
-    html, body, div[class*="bg__"] { background: transparent !important; }
+    html, body, div${cls("bg")} { background: transparent !important; }
     /* Radar's own window background (dark, a glow in the accent color, a
        cool blue below). Square: cut round, its corners showed the window
        behind in another colour. */
@@ -172,48 +182,48 @@ const SCRIPT: &str = r##"
     }
     /* The message box in Radar's glass look (Discord themes and Nitro
        colors would tint it otherwise). */
-    div[class*="baseLayer__"] div[class*="channelTextArea_"],
-    div[class*="baseLayer__"] div[class*="channelTextArea_"] div[class*="scrollableContainer_"],
-    div[class*="baseLayer__"] div[class*="channelTextArea_"] div[class*="themedBackground_"] {
+    div[class*="baseLayer_"] div[class*="channelTextArea_"],
+    div[class*="baseLayer_"] div[class*="channelTextArea_"] div[class*="scrollableContainer_"],
+    div[class*="baseLayer_"] div[class*="channelTextArea_"] div[class*="themedBackground_"] {
       /* On a solid base: messages scrolling beneath must not show through. */
       background: linear-gradient(145deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02)), #0b0e14 !important;
     }
-    div[class*="baseLayer__"] div[class*="channelTextArea_"] {
+    div[class*="baseLayer_"] div[class*="channelTextArea_"] {
       border: 1px solid rgb(255 255 255 / 0.09) !important;
       border-radius: 14px !important;
       box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 10px 30px -14px rgb(0 0 0 / 0.9) !important;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
-    div[class*="baseLayer__"] div[class*="channelTextArea_"] div[class*="scrollableContainer_"],
-    div[class*="baseLayer__"] div[class*="channelTextArea_"] div[class*="themedBackground_"] {
+    div[class*="baseLayer_"] div[class*="channelTextArea_"] div[class*="scrollableContainer_"],
+    div[class*="baseLayer_"] div[class*="channelTextArea_"] div[class*="themedBackground_"] {
       background: transparent !important;
       border-radius: 14px !important;
     }
-    div[class*="baseLayer__"] div[class*="channelTextArea_"]:focus-within {
+    div[class*="baseLayer_"] div[class*="channelTextArea_"]:focus-within {
       border-color: color-mix(in oklab, var(--radar-accent) 55%, transparent) !important;
       box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 0 22px -8px color-mix(in oklab, var(--radar-accent) 55%, transparent) !important;
     }
     /* Nothing in the main view paints over that (Discord color themes put
        their gradients on these containers and their pseudo-elements). */
-    div[class*="app__"],
-    div[class*="baseLayer__"] div[class*="page_"],
-    div[class*="baseLayer__"] div[class*="chat_"],
-    div[class*="baseLayer__"] div[class*="content_"],
-    div[class*="baseLayer__"] main[class*="chatContent_"],
-    div[class*="baseLayer__"] div[class*="messagesWrapper_"],
-    div[class*="baseLayer__"] div[class*="scroller"],
-    div[class*="baseLayer__"] form[class*="form_"],
-    div[class*="baseLayer__"] div[class*="container__"],
-    div[class*="baseLayer__"] div[class*="base__"],
-    div[class*="baseLayer__"] [class*="customTheme"] {
+    div${cls("app")},
+    div[class*="baseLayer_"] div[class*="page_"],
+    div[class*="baseLayer_"] div[class*="chat_"],
+    div[class*="baseLayer_"] div[class*="content_"],
+    div[class*="baseLayer_"] main[class*="chatContent_"],
+    div[class*="baseLayer_"] div[class*="messagesWrapper_"],
+    div[class*="baseLayer_"] div[class*="scroller"],
+    div[class*="baseLayer_"] form[class*="form_"],
+    div[class*="baseLayer_"] div${cls("container")}:has(> div${cls("base")}),
+    div[class*="baseLayer_"] ${FRAME},
+    div[class*="baseLayer_"] [class*="customTheme"] {
       background-color: transparent !important;
       background-image: none !important;
     }
-    div[class*="baseLayer__"] [class*="customTheme"]::before,
-    div[class*="baseLayer__"] [class*="customTheme"]::after { display: none !important; }
+    div[class*="baseLayer_"] [class*="customTheme"]::before,
+    div[class*="baseLayer_"] [class*="customTheme"]::after { display: none !important; }
     /* The player's own Discord color theme (Nitro gradients) paints the chat
        through these overlays; Radar's look replaces it. */
-    div[class*="baseLayer__"], div[class*="baseLayer__"] [class*="customTheme"] {
+    div[class*="baseLayer_"], div[class*="baseLayer_"] [class*="customTheme"] {
       --custom-theme-background: none !important;
       --bg-overlay-chat: transparent !important;
       --bg-overlay-app-frame: transparent !important;
@@ -227,7 +237,7 @@ const SCRIPT: &str = r##"
       --bg-overlay-active: rgb(255 255 255 / 0.06) !important;
       --bg-overlay-selected: rgb(255 255 255 / 0.08) !important;
     }
-    div[class*="baseLayer__"] [class*="customTheme"], .custom-theme-background, [class*="customThemeBackground"] {
+    div[class*="baseLayer_"] [class*="customTheme"], .custom-theme-background, [class*="customThemeBackground"] {
       background: none !important;
       background-image: none !important;
     }
@@ -241,7 +251,7 @@ const SCRIPT: &str = r##"
     }
     /* The message box covers what scrolls beneath it (it was see-through:
        messages showed through the field). */
-    div[class*="baseLayer__"] form[class*="form_"] {
+    div[class*="baseLayer_"] form[class*="form_"] {
       background-color: #05070c !important;
     }
     /* "New messages since …": a dark glass bar with the accent, not a
@@ -257,40 +267,40 @@ const SCRIPT: &str = r##"
     /* Side panels (search results, threads, pins, member list): Radar's
        dark glass, like the chat. Discord paints them in its own (or the
        player's theme) colors otherwise. */
-    div[class*="baseLayer__"] [class*="searchResultsWrap"],
-    div[class*="baseLayer__"] [class*="sidebarRight"],
-    div[class*="baseLayer__"] [class*="threadSidebar"],
-    div[class*="baseLayer__"] [class*="membersWrap_"],
-    div[class*="baseLayer__"] aside[class*="members"] {
+    div[class*="baseLayer_"] [class*="searchResultsWrap"],
+    div[class*="baseLayer_"] [class*="sidebarRight"],
+    div[class*="baseLayer_"] [class*="threadSidebar"],
+    div[class*="baseLayer_"] [class*="membersWrap_"],
+    div[class*="baseLayer_"] aside[class*="members"] {
       background: rgb(10 12 18 / 0.72) !important;
       border-left: 1px solid rgb(255 255 255 / 0.07) !important;
     }
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="searchHeader"],
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="scroller"],
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="searchResults_"],
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="channelSeparator"],
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="channelName"],
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="paginationContainer"],
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="container_"],
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="message_"] {
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="searchHeader"],
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="scroller"],
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="searchResults_"],
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="channelSeparator"],
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="channelName"],
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="paginationContainer"],
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="container_"],
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="message_"] {
       background-color: transparent !important;
       background-image: none !important;
     }
     /* Each result: a glass card. */
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="searchResult_"] {
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="searchResult_"] {
       background: linear-gradient(145deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.02)) !important;
       border: 1px solid rgb(255 255 255 / 0.07) !important;
       border-radius: 12px !important;
       box-shadow: none !important;
     }
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="searchResult_"]:hover {
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="searchResult_"]:hover {
       border-color: rgb(255 255 255 / 0.14) !important;
     }
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="searchHeader"] {
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="searchHeader"] {
       border-bottom: 1px solid rgb(255 255 255 / 0.07) !important;
     }
     /* Search hits highlighted in the accent, not Discord's yellow. */
-    div[class*="baseLayer__"] [class*="searchResultsWrap"] [class*="highlight"] {
+    div[class*="baseLayer_"] [class*="searchResultsWrap"] [class*="highlight"] {
       background: color-mix(in oklab, var(--radar-accent) 30%, transparent) !important;
       color: #fff !important;
       border-radius: 4px;
@@ -347,7 +357,7 @@ const SCRIPT: &str = r##"
   // (focusStyle last: place() checks for it.)
   const ours = [loading, base, accentStyle, voiceRoom, focusStyle];
   const loaded = () => {
-    if (!document.querySelector('div[class*="baseLayer__"]')) return false;
+    if (!document.querySelector('div[class*="baseLayer_"]')) return false;
     loading.remove();
     ours.shift();
     return true;
@@ -414,7 +424,7 @@ const SCRIPT: &str = r##"
     warming = true;
     try {
       // Discord up and signed in (its main view there), and hidden.
-      for (let i = 0; i < 60 && !document.querySelector('div[class*="baseLayer__"]'); i++) await sleep(500);
+      for (let i = 0; i < 60 && !document.querySelector('div[class*="baseLayer_"]'); i++) await sleep(500);
       await sleep(1500);
       if (document.visibilityState !== "hidden") return;
       const home = location.pathname + location.search;
@@ -541,7 +551,7 @@ const SCRIPT: &str = r##"
       const limit = label.match(/(\d+)\s+(?:von|of|sur|de)\s+(\d+)/i);
       out.push({
         id: link.getAttribute("data-list-item-id").slice("channels___".length),
-        name: (link.querySelector('[class*="name__"], [class*="channelName"]') || {}).textContent || label.split(" (")[0],
+        name: (link.querySelector('[class^="name_"], [class*=" name_"], [class*="channelName"]') || {}).textContent || label.split(" (")[0],
         count: limit ? `${limit[1]}/${limit[2]}` : users.length ? String(users.length) : "",
         joined: /\b(verbunden|connected|connecté)\b/i.test(label),
         users,
@@ -921,6 +931,41 @@ const SCRIPT: &str = r##"
       });
     }).observe(document.body, { childList: true, subtree: true, characterData: true });
   };
+  // The search that joins by itself, in Radar's hidden search page only
+  // (see discord_watch_start): Radar calls this every second with what is
+  // looked for: `all` must be in a message's text, `none` must not (lower
+  // case, anywhere in it), in the channels `paths` (looked at in turn),
+  // among messages written since `since`. The first one with a join code
+  // is told to Radar (radar://autojoin); nothing is sent to Discord.
+  const EPOCH = 1420070400000n;
+  const watched = new Set();
+  let watchAt = 0;
+  window.__radarWatchTick = (w) => {
+    const here = w.paths.indexOf(location.pathname);
+    if (here >= 0) {
+      for (const content of document.querySelectorAll('[id^="message-content-"]')) {
+        const id = content.id.slice(16);
+        if (!/^\d{15,22}$/.test(id) || watched.has(id) || isReplyPreview(content)) continue;
+        watched.add(id);
+        // A message's id holds the time it was written.
+        if (Number((BigInt(id) >> 22n) + EPOCH) < w.since) continue;
+        const text = ownText(content, true);
+        const low = text.toLowerCase();
+        if (!w.all.every((k) => low.includes(k)) || w.none.some((k) => low.includes(k))) continue;
+        const names = [...text.matchAll(JOIN)].map((m) => fullCode(m[1]));
+        if (!names.length) continue;
+        location.href = "radar://autojoin?n=" + encodeURIComponent(names[0]) + "&t=" + encodeURIComponent(text.slice(0, 240));
+        return;
+      }
+    }
+    // On to the next channel (or to the first, from anywhere else).
+    const now = Date.now();
+    if (here < 0 ? now - watchAt > 1500 : w.paths.length > 1 && now - watchAt > 4000) {
+      watchAt = now;
+      history.pushState(null, "", w.paths[(here + 1) % w.paths.length]);
+      dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    }
+  };
   const startJoin = () => {
     try {
       watchMessages();
@@ -957,6 +1002,11 @@ pub struct DiscordConfig {
     /// The Discord servers by id (from the pins' links): name and icon, as
     /// Discord's server list shows them (sent by SCRIPT, see `servers_seen`).
     servers: std::collections::HashMap<String, Server>,
+    /// A join button sends the command in the game's chat itself (Enter,
+    /// paste, Enter; see gamechat.rs), not only copies it.
+    type_join: bool,
+    /// The last search for a group to join (keywords, channels).
+    watch: Watch,
 }
 
 /// A Discord server as its list shows it, for grouping the pins.
@@ -998,21 +1048,35 @@ fn open_voice(url: &Url) -> bool {
 /// and icons kept, the app told (its pin list groups by server).
 fn servers_seen(app: &AppHandle, url: &Url) {
     use tauri::Emitter;
-    let Some((_, data)) = url.query_pairs().find(|(k, _)| k == "d") else { return };
-    let Ok(seen) = serde_json::from_str::<std::collections::HashMap<String, Server>>(&data) else { return };
-    let mut c = config(app);
-    let before = serde_json::to_string(&c.servers).unwrap_or_default();
-    for (id, server) in seen {
-        // Only real ids, and only what is plausible to show.
-        if id.chars().all(|c| c.is_ascii_digit()) && !server.name.trim().is_empty() {
-            let icon = server.icon.filter(|i| i.starts_with("https://cdn.discordapp.com/"));
-            c.servers.insert(id, Server { name: server.name.trim().chars().take(100).collect(), icon });
+    let Some((_, data)) = url.query_pairs().find(|(k, _)| k == "d") else {
+        return;
+    };
+    let Ok(seen) = serde_json::from_str::<std::collections::HashMap<String, Server>>(&data) else {
+        return;
+    };
+    let mut changed = false;
+    let saved = update(app, |c| {
+        let before = serde_json::to_string(&c.servers).unwrap_or_default();
+        for (id, server) in seen {
+            // Only real ids, and only what is plausible to show.
+            if id.chars().all(|c| c.is_ascii_digit()) && !server.name.trim().is_empty() {
+                let icon = server
+                    .icon
+                    .filter(|i| i.starts_with("https://cdn.discordapp.com/"));
+                c.servers.insert(
+                    id,
+                    Server {
+                        name: server.name.trim().chars().take(100).collect(),
+                        icon,
+                    },
+                );
+            }
         }
-    }
-    if serde_json::to_string(&c.servers).unwrap_or_default() != before {
-        if let Ok(c) = store(app, c) {
-            let _ = app.emit("discord-config", c);
-        }
+        changed = serde_json::to_string(&c.servers).unwrap_or_default() != before;
+        changed
+    });
+    if let (true, Ok(c)) = (changed, saved) {
+        let _ = app.emit("discord-config", c);
     }
 }
 
@@ -1042,6 +1106,22 @@ fn store(app: &AppHandle, c: DiscordConfig) -> Result<DiscordConfig, String> {
     std::fs::write(path(app), serde_json::to_string_pretty(&c).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     *CONFIG.lock().unwrap() = Some(c.clone());
     Ok(c)
+}
+
+/// One change at a time: read, change and write as one step, so two at
+/// once don't undo each other. `change` returns whether to write at all.
+static UPDATE: Mutex<()> = Mutex::new(());
+
+fn update(
+    app: &AppHandle,
+    change: impl FnOnce(&mut DiscordConfig) -> bool,
+) -> Result<DiscordConfig, String> {
+    let _one = UPDATE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut c = config(app);
+    if !change(&mut c) {
+        return Ok(c);
+    }
+    store(app, c)
 }
 
 /// Only Discord's own pages open inside; other links go to the browser.
@@ -1119,7 +1199,7 @@ const GAME_SCRIPT: &str = r##"
       #app-mount { left: ${BAR}px !important; width: calc(100% - ${BAR}px) !important; }
       #radar-pins {
         position: fixed; z-index: 2147483000; top: 0; left: 0; bottom: 0; width: ${BAR}px;
-        box-sizing: border-box; padding: 14px 10px; overflow-y: auto;
+        box-sizing: border-box; padding: 14px 10px; overflow: hidden;
         background:
           radial-gradient(120% 50% at 0% 0%, color-mix(in oklab, var(--radar-accent, #5b8cff) 22%, transparent), transparent 70%),
           linear-gradient(180deg, #11141e, #0a0c13);
@@ -1146,14 +1226,13 @@ const GAME_SCRIPT: &str = r##"
         background: linear-gradient(90deg, color-mix(in oklab, var(--radar-accent, #5b8cff) 30%, transparent), transparent);
         color: #fff; font-weight: 600;
       }
-      #radar-pins button[data-active]::before {
-        content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px;
-        background: var(--radar-accent, #5b8cff); box-shadow: 0 0 10px var(--radar-accent, #5b8cff);
-      }
       #radar-pins button span { color: rgb(255 255 255 / 0.35); font-size: 15px; }
       #radar-pins { display: flex; flex-direction: column; }
+      /* The channels scroll on their own; auto-join and the join code stay
+         at the bottom (auto-join opens upwards, over the list's room). */
+      #radar-pins .radar-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -10px; padding: 0 10px; }
       #radar-pins .radar-me {
-        margin-top: auto; padding: 10px; border-radius: 12px;
+        flex: none; margin-top: 8px; padding: 10px; border-radius: 12px;
         background: rgb(255 255 255 / 0.04); border: 1px solid rgb(255 255 255 / 0.08);
       }
       #radar-pins .radar-me small {
@@ -1170,6 +1249,51 @@ const GAME_SCRIPT: &str = r##"
       }
       #radar-pins .radar-me button:hover { background: color-mix(in oklab, var(--radar-accent, #5b8cff) 60%, transparent); }
       #radar-pins .radar-me button[data-done] { background: rgb(52 211 153 / 0.35); }
+      /* The search that joins by itself: keywords, the channels searched. */
+      #radar-pins .radar-watch {
+        flex: none; margin-top: 8px; padding: 4px; border-radius: 12px;
+        background: rgb(255 255 255 / 0.04); border: 1px solid rgb(255 255 255 / 0.08);
+      }
+      #radar-pins .radar-watch + .radar-me { margin-top: 8px; }
+      #radar-pins .radar-watch-head {
+        padding: 6px 8px; margin: 0; font-size: 10px; font-weight: 600; letter-spacing: 0.14em;
+        text-transform: uppercase; color: rgb(255 255 255 / 0.4);
+      }
+      #radar-pins .radar-watch-head b { flex: 1; font-weight: 600; }
+      #radar-pins .radar-watch-head u {
+        text-decoration: none; letter-spacing: 0; text-transform: none; font-size: 11px;
+        color: color-mix(in oklab, var(--radar-accent, #5b8cff) 58%, white);
+      }
+      #radar-pins .radar-watch-head em { flex: none; font-style: normal; transition: transform 0.2s; }
+      #radar-pins .radar-watch:not([data-open]) .radar-watch-head em { transform: rotate(90deg); }
+      #radar-pins .radar-watch-checks { max-height: 30vh; overflow-y: auto; }
+      #radar-pins .radar-watch input {
+        box-sizing: border-box; width: calc(100% - 8px); margin: 2px 4px 6px; padding: 6px 8px;
+        border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.12); background: rgb(0 0 0 / 0.3);
+        color: #fff; font: inherit; font-size: 12px; outline: none;
+      }
+      #radar-pins .radar-watch input:focus { border-color: var(--radar-accent, #5b8cff); }
+      #radar-pins .radar-watch input:disabled { opacity: 0.6; }
+      #radar-pins .radar-watch .radar-check { padding: 4px 8px; margin: 0; font-size: 12px; }
+      #radar-pins .radar-watch .radar-check i {
+        flex: none; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgb(255 255 255 / 0.25);
+        display: grid; place-items: center; font: 700 9px/1 "Segoe UI", sans-serif; font-style: normal; color: #000;
+      }
+      #radar-pins .radar-watch .radar-check[data-on] i { background: var(--radar-accent, #5b8cff); border-color: transparent; }
+      #radar-pins .radar-watch .radar-go {
+        justify-content: center; width: calc(100% - 8px); margin: 6px 4px 4px; padding: 6px 10px;
+        font-weight: 600; color: #fff; background: color-mix(in oklab, var(--radar-accent, #5b8cff) 40%, transparent);
+      }
+      #radar-pins .radar-watch .radar-go:hover { background: color-mix(in oklab, var(--radar-accent, #5b8cff) 60%, transparent); }
+      #radar-pins .radar-watch .radar-go[data-stop] { background: rgb(255 255 255 / 0.08); }
+      #radar-pins .radar-watch .radar-go[data-off] { opacity: 0.45; cursor: default; }
+      #radar-pins .radar-watch p {
+        margin: 4px 8px 6px; font-size: 11.5px; line-height: 1.35; color: rgb(255 255 255 / 0.6);
+        white-space: normal; overflow-wrap: anywhere;
+      }
+      #radar-pins .radar-watch p[data-error] { color: #f5a3a8; }
+      #radar-pins .radar-watch .radar-auto { margin-top: 4px; padding-top: 8px; border-top: 1px solid rgb(255 255 255 / 0.06); border-radius: 0; }
+      #radar-pins .radar-watch .radar-auto + p { margin-top: 0; font-size: 11px; color: rgb(255 255 255 / 0.45); }
       #radar-pins button[data-active] span { color: var(--radar-accent, #5b8cff); }
       /* A server's channels as one package: its icon and name on top (a
          click folds them away), the channels inside. */
@@ -1200,6 +1324,18 @@ const GAME_SCRIPT: &str = r##"
   let pins = [];
   let me = null;
   let knownServers = {};
+  // The search that joins by itself (see discord_watch_start in Radar),
+  // started from here too: how it stands, and what is typed in here.
+  let watch = { active: false, found: null, error: null, typeJoin: false };
+  let draft = null;
+  // What is typed and ticked here, kept by Radar (the tab shows the same).
+  let saveAt = 0;
+  const saveDraft = () => {
+    clearTimeout(saveAt);
+    location.href = "radar://watch/set?k=" + encodeURIComponent(draft.keywords) + "&c=" + encodeURIComponent(JSON.stringify(draft.channels));
+  };
+  let watchOpen = false;
+  try { watchOpen = localStorage.getItem("radarWatchOpen") === "1"; } catch {}
   // Servers folded away (shared with the tab: same Discord storage).
   const closed = new Set();
   try { JSON.parse(localStorage.getItem("radarClosedServers") || "[]").forEach((id) => closed.add(id)); } catch {}
@@ -1213,10 +1349,18 @@ const GAME_SCRIPT: &str = r##"
       document.body.appendChild(bar);
     }
     const here = location.pathname;
+    // (Drawn anew: the list keeps where it was scrolled to.)
+    const old = bar.querySelector(".radar-list");
+    const scrolled = old ? old.scrollTop : 0;
+    const oldChecks = bar.querySelector(".radar-watch-checks");
+    const checksScrolled = oldChecks ? oldChecks.scrollTop : 0;
     bar.replaceChildren();
+    const scroller = document.createElement("div");
+    scroller.className = "radar-list";
+    bar.appendChild(scroller);
     const title = document.createElement("h2");
     title.textContent = "Channels";
-    bar.appendChild(title);
+    scroller.appendChild(title);
     // By server (the id in the link), in the order they were pinned.
     const guilds = { ...knownServers, ...(window.__radarGuilds ? window.__radarGuilds() : {}) };
     const groups = new Map();
@@ -1275,7 +1419,132 @@ const GAME_SCRIPT: &str = r##"
         channels.appendChild(button);
       }
       box.append(head, channels);
+      scroller.appendChild(box);
+    }
+    scroller.scrollTop = scrolled;
+    // The search that joins by itself: keywords, the channels to search.
+    if (draft) {
+      const de = window.__radarLang === "de";
+      const typing = document.activeElement && document.activeElement.id === "radar-watch-input";
+      const box = document.createElement("div");
+      box.className = "radar-watch";
+      if (watchOpen) box.dataset.open = "";
+      const head = document.createElement("button");
+      head.className = "radar-watch-head";
+      const label = document.createElement("b");
+      label.textContent = "Auto-Join";
+      head.appendChild(label);
+      if (watch.active) {
+        const state = document.createElement("u");
+        state.textContent = de ? "Sucht …" : "Searching …";
+        head.appendChild(state);
+      }
+      const fold = document.createElement("em");
+      fold.textContent = "▴";
+      head.appendChild(fold);
+      head.addEventListener("click", () => {
+        watchOpen = !watchOpen;
+        try { localStorage.setItem("radarWatchOpen", watchOpen ? "1" : "0"); } catch {}
+        render();
+      });
+      let input = null;
+      if (watchOpen) {
+        const picked = draft.channels.filter((c) => pins.some((p) => p.url === c));
+        const start = () => {
+          if (watch.active || !draft.keywords.trim() || !picked.length) return;
+          location.href = "radar://watch/start?k=" + encodeURIComponent(draft.keywords) + "&c=" + encodeURIComponent(JSON.stringify(picked));
+        };
+        input = document.createElement("input");
+        input.id = "radar-watch-input";
+        input.value = draft.keywords;
+        input.placeholder = de ? "z. B. gm fresh -kwtd" : "e.g. gm fresh -kwtd";
+        input.title = de
+          ? "Tritt dem ersten neuen Post bei, der alle Begriffe enthält. -Begriff schließt aus."
+          : "Joins the first new post that contains every term. -term excludes.";
+        input.spellcheck = false;
+        input.disabled = watch.active;
+        const go = document.createElement("button");
+        const ready = () => {
+          if (watch.active || (draft.keywords.trim() && picked.length)) delete go.dataset.off;
+          else go.dataset.off = "";
+        };
+        input.addEventListener("input", () => {
+          draft.keywords = input.value;
+          ready();
+          clearTimeout(saveAt);
+          saveAt = setTimeout(saveDraft, 400);
+        });
+        // (Not on to Discord: its own keys.)
+        input.addEventListener("keydown", (e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") start();
+        });
+        box.appendChild(input);
+        const checks = document.createElement("div");
+        checks.className = "radar-watch-checks";
+        box.appendChild(checks);
+        for (const pin of pins) {
+          const on = picked.includes(pin.url);
+          const row = document.createElement("button");
+          row.className = "radar-check";
+          if (on) row.dataset.on = "";
+          const mark = document.createElement("i");
+          mark.textContent = on ? "✓" : "";
+          row.append(mark, pin.name.replace(/^#/, ""));
+          row.title = pin.name;
+          row.addEventListener("click", () => {
+            if (watch.active) return;
+            draft.channels = on ? picked.filter((c) => c !== pin.url) : [...picked, pin.url];
+            saveDraft();
+            render();
+          });
+          checks.appendChild(row);
+        }
+        go.className = "radar-go";
+        if (watch.active) {
+          go.dataset.stop = "";
+          go.textContent = de ? "Stoppen" : "Stop";
+          go.addEventListener("click", () => { location.href = "radar://watch/stop"; });
+        } else {
+          go.textContent = de ? "Suche starten" : "Start search";
+          go.addEventListener("click", start);
+        }
+        ready();
+        box.appendChild(go);
+        // Join buttons (and the search) typing the command into Destiny,
+        // or only copying it: the same switch as in Radar's tab.
+        const auto = document.createElement("button");
+        auto.className = "radar-check radar-auto";
+        if (watch.typeJoin) auto.dataset.on = "";
+        const autoMark = document.createElement("i");
+        autoMark.textContent = watch.typeJoin ? "✓" : "";
+        auto.append(autoMark, "Autojoin in Destiny");
+        auto.addEventListener("click", () => {
+          location.href = "radar://watch/typejoin?on=" + (watch.typeJoin ? "0" : "1");
+        });
+        box.appendChild(auto);
+        const autoHint = document.createElement("p");
+        autoHint.textContent = watch.typeJoin
+          ? (de ? "Join-Buttons treten in Destiny automatisch bei" : "Join buttons join in Destiny automatically")
+          : (de ? "Join-Buttons kopieren den Befehl nur in die Zwischenablage" : "Join buttons only copy the command to the clipboard");
+        box.appendChild(autoHint);
+        if (watch.error) {
+          const error = document.createElement("p");
+          error.dataset.error = "";
+          error.textContent = watch.error;
+          box.appendChild(error);
+        }
+      }
+      // The head below: it opens upwards.
+      box.appendChild(head);
       bar.appendChild(box);
+      const checks = box.querySelector(".radar-watch-checks");
+      if (checks) checks.scrollTop = checksScrolled;
+      // (Drawn anew while typing: the caret back where it was.)
+      if (typing && input && !input.disabled) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
     }
     // The player's own join code, to paste into a message.
     if (me) {
@@ -1307,6 +1576,18 @@ const GAME_SCRIPT: &str = r##"
   };
   // Again once Discord's server list is there (names and icons).
   window.__radarRenderPins = () => render();
+  // How the search stands (and, the first time, what was last searched).
+  window.__radarWatch = (state) => {
+    watch = state;
+    // As kept by Radar (changed in the tab too); not the keywords while
+    // they are being typed here.
+    const typing = document.activeElement && document.activeElement.id === "radar-watch-input";
+    draft = {
+      keywords: typing && draft ? draft.keywords : state.keywords || "",
+      channels: state.channels || [],
+    };
+    if (document.readyState !== "loading") render();
+  };
   window.__radarPins = (list, player, servers) => {
     pins = list;
     me = player || null;
@@ -1424,10 +1705,11 @@ fn game_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     // Pins and accent go in with the page, not only once it has
     // loaded (the bar and the colors came in late).
     let script = format!(
-        "{}\n{SCRIPT}\nwindow.__radarOpacityValue = {opacity};\n{GAME_SCRIPT}\n{}\n{}",
+        "{}\n{SCRIPT}\nwindow.__radarOpacityValue = {opacity};\n{GAME_SCRIPT}\n{}\n{}\n{}",
         lang_script(),
         focus_script(),
-        pins_script(&app)
+        pins_script(&app),
+        watch_script(&app, None)
     );
     let handle = app.clone();
     let built = tauri::WebviewWindowBuilder::new(&app, GAME_LABEL, WebviewUrl::External(url))
@@ -1445,6 +1727,7 @@ fn game_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
                 let _ = window.eval(lang_script());
                 let _ = window.eval(focus_script());
                 let _ = window.eval(pins_script(&window.app_handle().clone()));
+                let _ = window.eval(watch_script(window.app_handle(), None));
                 let opacity = crate::hotkeys::discord_opacity(window.app_handle());
                 let _ = window.eval(format!("window.__radarOpacity && window.__radarOpacity({opacity})"));
                 if SHOW_WHEN_LOADED.swap(false, Ordering::SeqCst) {
@@ -1465,9 +1748,14 @@ fn game_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
                         let _ = window.hide();
                     }
                 }
+                // The search that joins by itself, started or stopped in
+                // the bar.
+                if url.host_str() == Some("watch") {
+                    watch_asked(&handle, url);
+                }
                 if url.host_str() == Some("join") {
                     // The game first, while this window has the front.
-                    crate::screen::focus_game();
+                    join_clicked(&handle, url);
                     if let Some(window) = handle.get_webview_window(GAME_LABEL) {
                         let _ = window.hide();
                     }
@@ -1499,10 +1787,10 @@ pub fn toggle_in_game(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let opacity = crate::hotkeys::discord_opacity(&app);
-        if OWN_NAME.lock().unwrap().is_none() {
-            let _ = own_join_name(app.clone()).await;
-        }
-        if let Some(window) = app.get_webview_window(GAME_LABEL).filter(|w| w.is_visible().unwrap_or(false)) {
+        if let Some(window) = app
+            .get_webview_window(GAME_LABEL)
+            .filter(|w| w.is_visible().unwrap_or(false))
+        {
             // The game first, while this window still has the front.
             crate::screen::focus_game();
             let _ = window.hide();
@@ -1519,6 +1807,33 @@ pub fn toggle_in_game(app: &AppHandle) {
         let _ = window.eval(pins_script(&app));
         if !created {
             show_game_window(&app, &window);
+        } else {
+            // A page that never finishes loading (Discord slow, offline):
+            // shown all the same after a while, not never.
+            let handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                if SHOW_WHEN_LOADED.swap(false, Ordering::SeqCst) {
+                    if let Some(window) = handle.get_webview_window(GAME_LABEL) {
+                        show_game_window(&handle, &window);
+                    }
+                }
+            });
+        }
+        // The player's own name (marks their own posts), asked of Bungie:
+        // behind the window, never holding the hotkey up.
+        if OWN_NAME.lock().unwrap().is_none() {
+            let handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if own_join_name(handle.clone())
+                    .await
+                    .is_ok_and(|n| n.is_some())
+                {
+                    if let Some(window) = handle.get_webview_window(GAME_LABEL) {
+                        let _ = window.eval(pins_script(&handle));
+                    }
+                }
+            });
         }
     });
 }
@@ -1555,7 +1870,7 @@ fn get_or_create(app: &AppHandle, position: LogicalPosition<f64>, size: LogicalS
             // Destiny 2 comes to the front, the page stays.
             if url.scheme() == "radar" {
                 if url.host_str() == Some("join") && crate::screen::destiny_running() {
-                    crate::screen::focus_game();
+                    join_clicked(&handle, url);
                 }
                 if url.host_str() == Some("servers") {
                     servers_seen(&handle, url);
@@ -1834,10 +2149,14 @@ pub fn discord_config(app: AppHandle) -> DiscordConfig {
 
 /// Destiny's language, for the command join buttons copy.
 #[tauri::command]
-pub fn discord_set_game_language(app: AppHandle, language: String) -> Result<DiscordConfig, String> {
-    let mut c = config(&app);
-    c.game_language = language;
-    let c = store(&app, c)?;
+pub fn discord_set_game_language(
+    app: AppHandle,
+    language: String,
+) -> Result<DiscordConfig, String> {
+    let c = update(&app, |c| {
+        c.game_language = language;
+        true
+    })?;
     *GAME_LANG.lock().unwrap() = c.game_language.clone();
     push_language(&app);
     Ok(c)
@@ -1849,7 +2168,10 @@ pub fn discord_save_pins(app: AppHandle, pins: Vec<Pin>) -> Result<DiscordConfig
         .into_iter()
         .filter(|p| p.url.parse::<Url>().is_ok_and(|u| is_discord(&u)))
         .collect();
-    let saved = store(&app, DiscordConfig { pins, ..config(&app) })?;
+    let saved = update(&app, |c| {
+        c.pins = pins;
+        true
+    })?;
     // New pins: warmed too.
     if let Some(webview) = app.get_webview(LABEL) {
         let _ = webview.eval(warm_script(&app));
@@ -1868,5 +2190,440 @@ pub fn discord_set_focus(app: AppHandle, on: bool) {
         if !on {
             let _ = webview.set_focus();
         }
+    }
+}
+
+/* ---------- Joining from Discord ---------- */
+
+/// "%C3%A4" → "ä" (a name in a radar:// address).
+fn decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = (bytes[i] == b'%')
+            .then(|| text.get(i + 1..i + 3))
+            .flatten()
+            .and_then(|h| u8::from_str_radix(h, 16).ok());
+        match hex {
+            Some(byte) => {
+                out.push(byte);
+                i += 3;
+            }
+            None => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// A Bungie name as a join command takes it ("Name#1234"), and nothing
+/// else: what a page hands over is typed into the game's chat.
+fn join_name(raw: &str) -> Option<String> {
+    let name = raw.trim();
+    let (base, code) = name.rsplit_once('#')?;
+    let valid = !base.trim().is_empty()
+        && name.chars().count() <= 45
+        && (3..=4).contains(&code.len())
+        && code.chars().all(|c| c.is_ascii_digit())
+        && !name.chars().any(|c| c.is_control() || c == '/');
+    valid.then(|| name.to_string())
+}
+
+fn join_command(name: &str) -> String {
+    format!("{} {name}", join_verb(&GAME_LANG.lock().unwrap()))
+}
+
+/// A join button was clicked (radar://join/<name>; the page has copied the
+/// command): the game to the front, and, if set so, the command sent in
+/// its chat.
+fn join_clicked(app: &AppHandle, url: &Url) {
+    // While Radar's window still has the front (it may hand it on).
+    crate::screen::focus_game();
+    if !config(app).type_join {
+        return;
+    }
+    let Some(name) = join_name(&decode(url.path().trim_matches('/'))) else {
+        return;
+    };
+    let command = join_command(&name);
+    std::thread::spawn(move || {
+        if let Err(e) = crate::gamechat::send_in_game(&command, true) {
+            eprintln!("[discord] join not typed: {e}");
+        }
+    });
+}
+
+/// Join buttons type the command into the game themselves (or only copy it).
+#[tauri::command]
+pub fn discord_set_type_join(app: AppHandle, on: bool) -> Result<DiscordConfig, String> {
+    use tauri::Emitter;
+    let c = update(&app, |c| {
+        c.type_join = on;
+        true
+    })?;
+    // The tab and the bar over the game show the same.
+    let _ = app.emit("discord-config", &c);
+    tell_game_window(&app, None);
+    Ok(c)
+}
+
+/* ---------- The search that joins by itself ---------- */
+
+/// Discord a second time, unseen (beside the window, so the page keeps
+/// running as a shown one): it goes through the channels searched while
+/// the tab and the window over the game show what the player looks at.
+/// There only while a search runs.
+const WATCH_LABEL: &str = "discord-watch";
+
+/// What was last searched for (kept for the next search).
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Watch {
+    /// Parts of text a message must hold, all of them ("-part": must not),
+    /// separated by spaces or commas.
+    keywords: String,
+    /// The pinned channels searched (their addresses).
+    channels: Vec<String>,
+}
+
+/// The message a search ended on.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Found {
+    name: String,
+    text: String,
+    /// Sent in the game's chat (else only copied: the game wasn't there).
+    typed: bool,
+}
+
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WatchStatus {
+    active: bool,
+    found: Option<Found>,
+}
+
+/// The search running: its number (a newer one ends the older's loop).
+static WATCHING: Mutex<Option<u64>> = Mutex::new(None);
+static WATCH_RUN: AtomicU64 = AtomicU64::new(0);
+static FOUND: Mutex<Option<Found>> = Mutex::new(None);
+
+fn watch_status() -> WatchStatus {
+    WatchStatus {
+        active: WATCHING.lock().unwrap().is_some(),
+        found: FOUND.lock().unwrap().clone(),
+    }
+}
+
+fn watch_changed(app: &AppHandle) {
+    use tauri::Emitter;
+    let _ = app.emit("discord-watch", watch_status());
+    tell_game_window(app, None);
+}
+
+/// How the search stands, for the bar of Discord over the game (and what
+/// was last searched; `error`: why it didn't start).
+fn watch_script(app: &AppHandle, error: Option<&str>) -> String {
+    let c = config(app);
+    let last = c.watch;
+    let status = watch_status();
+    format!(
+        "window.__radarWatch && window.__radarWatch({})",
+        serde_json::json!({
+            "keywords": last.keywords,
+            "channels": last.channels,
+            "active": status.active,
+            "found": status.found,
+            "error": error,
+            "typeJoin": c.type_join,
+        })
+    )
+}
+
+fn tell_game_window(app: &AppHandle, error: Option<&str>) {
+    if let Some(window) = app.get_webview_window(GAME_LABEL) {
+        let _ = window.eval(watch_script(app, error));
+    }
+}
+
+/// The bar of Discord over the game starts or stops the search
+/// (radar://watch/start?k=<keywords>&c=<channels as JSON>, radar://watch/stop).
+fn watch_asked(app: &AppHandle, url: &Url) {
+    let app = app.clone();
+    if url.path() == "/typejoin" {
+        let on = url.query_pairs().any(|(k, v)| k == "on" && v == "1");
+        let _ = discord_set_type_join(app, on);
+        return;
+    }
+    if url.path() == "/set" {
+        let value = |key: &str| {
+            url.query_pairs()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.into_owned())
+        };
+        let keywords = value("k").unwrap_or_default();
+        let channels: Vec<String> = value("c")
+            .and_then(|c| serde_json::from_str(&c).ok())
+            .unwrap_or_default();
+        let _ = discord_watch_set(app, keywords, channels);
+        return;
+    }
+    if url.path() != "/start" {
+        tauri::async_runtime::spawn(async move {
+            let _ = discord_watch_stop(app).await;
+        });
+        return;
+    }
+    let value = |key: &str| {
+        url.query_pairs()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.into_owned())
+    };
+    let keywords = value("k").unwrap_or_default();
+    let channels: Vec<String> = value("c")
+        .and_then(|c| serde_json::from_str(&c).ok())
+        .unwrap_or_default();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = discord_watch_start(app.clone(), keywords, channels).await {
+            tell_game_window(&app, Some(&e));
+        }
+    });
+}
+
+fn close_watch(app: &AppHandle) {
+    if let Some(webview) = app.get_webview(WATCH_LABEL) {
+        let _ = webview.close();
+    }
+}
+
+/// What is typed and ticked for the search (tab and the bar over the game
+/// show the same), kept without starting it.
+#[tauri::command]
+pub fn discord_watch_set(
+    app: AppHandle,
+    keywords: String,
+    channels: Vec<String>,
+) -> Result<DiscordConfig, String> {
+    use tauri::Emitter;
+    let keywords: String = keywords
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(200)
+        .collect();
+    let c = update(&app, |c| {
+        c.watch = Watch { keywords, channels };
+        true
+    })?;
+    let _ = app.emit("discord-config", &c);
+    tell_game_window(&app, None);
+    Ok(c)
+}
+
+#[tauri::command]
+pub fn discord_watch_state() -> WatchStatus {
+    watch_status()
+}
+
+#[tauri::command]
+pub async fn discord_watch_stop(app: AppHandle) -> Result<WatchStatus, String> {
+    *WATCHING.lock().unwrap() = None;
+    close_watch(&app);
+    watch_changed(&app);
+    Ok(watch_status())
+}
+
+/// Search the channels for the first new message that holds all keywords
+/// and a join code, and join it (see `watch_found`). Runs until it finds
+/// one or is stopped.
+#[tauri::command]
+pub async fn discord_watch_start(
+    app: AppHandle,
+    keywords: String,
+    channels: Vec<String>,
+) -> Result<WatchStatus, String> {
+    let parts: Vec<String> = keywords
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .map(str::to_lowercase)
+        .filter(|p| !p.is_empty())
+        .collect();
+    let none: Vec<&str> = parts
+        .iter()
+        .filter_map(|p| p.strip_prefix('-'))
+        .filter(|p| !p.is_empty())
+        .collect();
+    let all: Vec<&str> = parts
+        .iter()
+        .filter(|p| !p.starts_with('-'))
+        .map(String::as_str)
+        .collect();
+    if all.is_empty() {
+        return Err(tr(
+            "Gib mindestens einen Suchbegriff ein",
+            "Enter at least one keyword",
+        )
+        .into());
+    }
+    let pins = config(&app).pins;
+    let urls: Vec<Url> = channels
+        .iter()
+        .filter(|c| pins.iter().any(|p| &p.url == *c))
+        .filter_map(|c| c.parse::<Url>().ok())
+        .filter(is_discord)
+        .collect();
+    let Some(first) = urls.first().cloned() else {
+        return Err(tr(
+            "Wähle mindestens einen Channel",
+            "Pick at least one channel",
+        )
+        .into());
+    };
+    let watch = Watch {
+        keywords: keywords.trim().to_string(),
+        channels: channels.clone(),
+    };
+    update(&app, |c| {
+        c.watch = watch;
+        true
+    })?;
+    if OWN_NAME.lock().unwrap().is_none() {
+        let _ = own_join_name(app.clone()).await;
+    }
+
+    let run = WATCH_RUN.fetch_add(1, Ordering::SeqCst) + 1;
+    close_watch(&app);
+    *FOUND.lock().unwrap() = None;
+    let paths: Vec<&str> = urls.iter().map(|u| u.path()).collect();
+    // A little back: this PC's clock against Discord's.
+    let since = chrono::Utc::now().timestamp_millis() - 2000;
+    let tick = format!(
+        "window.__radarWatchTick && window.__radarWatchTick({})",
+        serde_json::json!({ "all": all, "none": none, "paths": paths, "since": since })
+    );
+
+    let window = app
+        .get_window("main")
+        .ok_or(tr("Hauptfenster nicht gefunden", "Main window not found"))?;
+    let handle = app.clone();
+    let builder = WebviewBuilder::new(WATCH_LABEL, WebviewUrl::External(first))
+        // Unseen: it must not take the focus (that brings Radar's window to
+        // the front, over the game).
+        .focused(false)
+        .disable_drag_drop_handler()
+        .initialization_script(format!("{}\n{SCRIPT}", lang_script()))
+        .on_navigation(move |url| {
+            if url.scheme() == "radar" {
+                if url.host_str() == Some("autojoin") {
+                    watch_found(&handle, url);
+                }
+                return false;
+            }
+            // Nothing else opens from here: nobody clicked.
+            is_discord(url) || url.scheme() == "about"
+        })
+        .on_new_window(|_, _| NewWindowResponse::Deny);
+    let size = LogicalSize::new(1100.0, 800.0);
+    let webview = window
+        .add_child(
+            builder,
+            LogicalPosition::new(-(size.width + 200.0), 0.0),
+            size,
+        )
+        .map_err(|e| e.to_string())?;
+    *WATCHING.lock().unwrap() = Some(run);
+    watch_changed(&app);
+
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            if *WATCHING.lock().unwrap() != Some(run) {
+                break;
+            }
+            if webview.eval(tick.as_str()).is_err() {
+                break;
+            }
+        }
+    });
+    Ok(watch_status())
+}
+
+/// The search page found a message (radar://autojoin?n=<name>&t=<text>):
+/// the search ends, and the command goes into the game's chat (only
+/// copied while the game isn't running).
+fn watch_found(app: &AppHandle, url: &Url) {
+    let value = |key: &str| {
+        url.query_pairs()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.into_owned())
+    };
+    let Some(name) = value("n").as_deref().and_then(join_name) else {
+        return;
+    };
+    // The player's own post.
+    if OWN_NAME
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_some_and(|me| me.to_lowercase() == name.to_lowercase())
+    {
+        return;
+    }
+    // The first one only.
+    if WATCHING.lock().unwrap().take().is_none() {
+        return;
+    }
+    let text: String = value("t")
+        .unwrap_or_default()
+        .chars()
+        .filter(|c| !c.is_control() || *c == '\n')
+        .take(240)
+        .collect();
+    let app = app.clone();
+    // (Not from within the page's own navigation: it is closed here.)
+    std::thread::spawn(move || {
+        close_watch(&app);
+        // Discord over the game out of the way (the game gets the keys).
+        if let Some(window) = app.get_webview_window(GAME_LABEL) {
+            let _ = window.hide();
+        }
+        let command = join_command(&name);
+        let typed = if crate::screen::destiny_running() {
+            match crate::gamechat::send_in_game(&command, false) {
+                Ok(()) => true,
+                Err(e) => {
+                    eprintln!("[discord] found, not typed: {e}");
+                    false
+                }
+            }
+        } else {
+            crate::gamechat::copy(&command);
+            false
+        };
+        *FOUND.lock().unwrap() = Some(Found { name, text, typed });
+        watch_changed(&app);
+    });
+}
+
+#[cfg(test)]
+mod join_tests {
+    use super::*;
+
+    #[test]
+    fn only_bungie_names_are_typed() {
+        assert_eq!(
+            join_name(" Gänsehaut#1234 ").as_deref(),
+            Some("Gänsehaut#1234")
+        );
+        assert_eq!(
+            join_name(&decode("Two%20Words%23042")).as_deref(),
+            Some("Two Words#042")
+        );
+        assert_eq!(join_name("Name"), None);
+        assert_eq!(join_name("#1234"), None);
+        assert_eq!(join_name("Name#12345"), None);
+        assert_eq!(join_name("a/b#1234"), None);
+        assert_eq!(join_name("Name\n/other#1234"), None);
     }
 }

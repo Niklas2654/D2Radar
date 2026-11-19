@@ -11,7 +11,7 @@ import {
   SUBCLASS_BUCKET,
   type Choice,
 } from "../lib/presets";
-import { STAT_ORDER, type StatId } from "../lib/statEffects";
+import { STAT, STAT_ORDER, type StatId } from "../lib/statEffects";
 import { useClarity, useClarityItems } from "../lib/clarity";
 import { loadArtifacts, type ArtifactOption } from "./ArtifactPicker";
 import {
@@ -21,13 +21,14 @@ import {
   type DrCounted,
   type ResistSource,
 } from "./DamageResist";
-import { call, isTauri } from "../lib/tauri";
+import { call, hasBackend } from "../lib/tauri";
 import { useInventoryVersion } from "../lib/inventory";
 import { CompendiumCredit, PerkHover } from "./Clarity";
 import { TierPips } from "./TierPips";
 import { placeCard } from "../lib/placeCard";
 import { SearchSuggest } from "./SearchSuggest";
-import { ArmorMods } from "./ArmorMods";
+import { ArmorMods, FixedMods, type FixedPick } from "./ArmorMods";
+import { armorApi, type ModPlug } from "../lib/armor";
 import { StatHover } from "./StatEffects";
 import { cx, GlassButton, GlassPanel, GlassSwitch } from "./glass";
 import { IconClose, IconRefresh, IconSettings } from "./icons";
@@ -42,6 +43,32 @@ const BACKEND: StatId[] = [
   "weapons",
 ];
 
+/** No mods set for any slot. */
+const NO_FIXED: FixedPick[][] = [[], [], [], [], []];
+
+/** A slot's mods set in the optimizer as the search counts them (optimizer.rs
+ *  Fixed): their energy, the sockets they take, their stats (backend order;
+ *  a tuning by its plug: each piece's own). */
+function fixedOf(picks: FixedPick[]) {
+  const stats = [0, 0, 0, 0, 0, 0];
+  const tuningStats = [0, 0, 0, 0, 0, 0];
+  for (const p of picks) {
+    const into = p.kind === "tuning" ? tuningStats : stats;
+    for (const [hash, value] of p.plug.stats ?? []) {
+      const id = (Object.keys(STAT) as StatId[]).find((s) => STAT[s] === hash);
+      if (id) into[BACKEND.indexOf(id)] += value;
+    }
+  }
+  return {
+    cost: picks.reduce((sum, p) => sum + p.plug.cost, 0),
+    general: picks.some((p) => p.kind === "general"),
+    artifice: picks.some((p) => p.kind === "artifice"),
+    stats,
+    tuning: picks.find((p) => p.kind === "tuning")?.plug.item.hash ?? 0,
+    tuningStats,
+  };
+}
+
 interface StatMod {
   stat: number;
   value: number;
@@ -49,10 +76,15 @@ interface StatMod {
   slot: number;
   /** The mod item (0: none the account can insert). */
   hash: number;
-  /** A general socket's mod, an artifice +3, a tuning (+5 here, -5 from `from`). */
-  kind?: "mod" | "artifice" | "tuning";
+  /** A general socket's mod, an artifice +3, a tuning (+5 here, -5 from
+   *  `from`), Balanced Tuning (+1 to each stat in `each`, a bit per stat). */
+  kind?: "mod" | "artifice" | "tuning" | "balanced";
   from?: number | null;
+  each?: number;
 }
+
+/** A tuning plug: +5 / -5, or Balanced Tuning. */
+const isTuning = (m: StatMod) => m.kind === "tuning" || m.kind === "balanced";
 
 /** A stat plug as read on a build ("+10 Weapons", "+3 Weapons (artifice)",
  *  "+5 Weapons / -5 Melee"); `name` a backend stat index's name. */
@@ -69,6 +101,11 @@ function modLabel(
       stat: name(m.stat),
       from: name(m.from),
     });
+  if (m.kind === "balanced" && m.each)
+    return `+${m.value} ${[0, 1, 2, 3, 4, 5]
+      .filter((i) => (m.each! >> i) & 1)
+      .map(name)
+      .join(" / ")}`;
   return `+${m.value} ${name(m.stat)}`;
 }
 
@@ -80,6 +117,16 @@ interface Build {
   freeMods: number;
   total: number;
   waste: number;
+  /** Each piece's part in it (slot order; not in builds kept from before). */
+  pieces?: PieceStats[];
+}
+
+/** A piece's stats in a build (backend order): its roll, with the
+ *  masterwork counted, and with its mods and tuning too. */
+interface PieceStats {
+  roll: number[];
+  masterwork: number[];
+  stats: number[];
 }
 
 interface Result {
@@ -313,7 +360,9 @@ function ExoticPicker({
               }}
               exact={chosen.exact}
             >
-              <span className="cursor-help truncate text-[15px] font-semibold text-[#f0d66b] underline decoration-[#f0d66b]/30 decoration-dotted underline-offset-4">
+              {/* Only as wide as the name: stretched across the row, its
+                card came up far right of it. */}
+              <span className="max-w-full cursor-help self-start truncate text-[15px] font-semibold text-[#f0d66b] underline decoration-[#f0d66b]/30 decoration-dotted underline-offset-4">
                 {chosen.name}
               </span>
             </PerkHover>
@@ -1435,9 +1484,13 @@ interface PieceInfo {
 export function ArmorStatBars({
   stats,
   base,
+  masterwork,
 }: {
   stats: number[];
   base: number[];
+  /** With the masterwork (then `stats` has mods and tuning too: past it
+   *  in a lighter accent, what a tuning takes in red). */
+  masterwork?: number[];
 }) {
   const t = useT();
   /** A full bar: a piece's single stat rarely goes past this. */
@@ -1447,8 +1500,10 @@ export function ArmorStatBars({
     <div className="flex flex-col gap-1">
       {BACKEND.map((st, i) => {
         const value = stats[i];
-        const own = Math.min(base[i], value);
+        const mw = masterwork?.[i] ?? value;
+        const own = Math.min(base[i], value, mw);
         const top = Math.max(base[i], value) >= 25;
+        const at = (n: number) => (Math.min(Math.max(n, 0), FULL) / FULL) * 100;
         return (
           <div
             key={st}
@@ -1475,13 +1530,27 @@ export function ArmorStatBars({
                 className="absolute inset-y-0 left-0 bg-white/85"
                 style={{ width: `${(Math.min(own, FULL) / FULL) * 100}%` }}
               />
-              {value > own && (
+              {Math.min(value, mw) > own && (
                 <span
                   className="absolute inset-y-0 bg-(--accent)"
                   style={{
-                    left: `${(Math.min(own, FULL) / FULL) * 100}%`,
-                    width: `${(Math.min(value - own, FULL - own) / FULL) * 100}%`,
+                    left: `${at(own)}%`,
+                    width: `${at(Math.min(value, mw)) - at(own)}%`,
                   }}
+                />
+              )}
+              {/* Mods and tuning on top of it. */}
+              {value > mw && (
+                <span
+                  className="absolute inset-y-0 bg-(--accent) opacity-45"
+                  style={{ left: `${at(mw)}%`, width: `${at(value) - at(mw)}%` }}
+                />
+              )}
+              {/* What a tuning takes. */}
+              {value < mw && (
+                <span
+                  className="absolute inset-y-0 bg-[#ff8a7a]/45"
+                  style={{ left: `${at(value)}%`, width: `${at(mw) - at(value)}%` }}
                 />
               )}
             </span>
@@ -1704,10 +1773,18 @@ function PiecePicker({
   onPin,
   onClose,
   only,
+  fixed,
+  onFixed,
+  assume,
 }: {
   character: string | null;
   slot: number;
   pinned: Choice | null;
+  /** The mods set for the slot. */
+  fixed: FixedPick[];
+  onFixed: (picks: FixedPick[]) => void;
+  /** Masterworks assumed for a piece (exotic or not). */
+  assume: (exotic: boolean) => boolean;
   /** The item in this slot (picked, or the exotic picked): only its copies at first. */
   only?: string | null;
   onPin: (piece: Choice | null) => void;
@@ -1734,6 +1811,36 @@ function PiecePicker({
       alive = false;
     };
   }, [character, slot, inv]);
+  // The sockets the mods set go in: the piece picked; else a piece most of
+  // the slot is like (the exotic picked for it: one of its copies), of the
+  // highest tier (all the energy, a tuning).
+  const [plain, setPlain] = useState<Choice | null | undefined>(undefined);
+  useEffect(() => {
+    if (pinned || !pieces) return;
+    const of = pieces.filter((p) => (only ? p.name.toLowerCase() === only.toLowerCase() : !p.exotic));
+    const list = of.length ? of : pieces.filter((p) => !p.exotic);
+    const top = Math.max(0, ...list.map((p) => p.tier ?? 0));
+    const best = list.filter((p) => (p.tier ?? 0) === top).slice(0, 60);
+    if (!best.length) {
+      setPlain(null);
+      return;
+    }
+    let alive = true;
+    void armorApi
+      .plainPiece(best.map((p) => [p.id, p.hash]))
+      .then((id) => alive && setPlain(best.find((p) => p.id === id) ?? best[0]))
+      .catch(() => alive && setPlain(best[0]));
+    return () => {
+      alive = false;
+    };
+  }, [pinned, pieces, only]);
+  const base = pinned ?? plain;
+  const source =
+    base === undefined
+      ? undefined
+      : base === null
+        ? null
+        : { hash: base.hash, id: base.id, tier: base.tier ?? 0, own: !!pinned, name: base.name };
   const q = query.trim().toLowerCase();
   const shown = (pieces ?? [])
     .filter((p) => !narrowed || p.name.toLowerCase() === only!.toLowerCase())
@@ -1772,6 +1879,7 @@ function PiecePicker({
           </button>
         </div>
       </div>
+      <FixedMods source={source} picks={fixed} onChange={onFixed} assume={assume(!!base?.exotic)} />
       <SearchSuggest
         value={query}
         onChange={setQuery}
@@ -2590,10 +2698,18 @@ function BuildDetail({
   pieces,
   character,
   onExclude,
+  planned,
+  onPlan,
+  fixed,
 }: {
   build: Build;
   pieces: (Choice | undefined)[];
   character: string | null;
+  /** Mods set per slot in the optimizer (shown locked). */
+  fixed: FixedPick[][];
+  /** Mods picked per piece (instance id -> socket -> plug, null emptied). */
+  planned: PlannedMods;
+  onPlan: (id: string, socket: number, plug: ModPlug | null, now: ModsNow) => void;
   /** Leave this piece out of every build. */
   onExclude: (piece: Choice) => void;
 }) {
@@ -2618,6 +2734,8 @@ function BuildDetail({
   const allDone = up?.pieces.every((p) => p.legacy || p.level >= p.max);
   // The piece whose mods are open (a click on its row).
   const [modsOf, setModsOf] = useState<string | null>(null);
+  // Each piece's mods in game now (for the mods planned).
+  const nowOf = useRef<Record<string, ModsNow>>({});
   return (
     <div className="setup-reveal flex flex-col gap-2 border-t border-white/[0.06] pt-3">
       {build.items.map((id, slot) => {
@@ -2701,10 +2819,10 @@ function BuildDetail({
               <span className="flex w-48 shrink-0 flex-col gap-0.5 text-[11.5px] text-(--accent-text)">
                 {mod.length > 0 ? (
                   [...mod]
-                    .sort((a, b) => Number(a.kind === "tuning") - Number(b.kind === "tuning"))
+                    .sort((a, b) => Number(isTuning(a)) - Number(isTuning(b)))
                     .map((m, i) => (
                       <span key={i} className="flex items-center gap-1.5 whitespace-nowrap">
-                        {m.kind === "tuning" && (
+                        {isTuning(m) && (
                           <span className="rounded bg-white/[0.08] px-1 text-[9.5px] font-semibold tracking-wide text-white/55 uppercase">{t("opt.tuningTag")}</span>
                         )}
                         {modLabel(m, statName, t)}
@@ -2753,10 +2871,39 @@ function BuildDetail({
             {/* Its mods in game: see them, change them (stat mods come from the build when it's saved). */}
             {open && p && (
               <div className="setup-reveal border-t border-white/[0.06] px-3 pb-3">
+                {/* Its stats in this build: roll, masterwork, mods and tuning. */}
+                {build.pieces?.[slot] && (
+                  <div className="pt-3 pb-1">
+                    <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                      <span className="text-[12px] font-semibold text-white/85">
+                        {t("opt.pieceStatsTitle")}
+                      </span>
+                      <span className="text-[10.5px] text-white/45">
+                        {t("opt.pieceStatsHint")}
+                      </span>
+                    </div>
+                    <div className="max-w-md">
+                      <ArmorStatBars
+                        stats={build.pieces[slot].stats}
+                        base={build.pieces[slot].roll}
+                        masterwork={build.pieces[slot].masterwork}
+                      />
+                    </div>
+                  </div>
+                )}
                 <p className="pt-2 text-[11px] text-white/45">
                   {t("opt.pieceModsHint")}
                 </p>
-                <ArmorMods versions={[p.hash]} instanceId={id} />
+                <ArmorMods
+                  versions={[p.hash]}
+                  instanceId={id}
+                  onSlots={(slots) => (nowOf.current[id] = slots)}
+                  plan={{
+                    picks: planned[id] ?? {},
+                    onPick: (socket, plug) => onPlan(id, socket, plug, nowOf.current[id] ?? []),
+                    fixed: fixed[slot],
+                  }}
+                />
               </div>
             )}
           </div>
@@ -2779,6 +2926,8 @@ function BuildDetail({
 interface OptimizerDraft {
   /** Pieces picked by hand per slot (null: worked out). */
   pinned?: (Choice | null)[];
+  /** Mods set per slot. */
+  fixed?: FixedPick[][];
   mins: Record<StatId, number>;
   exotic: ExoticPick;
   perks: [number, number];
@@ -2832,6 +2981,9 @@ function readDraft(
  *  of it starts with them pinned again. */
 const pinnedKey = (character: string | null, loadout: string) =>
   `radar.optimizer.pinned.${character ?? "last"}.${loadout}`;
+/** The mods set per slot for a saved loadout (this PC), the same way. */
+const fixedKey = (character: string | null, loadout: string) =>
+  `radar.optimizer.fixed.${character ?? "last"}.${loadout}`;
 
 /** Forget the optimizer's picks for a character (the loadout was saved, as
  *  `savedAs`: its pieces picked by hand are kept for it). */
@@ -2841,10 +2993,12 @@ export function clearOptimizerDraft(
   savedAs?: string | null,
 ) {
   try {
-    const pinned = readDraft(character, edit).pinned;
+    const { pinned, fixed } = readDraft(character, edit);
     if (savedAs) {
       if (pinned?.some(Boolean)) localStorage.setItem(pinnedKey(character, savedAs), JSON.stringify(pinned));
       else localStorage.removeItem(pinnedKey(character, savedAs));
+      if (fixed?.some((f) => f.length)) localStorage.setItem(fixedKey(character, savedAs), JSON.stringify(fixed));
+      else localStorage.removeItem(fixedKey(character, savedAs));
     }
     localStorage.removeItem(draftKey(character, edit));
   } catch {
@@ -2870,7 +3024,8 @@ export function seedOptimizerDraft(
   BACKEND.forEach((s, i) => (mins[s] = from.stats[i] ?? 0));
   // Pieces picked by hand: as left in this edit (not saved yet), else as
   // saved with the loadout.
-  let pinned: (Choice | null)[] | undefined = readDraft(character, edit).pinned;
+  const left = readDraft(character, edit);
+  let pinned: (Choice | null)[] | undefined = left.pinned;
   if (!pinned?.some(Boolean)) {
     try {
       pinned = JSON.parse(localStorage.getItem(pinnedKey(character, edit)) ?? "null") ?? undefined;
@@ -2878,8 +3033,18 @@ export function seedOptimizerDraft(
       pinned = undefined;
     }
   }
+  // The mods set: the same.
+  let fixed: FixedPick[][] | undefined = left.fixed;
+  if (!fixed?.some((f) => f.length)) {
+    try {
+      fixed = JSON.parse(localStorage.getItem(fixedKey(character, edit)) ?? "null") ?? undefined;
+    } catch {
+      fixed = undefined;
+    }
+  }
   const draft: OptimizerDraft = {
     pinned,
+    fixed,
     mins,
     exotic: from.exotic,
     perks: from.perks,
@@ -2996,6 +3161,32 @@ const DEFAULT_SETTINGS: OptimizerSettings = {
   limit: 30,
   excluded: [],
 };
+
+/** Mods planned in a build, per piece: instance id -> socket -> plug (null:
+ *  emptied); with the piece's mods now, for the sockets left as they are. */
+type PlannedMods = Record<string, Record<number, ModPlug | null>>;
+type ModsNow = { socket: number; plug: ModPlug | null }[];
+
+/** A piece's mods as saved with the loadout: the build's stat mods (`stat`)
+ *  and the mods picked for it, nothing else (the general socket left to the
+ *  build's stat mod, unless picked). */
+function piecesMods(
+  stat: number[],
+  picks: Record<number, ModPlug | null> | undefined,
+  now: ModsNow,
+  fixed: number[],
+): number[] {
+  if (!picks || Object.keys(picks).length === 0) return [...stat, ...fixed];
+  const general = now[0]?.socket;
+  const out = general !== undefined && general in picks ? [...fixed] : [...stat, ...fixed];
+  // Only what's picked: the piece's other mods now don't go with it (they
+  // took the energy the stat mods need).
+  for (const { socket } of now) {
+    const plug = socket in picks ? picks[socket] : null;
+    if (plug) out.push(plug.item.hash);
+  }
+  return out;
+}
 
 /** Builds shown: the best 30 (more cost time to find and to draw). */
 const MAX_BUILDS = 30;
@@ -3648,7 +3839,7 @@ export function ArmorOptimizer({
   useEffect(() => {
     setups.current = new Map();
     setReady({});
-    if (!isTauri || !subclasses) return;
+    if (!hasBackend || !subclasses) return;
     let alive = true;
     for (const c of subclasses) {
       void load(c.id)
@@ -3664,7 +3855,7 @@ export function ArmorOptimizer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subclassIds]);
   useEffect(() => {
-    if (!subclass || !isTauri) {
+    if (!subclass || !hasBackend) {
       setSetup(null);
       return;
     }
@@ -3703,6 +3894,24 @@ export function ArmorOptimizer({
   // flying there from where it sat: `setupFrom`).
   const [setupDone, setSetupDone] = useState(first.setupDone);
   const setupFrom = useRef(new Map<number, DOMRect>());
+  // The exotics, next after "Done": the setup folding away above them took
+  // the page up under the view (it kept its scroll), past them.
+  const exoticsRef = useRef<HTMLDivElement>(null);
+  const toExotics = () => {
+    const el = exoticsRef.current;
+    let box = el?.parentElement ?? null;
+    while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+    if (!el || !box) return;
+    const view = box;
+    const end = performance.now() + 900; // the fold: 220ms + 420ms, and some
+    const keep = () => {
+      // Its top kept in the view while the fold runs (a little room above).
+      const over = el.getBoundingClientRect().top - (view.getBoundingClientRect().top + 12);
+      if (over < 0) view.scrollTop += over;
+      if (performance.now() < end) requestAnimationFrame(keep);
+    };
+    requestAnimationFrame(keep);
+  };
   // Another subclass: its setup starts empty and open.
   const pickSubclass = (v: string | null) => {
     pendingOverrides.current = null;
@@ -3745,6 +3954,10 @@ export function ArmorOptimizer({
     () => first.pinned ?? [null, null, null, null, null],
   );
   const [pinSlot, setPinSlot] = useState<number | null>(null);
+  // Mods set per slot: in every build, and in the loadout.
+  const [fixed, setFixed] = useState<FixedPick[][]>(() => first.fixed ?? NO_FIXED);
+  const fixSlot = (slot: number, picks: FixedPick[]) =>
+    setFixed((all) => all.map((f, i) => (i === slot ? picks : f)));
   const pin = (slot: number, piece: Choice | null) =>
     setPinned((all) => all.map((p, i) => (i === slot ? piece : p)));
   // An exotic picked by hand is the build's exotic (any other one picked by
@@ -3788,7 +4001,7 @@ export function ArmorOptimizer({
   useEffect(() => setSets(null), [character]);
   // (Items fetched anew: the list on screen stays until the new one's there.)
   useEffect(() => {
-    if (!isTauri) return;
+    if (!hasBackend) return;
     let alive = true;
     void call<OwnedSet[]>("optimizer_sets", { characterId: character })
       .then((list) => alive && setSets(list ?? []))
@@ -3846,7 +4059,7 @@ export function ArmorOptimizer({
   // (Items fetched anew: the list on screen stays until the new one's there.)
   useEffect(() => {
     let alive = true;
-    if (isTauri)
+    if (hasBackend)
       void call<Exotic[]>("optimizer_exotics", { characterId: character })
         .then((list) => alive && setExotics(list ?? []))
         .catch((e) => alive && setError(String(e)));
@@ -3863,7 +4076,7 @@ export function ArmorOptimizer({
   useEffect(() => {
     setPerkList(null);
     setPerkError(null);
-    if (!classItem || !isTauri) return;
+    if (!classItem || !hasBackend) return;
     let alive = true;
     void call<ClassItemPerkList>("optimizer_exotic_perks", {
       characterId: character,
@@ -3931,6 +4144,7 @@ export function ArmorOptimizer({
     setSetupDone(d.setupDone);
     setWantedSets(d.sets);
     setPinned(d.pinned ?? [null, null, null, null, null]);
+    setFixed(d.fixed ?? NO_FIXED);
     setPinSlot(null);
     setDraftOf(character);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3948,6 +4162,7 @@ export function ArmorOptimizer({
       sets: wantedSets,
       overrides: pendingOverrides.current ?? undefined,
       pinned,
+      fixed,
     };
     try {
       localStorage.setItem(draftKey(character, edit), JSON.stringify(draft));
@@ -3965,6 +4180,7 @@ export function ArmorOptimizer({
     setupDone,
     wantedSets,
     pinned,
+    fixed,
   ]);
 
   // What's asked, for the search and for the limits.
@@ -3989,6 +4205,7 @@ export function ArmorOptimizer({
     bonus,
     sets: wantedSets,
     pinned: pinned.map((p) => p?.id ?? ""),
+    fixed: fixed.map(fixedOf),
     excluded: settings.excluded.map((x) => x.id),
     own: own ?? [],
   };
@@ -4004,7 +4221,7 @@ export function ArmorOptimizer({
   const [limitsFor, setLimitsFor] = useState<string | null>(null);
   useEffect(() => setLimits(null), [character]);
   useEffect(() => {
-    if (!isTauri) return;
+    if (!hasBackend) return;
     let alive = true;
     const asked = requestKey;
     const id = window.setTimeout(() => {
@@ -4065,7 +4282,7 @@ export function ArmorOptimizer({
   // fetched anew) is worked out quietly, the list not dimmed meanwhile.
   const ranFor = useRef("");
   useEffect(() => {
-    if (!isTauri) return;
+    if (!hasBackend) return;
     const seq = ++runSeq.current;
     const quiet = ranFor.current === `${character}|${requestKey}`;
     ranFor.current = `${character}|${requestKey}`;
@@ -4090,6 +4307,21 @@ export function ArmorOptimizer({
   const others = (result?.builds ?? []).filter(
     (b) => b.items.join() !== ownKey,
   );
+  // A build opened from the list: it alone, the others folded away until
+  // asked for, the damage resist under them.
+  const focused = others.find((b) => b.items.join() === opened) ?? null;
+  const rest = focused ? others.filter((b) => b !== focused) : others;
+  const othersShown = own || focused ? showOthers : true;
+  const focusedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focused) focusedRef.current?.scrollIntoView({ block: "nearest" });
+    // (When another is opened, not on every new list.)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused?.items.join()]);
+  const toggleOpen = (key: string) => {
+    if (opened !== key) setShowOthers(false);
+    setOpened((o) => (o === key ? null : key));
+  };
 
   // Everything in the build that may resist damage, with its exact text
   // (Clarity, else the Compendium, else Bungie's).
@@ -4100,7 +4332,7 @@ export function ArmorOptimizer({
   ]);
   const [artifacts, setArtifacts] = useState<ArtifactOption[] | null>(null);
   useEffect(() => {
-    if (!isTauri) return;
+    if (!hasBackend) return;
     let alive = true;
     void loadArtifacts().then((l) => alive && setArtifacts(l ?? []));
     return () => {
@@ -4176,10 +4408,10 @@ export function ArmorOptimizer({
     }),
   ];
   const drBuild =
-    result?.own ??
     (opened
       ? result?.builds.find((b) => b.items.join() === opened)
       : undefined) ??
+    result?.own ??
     result?.builds[0];
   const drHealth = drBuild
     ? drBuild.stats[BACKEND.indexOf("health")]
@@ -4188,6 +4420,10 @@ export function ArmorOptimizer({
   const [drCounted, setDrCounted] = useState<DrCounted | null>(null);
 
   // One build's card (`mine`: the loadout's own armor).
+  // Mods planned per piece in the builds (kept until another character).
+  const [planned, setPlanned] = useState<PlannedMods>({});
+  const plannedNow = useRef<Record<string, ModsNow>>({});
+  useEffect(() => setPlanned({}), [character]);
   const buildCard = (b: Build, mine = false) => {
     const pieces = b.items.map((id) => owned?.get(id));
     return (
@@ -4196,13 +4432,8 @@ export function ArmorOptimizer({
         role="button"
         tabIndex={0}
         aria-expanded={opened === b.items.join()}
-        onClick={() =>
-          setOpened((o) => (o === b.items.join() ? null : b.items.join()))
-        }
-        onKeyDown={(e) =>
-          e.key === "Enter" &&
-          setOpened((o) => (o === b.items.join() ? null : b.items.join()))
-        }
+        onClick={() => toggleOpen(b.items.join())}
+        onKeyDown={(e) => e.key === "Enter" && toggleOpen(b.items.join())}
         className={cx(
           "flex cursor-pointer flex-col gap-2 rounded-2xl border p-3 transition-colors",
           opened === b.items.join()
@@ -4260,11 +4491,19 @@ export function ArmorOptimizer({
               e.stopPropagation();
               onTake(
                 pieces.filter((p): p is Choice => !!p),
-                // Each stat mod on its piece (armor bucket -> mods).
-                b.mods.reduce<Record<number, number[]>>((by, m) => {
-                  if (m.hash) (by[ARMOR_BUCKETS[m.slot]] ??= []).push(m.hash);
-                  return by;
-                }, {}),
+                // Each piece's mods (armor bucket -> mods): the build's stat
+                // mods, and those planned for it.
+                Object.fromEntries(
+                  b.items.map((id, slot) => [
+                    ARMOR_BUCKETS[slot],
+                    piecesMods(
+                      b.mods.filter((m) => m.slot === slot && m.hash).map((m) => m.hash),
+                      planned[id],
+                      plannedNow.current[id] ?? [],
+                      fixed[slot].map((f) => f.plug.item.hash),
+                    ),
+                  ]),
+                ),
                 subclasses?.find((c) => c.id === subclass) ?? null,
                 setup && setupPicks ? overridesOf(setup, setupPicks) : null,
               );
@@ -4311,6 +4550,12 @@ export function ArmorOptimizer({
               build={b}
               pieces={pieces}
               character={character}
+              planned={planned}
+              fixed={fixed}
+              onPlan={(id, socket, plug, now) => {
+                plannedNow.current[id] = now;
+                setPlanned((all) => ({ ...all, [id]: { ...(all[id] ?? {}), [socket]: plug } }));
+              }}
               onExclude={(piece) =>
                 setSettings({
                   ...settings,
@@ -4329,7 +4574,7 @@ export function ArmorOptimizer({
 
   const statName = (s: StatId) => t(`statfx.name.${s}`);
 
-  if (!isTauri)
+  if (!hasBackend)
     return (
       <p className="m-auto text-[13px] text-white/55">{t("dim.desktopOnly")}</p>
     );
@@ -4368,11 +4613,12 @@ export function ArmorOptimizer({
             onDone={(from) => {
               setupFrom.current = from;
               setSetupDone(true);
+              toExotics();
             }}
           />
         )}
       </div>
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3">
+      <div ref={exoticsRef} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3">
         <ExoticPicker
           exotics={exotics}
           value={exotic}
@@ -4457,6 +4703,9 @@ export function ArmorOptimizer({
             pinned={pinned[pinSlot]}
             onPin={(piece) => pinPiece(pinSlot, piece)}
             onClose={() => setPinSlot(null)}
+            fixed={fixed[pinSlot]}
+            onFixed={(picks) => fixSlot(pinSlot, picks)}
+            assume={(exoticPiece) => (exoticPiece ? settings.mwExotic : settings.mwLegendary)}
           />
         )}
       </div>
@@ -4574,12 +4823,8 @@ export function ArmorOptimizer({
                 </div>
               )}
               {artifact}
-              <DamageResist
-                sources={resistSources}
-                health={drHealth}
-                onCounted={setDrCounted}
-              />
-              {own && (
+              {focused && <div ref={focusedRef}>{buildCard(focused)}</div>}
+              {(own || focused) && (
                 <button
                   onClick={() => setShowOthers((v) => !v)}
                   aria-expanded={showOthers}
@@ -4587,7 +4832,7 @@ export function ArmorOptimizer({
                 >
                   <span>
                     {t(showOthers ? "opt.othersHide" : "opt.othersShow", {
-                      n: others.length,
+                      n: rest.length,
                     })}
                   </span>
                   <span
@@ -4600,12 +4845,21 @@ export function ArmorOptimizer({
                   </span>
                 </button>
               )}
-              {showOthers && result.builds.length === 0 && (
+              {othersShown && result.builds.length === 0 && (
                 <p className="mt-6 text-center text-[12.5px] text-white/45">
                   {t("opt.none")}
                 </p>
               )}
-              {showOthers && others.map((b) => buildCard(b))}
+              {othersShown && rest.map((b) => buildCard(b))}
+              {/* Under the builds, once one is picked (kept mounted: its
+                picks stay, and the sum on the left counts on). */}
+              <div className={cx(!result.own && !focused && "hidden")}>
+                <DamageResist
+                  sources={resistSources}
+                  health={drHealth}
+                  onCounted={setDrCounted}
+                />
+              </div>
             </>
           )}
         </div>

@@ -428,16 +428,40 @@ pub fn game_monitor_area() -> Option<(i32, i32, i32, i32)> {
     }
 }
 
-/// Give Destiny 2 the focus back (after closing DIM over it).
+/// Give Destiny 2 the focus back (after closing DIM over it). Windows may
+/// refuse the first ask (or hand the front to another Radar window as this
+/// one hides), which left the hotkeys off until a click into the game: so
+/// it is checked a moment later, and asked again the way Windows allows.
 pub fn focus_game() {
     use windows::core::w;
     use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, SetForegroundWindow};
     unsafe {
-        if let Ok(game) = FindWindowW(w!("Tiger D3D Window"), None) {
-            if !game.is_invalid() {
-                let _ = SetForegroundWindow(game);
+        let Some(game) = FindWindowW(w!("Tiger D3D Window"), None).ok().filter(|g| !g.is_invalid()) else { return };
+        let _ = SetForegroundWindow(game);
+    }
+    std::thread::spawn(|| {
+        for _ in 0..4 {
+            std::thread::sleep(std::time::Duration::from_millis(70));
+            if destiny_in_foreground() {
+                return;
             }
+            crate::gamechat::pull_game_front();
         }
+    });
+}
+
+/// The front is with one of Radar's own windows that isn't shown (hidden
+/// while it had the focus): no key reaches the game then.
+pub fn front_lost() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId, IsWindowVisible};
+    unsafe {
+        let window = GetForegroundWindow();
+        if window.is_invalid() {
+            return false;
+        }
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(window, Some(&mut pid));
+        pid == std::process::id() && !IsWindowVisible(window).as_bool()
     }
 }
 

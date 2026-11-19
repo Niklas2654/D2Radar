@@ -191,54 +191,93 @@ fn old_store_path(app: &AppHandle, s: &Session) -> PathBuf {
 /// Serializes reads and writes.
 static FILE: Mutex<()> = Mutex::new(());
 
-/// The player's loadouts (radar.db); the old file's taken over once.
-fn read_store(app: &AppHandle, s: &Session) -> Vec<Value> {
-    let membership = s.membership_id();
+/// The loadouts kept in a file before the database: taken over, once.
+fn take_over_old(app: &AppHandle, s: &Session) {
     let old = old_store_path(app, s);
-    if old.exists() {
-        let text = std::fs::read_to_string(&old).unwrap_or_default();
-        let from_file: Vec<Value> =
-            serde_json::from_str::<Value>(&text).ok().and_then(|v| v["loadouts"].as_array().cloned()).unwrap_or_default();
-        let mut all = crate::db::loadouts(app, membership);
-        for l in from_file {
-            if !all.iter().any(|x| x["id"] == l["id"]) {
-                all.push(l);
-            }
-        }
-        if crate::db::set_loadouts(app, membership, &all).is_ok() {
-            let _ = std::fs::rename(&old, old.with_extension("json.moved-to-db"));
-        }
-        return all;
+    if !old.exists() {
+        return;
     }
-    crate::db::loadouts(app, membership)
+    let membership = s.membership_id();
+    let text = std::fs::read_to_string(&old).unwrap_or_default();
+    let from_file: Vec<Value> = serde_json::from_str::<Value>(&text)
+        .ok()
+        .and_then(|v| v["loadouts"].as_array().cloned())
+        .unwrap_or_default();
+    let mut all = crate::db::loadouts(app, membership);
+    for l in from_file {
+        if !all.iter().any(|x| x["id"] == l["id"]) {
+            all.push(l);
+        }
+    }
+    if crate::db::set_loadouts(app, membership, &all).is_ok() {
+        let _ = std::fs::rename(&old, old.with_extension("json.moved-to-db"));
+    }
 }
 
-fn write_store(app: &AppHandle, s: &Session, loadouts: &[Value]) -> Result<(), String> {
-    crate::db::set_loadouts(app, s.membership_id(), loadouts)
-}
-
-/// All loadouts of the player (DIM's shape).
+/// All loadouts of the player (DIM's shape), from radar.db.
 fn raw_loadouts(app: &AppHandle, s: &Session) -> Vec<Value> {
     let _guard = FILE.lock().unwrap();
-    read_store(app, s)
+    take_over_old(app, s);
+    crate::db::loadouts(app, s.membership_id())
 }
 
 /// A loadout as stored here, by id.
 pub(crate) fn local_loadout(app: &AppHandle, s: &Session, id: &str) -> Option<Value> {
-    raw_loadouts(app, s).into_iter().find(|l| l["id"].as_str() == Some(id))
+    let _guard = FILE.lock().unwrap();
+    take_over_old(app, s);
+    crate::db::loadout(app, s.membership_id(), id)
 }
 
 /// The raw loadouts, with when they were read.
 static RAW_CACHE: Mutex<Option<(Instant, Vec<Value>)>> = Mutex::new(None);
+
+/// A described loadout, with what it was described from: it stays as long
+/// as none of that changes (describing one looks hundreds of things up).
+struct Described {
+    /// The inventory then (`inventory::stamp`).
+    revision: u64,
+    /// The loadout as stored then (`hash_of` its JSON).
+    loadout: u64,
+    /// Its own items as owned then (`items_stamp`).
+    items: u64,
+    out: DimLoadoutOut,
+}
 /// Described loadouts per (character id, loadout id).
-type DetailsCache = std::collections::HashMap<(String, String), (Instant, DimLoadoutOut)>;
+type DetailsCache = std::collections::HashMap<(String, String), Described>;
 static DETAILS_CACHE: Mutex<Option<DetailsCache>> = Mutex::new(None);
-/// Long: the app refreshes them itself (see src/lib/preload.ts).
+/// How long the raw loadouts and the character picked are reused.
 const LOADOUTS_TTL: Duration = Duration::from_secs(600);
 
-/// Forget the cached loadouts (after equipping, saving …).
-pub(crate) fn invalidate_loadouts() {
+fn hash_of<T: std::hash::Hash + ?Sized>(value: &T) -> u64 {
+    use std::hash::Hasher;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// What a loadout's description takes from the inventory: the owned copy of
+/// each of its items (where it is, what's in its sockets), for the
+/// character it's described for.
+fn items_stamp(l: &Value, character: &str, class_type: i64, owned: &[OwnedItem]) -> u64 {
+    let plan = crate::apply::plan_from_dim(l);
+    let found: Vec<Option<&OwnedItem>> = plan
+        .equipped
+        .iter()
+        .map(|it| crate::apply::find_owned(owned, it, character))
+        .collect();
+    hash_of(&(character, class_type, owned.is_empty(), found))
+}
+
+/// Read the loadouts from the database again (one was saved, deleted …).
+/// What was described stays: it's checked against what it was described
+/// from (see `Described`).
+fn forget_raw() {
     *RAW_CACHE.lock().unwrap() = None;
+}
+
+/// Forget the cached loadouts, described ones too.
+pub(crate) fn invalidate_loadouts() {
+    forget_raw();
     *DETAILS_CACHE.lock().unwrap() = None;
 }
 
@@ -277,56 +316,125 @@ pub(crate) async fn cached_raw(app: &AppHandle, s: &Session) -> Result<Vec<Value
     Ok(raw)
 }
 
-/// Create or replace a loadout (by its id).
-pub(crate) async fn save_loadout(app: &AppHandle, s: &Session, loadout: Value) -> Result<(), String> {
+/// Create or replace a loadout (by its id): only its own row is written.
+pub(crate) async fn save_loadout(
+    app: &AppHandle,
+    s: &Session,
+    loadout: Value,
+) -> Result<(), String> {
     {
         let _guard = FILE.lock().unwrap();
-        let mut all = read_store(app, s);
-        let id = loadout["id"].as_str().unwrap_or_default();
-        match all.iter_mut().find(|l| l["id"].as_str() == Some(id)) {
-            Some(old) => *old = loadout,
-            None => all.push(loadout),
-        }
-        write_store(app, s, &all)?;
+        take_over_old(app, s);
+        crate::db::set_loadout(app, s.membership_id(), &loadout)?;
     }
-    invalidate_loadouts();
+    forget_raw();
     Ok(())
 }
 
 /// Weapons the loadouts list that the account no longer has (dismantled,
 /// gone): taken out of them, for `membership` with `items` everything it
 /// owns as just fetched. Armor and the rest stay (a missing piece shows as
-/// such); nothing happens with too few items to be a whole profile.
-pub(crate) async fn drop_missing_weapons(app: &AppHandle, membership: &str, items: &[crate::inventory::OwnedItem]) {
-    if items.len() < 20 {
+/// such). Careful, a weapon taken out is not coming back: only with a whole
+/// profile (`complete`, and enough items to be one), and only a weapon that
+/// was missing the fetch before too (not one Bungie left out once).
+pub(crate) async fn drop_missing_weapons(
+    app: &AppHandle,
+    membership: &str,
+    items: &[crate::inventory::OwnedItem],
+    complete: bool,
+) {
+    /// The weapons the loadouts list that were missing at the last fetch.
+    static MISSED: Mutex<Option<std::collections::HashSet<String>>> = Mutex::new(None);
+    if !complete || items.len() < 20 {
         return;
     }
-    let Ok(gear) = crate::weapons::gear(app).await else { return };
-    let owned: std::collections::HashSet<&str> = items.iter().map(|o| o.instance_id.as_str()).collect();
-    let gone = |entry: &Value| {
+    let Ok(gear) = crate::weapons::gear(app).await else {
+        return;
+    };
+    let owned: std::collections::HashSet<&str> =
+        items.iter().map(|o| o.instance_id.as_str()).collect();
+    let missing = |entry: &Value| -> Option<String> {
         let id = entry["id"].as_str().unwrap_or_default();
-        let weapon = entry["hash"].as_u64().and_then(|h| gear.get(h as u32)).is_some_and(|g| crate::fireteam::WEAPON_BUCKETS.contains(&g.bucket));
-        weapon && !id.is_empty() && id != "0" && !owned.contains(id)
+        let weapon = entry["hash"]
+            .as_u64()
+            .and_then(|h| gear.get(h as u32))
+            .is_some_and(|g| crate::fireteam::WEAPON_BUCKETS.contains(&g.bucket));
+        (weapon && !id.is_empty() && id != "0" && !owned.contains(id)).then(|| id.to_string())
     };
     let changed = {
         let _guard = FILE.lock().unwrap();
         let mut all = crate::db::loadouts(app, membership);
+        let now: std::collections::HashSet<String> = all
+            .iter()
+            .flat_map(|l| {
+                ["equipped", "unequipped"]
+                    .into_iter()
+                    .flat_map(move |list| l[list].as_array().into_iter().flatten())
+            })
+            .filter_map(&missing)
+            .collect();
+        let before = MISSED
+            .lock()
+            .unwrap()
+            .replace(now.clone())
+            .unwrap_or_default();
+        let gone: std::collections::HashSet<&String> = now.intersection(&before).collect();
         let mut changed = false;
-        for l in &mut all {
-            for list in ["equipped", "unequipped"] {
-                let Some(entries) = l[list].as_array_mut() else { continue };
-                let before = entries.len();
-                entries.retain(|e| !gone(e));
-                changed |= entries.len() != before;
+        if !gone.is_empty() {
+            for l in &mut all {
+                let mut touched = false;
+                for list in ["equipped", "unequipped"] {
+                    let Some(entries) = l[list].as_array_mut() else {
+                        continue;
+                    };
+                    let len = entries.len();
+                    entries.retain(|e| !missing(e).is_some_and(|id| gone.contains(&id)));
+                    touched |= entries.len() != len;
+                }
+                if touched {
+                    changed |= crate::db::set_loadout(app, membership, l).is_ok();
+                }
             }
         }
-        changed && crate::db::set_loadouts(app, membership, &all).is_ok()
+        changed
     };
     if changed {
         crate::weapons::log_to_file("[loadouts] took weapons no longer owned out");
-        invalidate_loadouts();
+        forget_raw();
         let _ = app.emit("loadouts-changed", ());
     }
+}
+
+/// A loadout as DIM reads it. DIM keeps armor mods as one list (`mods`) and
+/// only shaders and ornaments per slot (`modsByBucket`); Radar keeps an
+/// armor piece's mods under its slot, which DIM would take for looks.
+/// `armor_mod`: whether a plug is an armor mod.
+fn for_dim(mut loadout: Value, armor_mod: impl Fn(u64) -> bool) -> Value {
+    let mut mods: Vec<Value> = loadout["parameters"]["mods"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let Some(by_bucket) = loadout
+        .pointer_mut("/parameters/modsByBucket")
+        .and_then(Value::as_object_mut)
+    else {
+        return loadout;
+    };
+    for (_, list) in by_bucket.iter_mut() {
+        let Some(list) = list.as_array_mut() else {
+            continue;
+        };
+        list.retain(|plug| {
+            let armor = plug.as_u64().is_some_and(&armor_mod);
+            if armor {
+                mods.push(plug.clone());
+            }
+            !armor
+        });
+    }
+    by_bucket.retain(|_, list| list.as_array().is_none_or(|l| !l.is_empty()));
+    loadout["parameters"]["mods"] = Value::Array(mods);
+    loadout
 }
 
 /// Create or replace a loadout in DIM Sync.
@@ -369,11 +477,26 @@ pub async fn dim_connect() -> Result<DimStatus, String> {
 #[tauri::command]
 pub async fn dim_push(app: AppHandle, id: String) -> Result<(), String> {
     let s = session(&app).await?;
-    let loadout = raw_loadouts(&app, &s)
+    let loadout =
+        local_loadout(&app, &s, &id).ok_or(tr("Loadout nicht gefunden", "Loadout not found"))?;
+    // Which of the plugs kept per slot are armor mods (see `for_dim`).
+    let listed: Vec<u64> = loadout["parameters"]["modsByBucket"]
+        .as_object()
         .into_iter()
-        .find(|l| l["id"].as_str() == Some(id.as_str()))
-        .ok_or(tr("Loadout nicht gefunden", "Loadout not found"))?;
-    send_to_dim(&app, &s, loadout).await
+        .flatten()
+        .flat_map(|(_, list)| list.as_array().into_iter().flatten())
+        .filter_map(Value::as_u64)
+        .collect();
+    let armor: std::collections::HashSet<u64> = join_all(listed.iter().map(|h| item(&app, *h)))
+        .await
+        .into_iter()
+        .flatten()
+        .filter(|i| {
+            i.plug_category.starts_with("enhancements") || i.plug_category.contains("tuning")
+        })
+        .map(|i| i.hash())
+        .collect();
+    send_to_dim(&app, &s, for_dim(loadout, |h| armor.contains(&h))).await
 }
 
 #[derive(Clone, Serialize)]
@@ -525,11 +648,24 @@ pub(crate) async fn describe(app: &AppHandle, l: &Value, character: &str, class_
     // Mods saved per armor slot (newer DIM loadouts).
     let mut by_bucket: Vec<(u64, ItemInfo)> = Vec::new();
     for (bucket, list) in params["modsByBucket"].as_object().into_iter().flatten() {
-        let Ok(bucket) = bucket.parse::<u64>() else { continue };
-        let hashes: Vec<u64> = list.as_array().into_iter().flatten().filter_map(Value::as_u64).collect();
-        // Only armor mods; shaders and ornaments live here too.
-        for info in join_all(hashes.iter().map(|h| item(app, *h))).await.into_iter().flatten() {
-            if info.plug_category.starts_with("enhancements") {
+        let Ok(bucket) = bucket.parse::<u64>() else {
+            continue;
+        };
+        let hashes: Vec<u64> = list
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_u64)
+            .collect();
+        // Only armor mods (a tuning too); shaders and ornaments live here too.
+        for info in join_all(hashes.iter().map(|h| item(app, *h)))
+            .await
+            .into_iter()
+            .flatten()
+        {
+            if info.plug_category.starts_with("enhancements")
+                || info.plug_category.contains("tuning")
+            {
                 by_bucket.push((bucket, info));
             }
         }
@@ -541,9 +677,22 @@ pub(crate) async fn describe(app: &AppHandle, l: &Value, character: &str, class_
         if !crate::fireteam::ARMOR_BUCKETS.contains(&bucket) {
             continue;
         }
-        let plugs: Vec<u64> = entry["socketOverrides"].as_object().into_iter().flatten().filter_map(|(_, p)| p.as_u64()).collect();
-        for info in join_all(plugs.iter().map(|h| item(app, *h))).await.into_iter().flatten() {
-            if info.plug_category.contains("tuning") {
+        let plugs: Vec<u64> = entry["socketOverrides"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter_map(|(_, p)| p.as_u64())
+            .collect();
+        for info in join_all(plugs.iter().map(|h| item(app, *h)))
+            .await
+            .into_iter()
+            .flatten()
+        {
+            if info.plug_category.contains("tuning")
+                && !by_bucket
+                    .iter()
+                    .any(|(b, i)| *b == bucket && i.hash() == info.hash())
+            {
                 by_bucket.push((bucket, info));
             }
         }
@@ -620,9 +769,15 @@ pub struct DimLoadoutList {
 /// class-less ones) first, newest first. Cheap: no inventory, no checks;
 /// the subclass comes from Radar's own item table.
 #[tauri::command]
-pub async fn dim_loadout_list(app: AppHandle, character_id: Option<String>, fresh: Option<bool>) -> Result<DimLoadoutList, String> {
+pub async fn dim_loadout_list(
+    app: AppHandle,
+    character_id: Option<String>,
+    fresh: Option<bool>,
+) -> Result<DimLoadoutList, String> {
+    // (Fresh: the stored loadouts read again. What's described of them is
+    // checked on its own, see `dim_loadout_details`.)
     if fresh == Some(true) {
-        invalidate_loadouts();
+        forget_raw();
     }
     let s = session(&app).await?;
     let (raw, profile, gear) = futures::join!(cached_raw(&app, &s), own_profile(&app, &s, "200"), crate::weapons::gear(&app));
@@ -664,47 +819,104 @@ pub async fn dim_loadout_list(app: AppHandle, character_id: Option<String>, fres
 }
 
 /// Full details (items, mods, checks against the character) for some
-/// loadouts – the ones on screen. Cached per character and loadout.
+/// loadouts – the ones on screen, in the order asked for. Kept per character
+/// and loadout, and described anew only when the loadout itself or one of
+/// its items changed (not every time the app refreshes).
 #[tauri::command]
 pub async fn dim_loadout_details(app: AppHandle, character_id: Option<String>, ids: Vec<String>) -> Result<Vec<DimLoadoutOut>, String> {
     let key = character_id.clone().unwrap_or_default();
-    let mut out = Vec::new();
-    let mut missing = Vec::new();
+    let s = session(&app).await?;
+    let raw = cached_raw(&app, &s).await?;
+    // (The loadout, its id, its hash as stored.)
+    let wanted: Vec<(&Value, String, u64)> = ids
+        .iter()
+        .filter_map(|id| raw.iter().find(|l| l["id"].as_str() == Some(id.as_str())))
+        .map(|l| {
+            (
+                l,
+                l["id"].as_str().unwrap_or_default().to_string(),
+                hash_of(&l.to_string()),
+            )
+        })
+        .collect();
+    let mut out: Vec<Option<DimLoadoutOut>> = vec![None; wanted.len()];
+    // 1. Neither the loadout nor anything in the inventory changed.
+    let revision = crate::inventory::revision();
+    let mut open: Vec<usize> = Vec::new();
     {
-        let mut cache = DETAILS_CACHE.lock().unwrap();
-        let cache = cache.get_or_insert_default();
-        for id in &ids {
-            match cache.get(&(key.clone(), id.clone())) {
-                Some((at, d)) if at.elapsed() < LOADOUTS_TTL => out.push(d.clone()),
-                _ => missing.push(id.clone()),
+        let cache = DETAILS_CACHE.lock().unwrap();
+        for (i, (_, id, hash)) in wanted.iter().enumerate() {
+            match cache
+                .as_ref()
+                .and_then(|c| c.get(&(key.clone(), id.clone())))
+            {
+                Some(d) if d.loadout == *hash && Some(d.revision) == revision => {
+                    out[i] = Some(d.out.clone())
+                }
+                _ => open.push(i),
             }
         }
     }
-    if missing.is_empty() {
-        return Ok(out);
+    if open.is_empty() {
+        return Ok(out.into_iter().flatten().collect());
     }
     let started = Instant::now();
-    let s = session(&app).await?;
-    let (raw, character, owned) = futures::join!(cached_raw(&app, &s), cached_character(&app, &s, &key), owned_items(&app));
+    let (character, owned) = futures::join!(cached_character(&app, &s, &key), owned_items(&app));
     let fetched = started.elapsed();
     let (character, class_type) = character?;
     let owned = owned.unwrap_or_default();
-    let raw = raw?;
-    let wanted: Vec<&Value> = raw.iter().filter(|l| missing.iter().any(|id| l["id"].as_str() == Some(id))).collect();
-    let described = join_all(wanted.into_iter().map(|l| describe(&app, l, &character, class_type, &owned))).await;
+    let revision = crate::inventory::stamp(&owned);
+    // 2. The inventory changed, but none of the loadout's own items.
+    let mut todo: Vec<(usize, u64)> = Vec::new();
+    {
+        let mut cache = DETAILS_CACHE.lock().unwrap();
+        let cache = cache.get_or_insert_default();
+        for i in open {
+            let (l, id, hash) = &wanted[i];
+            let items = items_stamp(l, &character, class_type, &owned);
+            match cache.get_mut(&(key.clone(), id.clone())) {
+                Some(d) if d.loadout == *hash && d.items == items => {
+                    d.revision = revision;
+                    out[i] = Some(d.out.clone());
+                }
+                _ => todo.push((i, items)),
+            }
+        }
+    }
+    if todo.is_empty() {
+        return Ok(out.into_iter().flatten().collect());
+    }
+    // 3. Described anew.
+    let described = join_all(
+        todo.iter()
+            .map(|&(i, _)| describe(&app, wanted[i].0, &character, class_type, &owned)),
+    )
+    .await;
     println!(
         "[dim-details] {} – data {} ms, total {} ms",
-        missing.join(","),
+        todo.iter()
+            .map(|&(i, _)| wanted[i].1.as_str())
+            .collect::<Vec<_>>()
+            .join(","),
         fetched.as_millis(),
         started.elapsed().as_millis()
     );
     let mut cache = DETAILS_CACHE.lock().unwrap();
     let cache = cache.get_or_insert_default();
-    for d in described {
-        cache.insert((key.clone(), d.id.clone()), (Instant::now(), d.clone()));
-        out.push(d);
+    for ((i, items), d) in todo.into_iter().zip(described) {
+        let (_, id, hash) = &wanted[i];
+        cache.insert(
+            (key.clone(), id.clone()),
+            Described {
+                revision,
+                loadout: *hash,
+                items,
+                out: d.clone(),
+            },
+        );
+        out[i] = Some(d);
     }
-    Ok(out)
+    Ok(out.into_iter().flatten().collect())
 }
 
 /// Delete a loadout (from Radar; a copy sent to DIM stays there).
@@ -713,11 +925,13 @@ pub async fn dim_loadout_delete(app: AppHandle, id: String) -> Result<(), String
     let s = session(&app).await?;
     {
         let _guard = FILE.lock().unwrap();
-        let mut all = read_store(&app, &s);
-        all.retain(|l| l["id"].as_str() != Some(id.as_str()));
-        write_store(&app, &s, &all)?;
+        take_over_old(&app, &s);
+        crate::db::delete_loadout(&app, s.membership_id(), &id)?;
     }
-    invalidate_loadouts();
+    forget_raw();
+    if let Some(cache) = DETAILS_CACHE.lock().unwrap().as_mut() {
+        cache.retain(|(_, loadout), _| *loadout != id);
+    }
     Ok(())
 }
 
@@ -733,18 +947,16 @@ pub async fn dim_loadout_apply(
     identifiers: Option<[u32; 3]>,
 ) -> Result<Vec<String>, String> {
     let s = session(&app).await?;
-    let loadout = raw_loadouts(&app, &s)
-        .into_iter()
-        .find(|l| l["id"].as_str() == Some(id.as_str()))
-        .ok_or(tr("Loadout nicht gefunden", "Loadout not found"))?;
+    let loadout =
+        local_loadout(&app, &s, &id).ok_or(tr("Loadout nicht gefunden", "Loadout not found"))?;
     let mut plan = crate::apply::plan_from_dim(&loadout);
     // Name / color / icon chosen for the slot (preset) win over the loadout's.
     if let Some([name, color, icon]) = identifiers.filter(|ids| ids.iter().all(|&h| h != 0)) {
         plan.identifiers = Some((name, color, icon));
     }
-    let result = crate::apply::apply(&app, &plan, slot, character_id.as_deref()).await;
-    invalidate_loadouts();
-    result
+    // (What's described of the loadouts follows the inventory: those with an
+    // item that moved or changed are described anew, the others stay.)
+    crate::apply::apply(&app, &plan, slot, character_id.as_deref()).await
 }
 
 /// The season's artifact: its perks per column (tier), as the game shows
@@ -782,4 +994,39 @@ pub async fn artifact_layout(app: AppHandle) -> Result<Vec<Vec<ItemInfo>>, Strin
         *ARTIFACT_LAYOUT.lock().unwrap() = Some(layout.clone());
     }
     Ok(layout)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dim_gets_armor_mods_as_one_list() {
+        let stored = json!({
+            "id": "a",
+            "parameters": {
+                "mods": [1],
+                "modsByBucket": { "3448274439": [10, 11, 99], "14239492": [12] },
+                "clearMods": true,
+            },
+        });
+        // (Below 50: an armor mod; 99: a shader.)
+        let sent = for_dim(stored, |plug| plug < 50);
+        let mut mods: Vec<u64> = sent["parameters"]["mods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_u64)
+            .collect();
+        mods.sort_unstable();
+        assert_eq!(mods, [1, 10, 11, 12]);
+        assert_eq!(
+            sent["parameters"]["modsByBucket"],
+            json!({ "3448274439": [99] })
+        );
+        assert_eq!(sent["parameters"]["clearMods"], json!(true));
+        // Nothing kept per slot: sent as it is.
+        let plain = json!({ "id": "b", "parameters": { "mods": [1, 2] } });
+        assert_eq!(for_dim(plain.clone(), |_| true), plain);
+    }
 }

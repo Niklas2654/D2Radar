@@ -13,7 +13,13 @@
  *      { radarDemo: "wheel", deltaY } the wheel before that (the website turns its carousel)
  */
 
-type Target = string | { sel: string } | { x: number; y: number };
+import { translate, type TranslationKey } from "../lib/i18n";
+import { getSettings } from "../lib/settings";
+
+type Target = string | { sel: string } | { el: () => Element | null | undefined } | { x: number; y: number };
+
+/** The app's own words in its language now (buttons found by what they say). */
+const tr = (key: TranslationKey, params?: Record<string, string | number>) => translate(getSettings().language, key, params);
 
 const post = (msg: Record<string, unknown>) => window.parent?.postMessage({ radarDemo: msg.type, ...msg }, location.origin);
 
@@ -75,6 +81,8 @@ function find(target: Target): { x: number; y: number } | null {
   let el: Element | undefined;
   if (typeof target === "object" && "sel" in target) {
     el = [...document.querySelectorAll(target.sel)].find((e) => e.getBoundingClientRect().width > 0);
+  } else if (typeof target === "object") {
+    el = target.el() ?? undefined;
   } else {
     const all = [...document.querySelectorAll("button,a,[role=button],[role=tab],input")];
     el = all.find((e) => e.textContent?.trim() === target) ?? all.find((e) => e.textContent?.trim().startsWith(target as string));
@@ -93,13 +101,38 @@ function find(target: Target): { x: number; y: number } | null {
  *  boxes inside the app (scrollIntoView would also scroll the website
  *  around this frame). */
 function reveal(el: Element) {
-  let box = el.parentElement;
-  while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  const box = scrollBox(el);
   if (!box) return;
   const r = el.getBoundingClientRect();
   const b = box.getBoundingClientRect();
   if (r.top < b.top) box.scrollTop -= b.top - r.top + 12;
   else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom + 12;
+}
+
+/** The scrollable box an element is in. */
+function scrollBox(el: Element): HTMLElement | null {
+  let box = el.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  return box;
+}
+
+/** Scroll the element's box at once so the element sits `y` px from the top. */
+function bringTo(el: Element | null | undefined, y = 170) {
+  if (!el) return;
+  const box = scrollBox(el);
+  if (box) box.scrollTop += el.getBoundingClientRect().top - y;
+}
+
+/** The first visible element matching, optionally with this text (exactly,
+ *  or matching the pattern). */
+function visible(sel: string, text?: string | RegExp) {
+  return [...document.querySelectorAll(sel)].find((e) => {
+    const r = e.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return false;
+    if (text === undefined) return true;
+    const t = e.textContent?.trim() ?? "";
+    return typeof text === "string" ? t === text : text.test(t);
+  });
 }
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -155,6 +188,50 @@ function steps(id: number) {
         await wait(perChar + Math.random() * 40);
       }
     },
+    /** Drag the `index`th visible slider to `to`, as a hand would. */
+    async slide(index: number, to: number, ms = 1000) {
+      const input = [...document.querySelectorAll<HTMLInputElement>("input[type=range]")].filter(
+        (i) => i.getBoundingClientRect().width > 0,
+      )[index];
+      if (!input) return;
+      reveal(input);
+      const min = Number(input.min) || 0;
+      const max = Number(input.max) || 100;
+      const at = (v: number) => {
+        const r = input.getBoundingClientRect();
+        return { x: r.left + 7 + ((r.width - 14) * (v - min)) / (max - min), y: r.top + r.height / 2 };
+      };
+      const from = Number(input.value);
+      await s.moveTo(at(from), 600);
+      await wait(120);
+      const svg = cursor?.firstElementChild as HTMLElement | null;
+      if (svg) svg.style.transform = "scale(.82)";
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      let last = from;
+      const start = performance.now();
+      for (;;) {
+        await wait(16);
+        const k = Math.min(1, (performance.now() - start) / (ms * pace));
+        const v = Math.round(from + (to - from) * ease(k));
+        mouse = at(v);
+        place();
+        // (Not while its maximum is being worked out anew: it takes nothing then.)
+        const busy = !!input.closest("[aria-busy=true]");
+        if (!busy && v !== last && (Math.abs(v - last) >= 5 || k >= 1)) {
+          set.call(input, String(v));
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          last = v;
+        }
+        if (k >= 1) break;
+      }
+      if (last !== to) {
+        await wait(300);
+        set.call(input, String(to));
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      if (svg) svg.style.transform = "";
+      await wait(300);
+    },
     /** Scroll what's under the cursor, smoothly. */
     async wheel(dy: number, ms = 900) {
       let el: Element | null = document.elementFromPoint(mouse.x, mouse.y);
@@ -197,6 +274,37 @@ async function databaseHome(s: Steps) {
   await s.wait(300);
   const back = [...document.querySelectorAll("button, a, [role=button]")].find((e) => /^←.?Overview$/.test(e.textContent?.trim() ?? ""));
   if (back instanceof HTMLElement) back.click();
+}
+
+/** Wait (in real time, whatever the pace) until something is there. */
+async function until(s: Steps, there: () => unknown, ms = 6000) {
+  for (let t = 0; t < ms; t += 100) {
+    if (there()) return;
+    await s.wait(100 / pace);
+  }
+}
+
+const inputCalled = (key: TranslationKey) => () => visible(`input[placeholder="${tr(key)}"]`);
+const buildCard = () => visible("div[role=button][aria-expanded].rounded-2xl");
+
+/** A new, empty loadout for the Hunter (the builder and the optimizer
+ *  under it): back from one open, its drafts forgotten, "+ Loadout". */
+async function newLoadout(s: Steps) {
+  const hunter = visible("button", /^Hunter/);
+  if (hunter instanceof HTMLElement) hunter.click();
+  await s.wait(800);
+  const back = visible(`button[aria-label="${tr("builder.back")}"]`);
+  if (back instanceof HTMLElement) {
+    back.click();
+    await s.wait(800);
+  }
+  for (const k of Object.keys(localStorage)) {
+    if (/^radar\.(builder\.draft|optimizer\.(draft|pinned|fixed))\./.test(k)) localStorage.removeItem(k);
+  }
+  const add = visible("button", tr("loadouts.newLoadout"));
+  if (add instanceof HTMLElement) add.click();
+  await until(s, buildCard);
+  await s.wait(1500);
 }
 
 /** The scenes, by the website's names. Each opens on its page, sets up
@@ -345,6 +453,97 @@ const SCENES: Record<string, { page: string; setup?: (s: Steps) => Promise<void>
       await s.wait(1000);
       await s.moveTo({ x: 900, y: 520 }, 600);
       await s.wait(1300);
+    },
+  },
+  // The loadout builder: a weapon searched, picked, its perks chosen.
+  builder: {
+    page: "loadouts",
+    setup: newLoadout,
+    play: async (s) => {
+      await s.click({ el: inputCalled("builder.weaponSearch") }, 300);
+      await s.type("chrysura");
+      await s.wait(1100);
+      await s.click("Chrysura Melo", 1300);
+      await s.click({ el: () => visible("div[role=button]", /Chrysura Melo/) }, 1500);
+      await s.moveTo("Frenzy", 700);
+      await s.wait(500);
+      await s.click("Frenzy", 900);
+      await s.click("Steady Rounds", 1600);
+    },
+  },
+  // The optimizer: minimum stats asked for, the builds following.
+  optimize: {
+    page: "loadouts",
+    setup: async (s) => {
+      await newLoadout(s);
+      // (The sets above, all six sliders and the first builds in view.)
+      bringTo(visible("input[type=range]"), 455);
+    },
+    play: async (s) => {
+      await s.slide(0, 100, 1200);
+      await s.wait(700);
+      await s.slide(1, 70, 1000);
+      await s.wait(600);
+      await s.slide(3, 80, 1000);
+      await s.wait(900);
+      await s.moveTo({ el: buildCard }, 700);
+      await s.wait(1400);
+    },
+  },
+  // Its rules: an exotic, a set bonus.
+  optimizeRules: {
+    page: "loadouts",
+    setup: async (s) => {
+      await newLoadout(s);
+      bringTo(visible('button[aria-label="Celestial Nighthawk"]'), 380);
+    },
+    play: async (s) => {
+      await s.moveTo({ sel: 'button[aria-label="Celestial Nighthawk"]' }, 700);
+      await s.wait(500);
+      await s.click({ sel: 'button[aria-label="Celestial Nighthawk"]' }, 1400);
+      await s.click(tr("opt.setsAdd"), 900);
+      await s.click({ el: inputCalled("opt.setSearch") }, 300);
+      await s.type("atheon");
+      await s.wait(1000);
+      // Its four-piece bonus (the bonus buttons say "2…", "4…").
+      await s.click(
+        {
+          el: () => {
+            const search = inputCalled("opt.setSearch")();
+            return [...document.querySelectorAll("button")].find(
+              (b) =>
+                !!search &&
+                search.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING &&
+                /^4\D/.test(b.textContent?.trim() ?? "") &&
+                b.getBoundingClientRect().width > 0,
+            );
+          },
+        },
+        1500,
+      );
+      await s.click(tr("opt.setsHide"), 900);
+      await s.moveTo({ x: 640, y: 560 }, 600);
+      await s.wheel(260, 1000);
+      await s.wait(1200);
+    },
+  },
+  // A build opened: its pieces, mods and what masterworking still costs.
+  optimizeBuild: {
+    page: "loadouts",
+    setup: async (s) => {
+      await newLoadout(s);
+      await s.slide(0, 100, 300);
+      await s.slide(1, 70, 300);
+      await s.wait(2000);
+      bringTo(buildCard(), 160);
+    },
+    play: async (s) => {
+      await s.moveTo({ el: () => buildCard()?.querySelector("img") }, 700);
+      await s.wait(1500);
+      await s.click({ el: buildCard }, 1600);
+      await s.moveTo({ x: 640, y: 560 }, 600);
+      await s.wheel(240, 1100);
+      await s.wait(1500);
     },
   },
 };

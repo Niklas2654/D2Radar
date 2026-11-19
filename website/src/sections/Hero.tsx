@@ -2,8 +2,8 @@ import { IconArrow, IconWindows } from "../components/icons";
 import { DOWNLOAD_URL, INSTALLER_SIZE, VERSION } from "../fx";
 import { fill, useStrings } from "../i18n";
 
-/** Above the fold: the slogan, what Radar is, and the download; the
- *  showcase fades in below once the page is scrolled. */
+/** Above the fold: the slogan, what Radar is, the download and the way
+ *  to the tour below. */
 export function Hero() {
   const s = useStrings().hero;
   return (
@@ -27,8 +27,8 @@ export function Hero() {
         <a href={DOWNLOAD_URL} className="btn-primary inline-flex h-12 items-center gap-2.5 rounded-2xl px-6 text-[15px] font-semibold" download>
           <IconWindows /> {s.download}
         </a>
-        <a href="#features" className="btn-ghost inline-flex h-12 items-center gap-2 rounded-2xl px-5 text-[15px] font-medium">
-          {s.features} <IconArrow />
+        <a href="#tour" className="btn-ghost inline-flex h-12 items-center gap-2 rounded-2xl px-5 text-[15px] font-medium">
+          {s.tour} <IconArrow />
         </a>
       </div>
       <p className="reveal mt-4 text-[12px] text-white/35" style={{ ["--delay" as string]: "0.24s" }}>

@@ -9,6 +9,7 @@ import { ACCENTS, updateSettings, type AccentId } from "../lib/settings";
 import { emit, on } from "./events";
 import { startAutopilot } from "./autopilot";
 import { gearSearch } from "./demoSearch";
+import { demoOptimizer } from "./demoOptimizer";
 
 interface Recorded {
   cmd: string;
@@ -195,6 +196,9 @@ export async function call<T>(cmd: string, args?: Record<string, unknown>): Prom
     const all = (await file<Record<string, unknown>>("artifacts.json")) ?? {};
     return (all[String(args?.name)] ?? null) as T;
   }
+  // The loadout builder and the armor optimizer: worked out here (demoOptimizer.ts).
+  const mocked = await demoOptimizer(cmd, args ?? {});
+  if (mocked.found) return fresh(mocked.value) as T;
   // Search and item pages: from the exported index (any item, as in the app).
   const exported = await item(cmd, args ?? {});
   if (exported.found) return fresh(exported.value) as T;

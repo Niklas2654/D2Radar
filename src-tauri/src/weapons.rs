@@ -3078,6 +3078,10 @@ pub fn start_detection(app: &AppHandle) {
             if !config(&app).auto || PAUSED.load(std::sync::atomic::Ordering::SeqCst) {
                 continue;
             }
+            // DIM / Discord over the game: their text isn't the game's.
+            if crate::dim::open_in_game(&app) || crate::discord::open_in_game(&app) {
+                continue;
+            }
             // Only while the game is in front. Out of it (alt-tab, a
             // screenshot tool) the shown item stays, like the other widgets.
             if screen::destiny_in_foreground() {

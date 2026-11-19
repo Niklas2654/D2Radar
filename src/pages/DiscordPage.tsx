@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { AutoJoin, type Watch } from "../components/AutoJoin";
 import { CopySwap } from "../components/CopySwap";
 import { cx, GlassButton, GlassPanel, PanelHeader } from "../components/glass";
 import { IconChat, IconClose, IconHome, IconPlus } from "../components/icons";
@@ -27,6 +28,10 @@ interface DiscordConfig {
   servers?: Record<string, Server>;
   /** Destiny's language: its chat commands are translated. */
   gameLanguage?: string;
+  /** Join buttons send the command in the game's chat themselves. */
+  typeJoin?: boolean;
+  /** The last search of the auto-join. */
+  watch?: Watch;
 }
 
 /** The join command in each game language Destiny is known to translate. */
@@ -406,6 +411,16 @@ export function DiscordPage({ phase }: { phase: Phase; dir: Direction }) {
         </div>
         {error && <p className="mt-2 rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-200">{error}</p>}
         <MyJoinCode language={config.gameLanguage} />
+        <AutoJoin
+          pins={config.pins}
+          watch={config.watch}
+          typeJoin={config.typeJoin ?? false}
+          onTypeJoin={(on) =>
+            void call<DiscordConfig>("discord_set_type_join", { on })
+              .then((c) => c && setConfig(c))
+              .catch((e) => setError(String(e)))
+          }
+        />
         {picking ? (
           <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-(--accent-glow) bg-(--accent-soft) p-3">
             <p className="text-[12px] leading-relaxed text-white/80">{t("discord.pickHint")}</p>

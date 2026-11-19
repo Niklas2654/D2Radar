@@ -22,6 +22,7 @@ const at = (id: string) => () => DEFAULT_POSITIONS[id](stage().w, stage().h);
 const sessionDefault = at("session");
 const statsDefault = at("stats");
 const noticeDefault = at("notice");
+const joinDefault = at("join");
 
 export function Overlay() {
   const t = useT();
@@ -57,6 +58,26 @@ export function Overlay() {
     };
   }, []);
 
+  // The auto-join (Discord tab) found a post: whom it joins, and the post,
+  // for a few seconds under the loadout message's place.
+  const [joined, setJoined] = useState<{ name: string; text: string; typed: boolean } | null>(null);
+  useEffect(() => {
+    let id = 0;
+    const off = subscribe<{ active: boolean; found?: { name: string; text: string; typed: boolean } | null }>(
+      "discord-watch",
+      (e) => {
+        if (e.active || !e.found) return;
+        setJoined(e.found);
+        window.clearTimeout(id);
+        id = window.setTimeout(() => setJoined(null), 7000);
+      },
+    );
+    return () => {
+      off();
+      window.clearTimeout(id);
+    };
+  }, []);
+
   // The control window can also reset the layout.
   useEffect(() => subscribe("layout-reset", resetLayout), []);
 
@@ -82,7 +103,9 @@ export function Overlay() {
       const o = originRef.current;
       const rects = [...document.querySelectorAll<HTMLElement>("[data-overlay-widget]")].map((el) => {
         const r = el.getBoundingClientRect();
-        if (el.dataset.overlayWidget === "notice") noticeSize.current = { w: r.width, h: r.height };
+        // The largest one seen: a longer name later still fits at once.
+        if (el.dataset.overlayWidget === "notice")
+          noticeSize.current = { w: Math.max(noticeSize.current.w, r.width), h: Math.max(noticeSize.current.h, r.height) };
         return { x: r.left + o.x, y: r.top + o.y, w: r.width, h: r.height };
       });
       const areas = rects.map((r) => ({ x: r.x * scale, y: r.y * scale, w: r.w * scale, h: r.h * scale }));
@@ -95,7 +118,13 @@ export function Overlay() {
       const all = [...rects];
       if (showsNotice) {
         const p = readLayout().notice ?? noticeDefault();
-        all.push({ x: p.x, y: p.y, w: noticeSize.current.w, h: noticeSize.current.h });
+        const k = settings.scale;
+        all.push({
+          x: p.x,
+          y: p.y,
+          w: Math.max(noticeSize.current.w, NOTICE_SIZE.w * k),
+          h: Math.max(noticeSize.current.h, NOTICE_SIZE.h * k),
+        });
       }
       let frame: { x: number; y: number; w: number; h: number } | null = null;
       if (!edit && all.length) {
@@ -121,7 +150,7 @@ export function Overlay() {
     const id = window.setInterval(report, 500);
     return () => window.clearInterval(id);
     // (At once when the loadout message comes: the window takes it in.)
-  }, [edit, showsNotice, !!toast]);
+  }, [edit, showsNotice, settings.scale, notice, !!toast, !!joined]);
 
   return (
     <div
@@ -158,10 +187,30 @@ export function Overlay() {
         </div>
       )}
 
+      {/* The auto-join's message: for a few seconds after it found a post;
+          placed in the layout editor (a sample there). */}
+      {(joined || edit) && (
+        <Widget key="join" id="join" label={t("discord.autoJoin")} defaultPosition={joinDefault} {...common}>
+          <HudPanel>
+            <div className="max-w-[420px] px-4 py-2.5">
+              <div className="flex items-center gap-2.5 text-[13px] font-medium whitespace-nowrap text-white">
+                <span className="size-1.5 shrink-0 rounded-full bg-(--accent-text)" />
+                {t(!joined || joined.typed ? "discord.autoJoinSent" : "discord.autoJoinCopied", {
+                  name: joined?.name ?? "Guardian#1234",
+                })}
+              </div>
+              <div className="mt-1 line-clamp-2 text-[12px] leading-snug break-words text-white/55">
+                {joined ? joined.text : "LF2M GM fresh /join Guardian#1234"}
+              </div>
+            </div>
+          </HudPanel>
+        </Widget>
+      )}
+
       {/* "… recognized": while it is on screen; placed in the layout editor
           (a sample there). */}
       {settings.widgets.weapon && (notice || edit) && (
-        <Widget key="notice" id="notice" label={t("widgets.weapon")} defaultPosition={noticeDefault} {...common}>
+        <Widget key="notice" id="notice" label={t("widgets.weapon")} defaultPosition={noticeDefault} fit {...common}>
           <HudPanel>
             <div className="flex items-center gap-3 px-4 py-2 text-[13px] whitespace-nowrap">
               <span className="size-1.5 rounded-full bg-(--accent-text)" />

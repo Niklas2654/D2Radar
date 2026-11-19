@@ -104,6 +104,10 @@ async fn describe(app: &AppHandle, index: usize, loadout: &Value, owned: &HashMa
 static CLEARED: Mutex<Vec<(String, usize, std::time::Instant)>> = Mutex::new(Vec::new());
 const CLEARED_FOR: std::time::Duration = std::time::Duration::from_secs(600);
 
+/// In the plugItemHashes of a slot item (by socket index): no plug saved for
+/// that socket.
+const UNSET_PLUG: u64 = 2166136261;
+
 /// Something saved into a slot: no longer one cleared.
 pub(crate) fn slot_written(character: &str, index: usize) {
     CLEARED.lock().unwrap().retain(|(c, i, _)| !(c == character && *i == index));
@@ -297,8 +301,10 @@ pub async fn loadout_clear(app: AppHandle, character_id: Option<String>, index: 
     Ok(())
 }
 
-/// Save an in-game loadout slot to DIM, under its name: its items as they
-/// are now (their current mods and perks). Returns the new DIM loadout's id.
+/// Save an in-game loadout slot as a loadout, under its name: its items as
+/// the slot has them (the subclass setup, perks, mods and artifact perks
+/// saved in it, not what the items have in them right now). Returns the new
+/// loadout's id.
 #[tauri::command]
 pub async fn loadout_to_dim(
     app: AppHandle,
@@ -313,18 +319,31 @@ pub async fn loadout_to_dim(
     if loadout.is_null() || is_empty(loadout) {
         return Err(format!("{} {}", tr("Leerer Loadout-Slot", "Empty loadout slot"), index + 1));
     }
-    let items: Vec<String> = loadout["items"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|i| i["itemInstanceId"].as_str())
-        .filter(|id| *id != "0")
-        .map(String::from)
-        .collect();
+    let mut items = Vec::new();
+    let mut slot = crate::presets::SlotPlugs::new();
+    for i in loadout["items"].as_array().into_iter().flatten() {
+        let Some(id) = i["itemInstanceId"].as_str().filter(|id| *id != "0") else {
+            continue;
+        };
+        items.push(id.to_string());
+        // By socket index; UNSET_PLUG: nothing saved for that socket.
+        let plugs = i["plugItemHashes"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|p| p.as_u64().filter(|&p| p != UNSET_PLUG).unwrap_or(0) as u32)
+            .collect();
+        slot.insert(id.to_string(), plugs);
+    }
+    let identifiers = json!({
+        "nameHash": loadout["nameHash"],
+        "colorHash": loadout["colorHash"],
+        "iconHash": loadout["iconHash"],
+    });
     // The name given, else the slot's.
     let name = match name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty()) {
         Some(n) => n,
         None => describe(&app, index, loadout, &HashMap::new()).await.name,
     };
-    crate::presets::preset_save(app, Some(character_id), name, items, None, None, None, None, None).await
+    crate::presets::save_slot(&app, &character_id, &name, &items, &slot, identifiers).await
 }

@@ -14,6 +14,9 @@ src-tauri/resources/game-*.db*
 website/public/app/
 website/public/download/
 
+# Recordings for the website's demo (the account as it is; never in git)
+demo-recording/
+
 # Vercel project link (website deploys)
 .vercel/
 

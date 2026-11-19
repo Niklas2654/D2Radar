@@ -1,5 +1,10 @@
-# A new Radar version: the commit "Release v0.2.0" on master, pushed by
-# `pnpm release 0.2.0` (with its tag). Run from master, not from the tag:
+# A new Radar version: the commit "Release v0.2.0" reaching master, by the
+# pull request `pnpm release 0.2.0` prepares (branch release/v0.2.0; merged
+# any way: as a merge commit, squashed or rebased), whose description is
+# the version's release notes: the text of the release on D2Radar, which the
+# app shows once after updating ("What's new", src/lib/whatsNew.ts). Or
+# pushed straight (`pnpm release 0.2.0 --direct`), without notes then.
+# Run from master, not from a tag:
 # GitHub keeps a run's caches for its own branch or tag (and master's for
 # everyone), so a run per tag never found the last one's compiled Rust and
 # built everything again (half an hour); from master each reuses the last.
@@ -39,10 +44,36 @@ jobs:
     # and only for a release commit (or started by hand).
     if: >-
       github.repository != 'Niklas2654/D2Radar' &&
-      (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Release v'))
+      (github.event_name == 'workflow_dispatch' ||
+       startsWith(github.event.head_commit.message, 'Release v') ||
+       (startsWith(github.event.head_commit.message, 'Merge pull request') &&
+        contains(github.event.head_commit.message, '/release/v')))
     runs-on: windows-latest
+    # Of this repo's own token (the notes step reads the pull request).
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v5
+
+      # The release notes: the description of the pull request this commit
+      # came in with (without its HTML comments); the usual line without one.
+      - id: notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          body=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0].body // ""' | tr -d '\r' || true)
+          body=$(printf '%s' "$body" | perl -0pe 's/<!--.*?-->//gs')
+          if [ -z "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
+            body="Radar ${version} for Windows 10/11. Radar updates itself from here (Settings → About)."
+          fi
+          {
+            echo "body<<RADAR_NOTES_END"
+            printf '%s\n' "$body"
+            echo "RADAR_NOTES_END"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v6
         with:
@@ -78,7 +109,7 @@ jobs:
           tagName: v__VERSION__
           releaseCommitish: main
           releaseName: Radar __VERSION__
-          releaseBody: Radar __VERSION__ for Windows 10/11. Radar updates itself from here (Settings → About).
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           includeUpdaterJson: true
           args: --config src-tauri/tauri.release.conf.json

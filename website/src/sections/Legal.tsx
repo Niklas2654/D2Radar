@@ -229,8 +229,7 @@ function Privacy() {
           statistical estimate (HyperLogLog), which keeps neither account numbers nor hashes, only an approximate count. Nothing else is
           stored, and the counts can't be traced back to anyone. They are kept with Upstash, Inc. (database service, through Vercel; stored in
           the EU). The totals are shown on this website. Legal basis: Art. 6(1)(f) GDPR (our legitimate interest in knowing how much Radar is
-          used, with no personal data kept). You can turn the counting off in Radar under Settings → Privacy → “Count me anonymously”; the
-          function then counts nothing for you.
+          used, with no personal data kept). You can object to this at any time (Art. 21 GDPR) using the contact details above.
         </p>
 
         <H3>Screen recognition</H3>
@@ -435,8 +434,8 @@ function Datenschutz() {
           aufbewahrt, sondern nur eine ungefähre Anzahl. Sonst wird nichts gespeichert, und die Zahlen lassen sich auf niemanden zurückführen.
           Sie liegen bei Upstash, Inc. (Datenbankdienst, über Vercel; gespeichert in der EU). Die Gesamtzahlen werden auf dieser Website
           angezeigt. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (unser berechtigtes Interesse zu wissen, wie viel Radar genutzt wird, ohne
-          dass personenbezogene Daten aufbewahrt werden). Sie können das Zählen in Radar unter Einstellungen → Datenschutz → „Anonym
-          mitzählen“ abschalten; die Funktion zählt Sie dann nicht mit.
+          dass personenbezogene Daten aufbewahrt werden). Sie können dem jederzeit widersprechen (Art. 21 DSGVO), über die oben genannten
+          Kontaktdaten.
         </p>
 
         <H3>Bildschirmerkennung</H3>

@@ -6,11 +6,41 @@ const en = {
     titleAccent: "won't tell you.",
     text: "Everything about your Guardian, right next to the game. Radar recognises the weapon, armor or Guardian you're looking at and shows what the game doesn't: every roll, exact numbers, clears, lowmans and builds. Plus all your loadouts in one place, and DIM and Discord one hotkey away.",
     download: "Download for Windows",
-    features: "See all features",
+    tour: "Take the tour",
     meta: "{size} · Windows 10/11 · Not affiliated with Bungie",
     inAction: "See it in action",
   },
   tour: {
+    kicker: "The tour",
+    title: "Scroll through the real app.",
+    text: "Chapter by chapter, from your fireteam to the overlay in the game.",
+    chapters: [
+      {
+        name: "Fireteam",
+        title: "Know who you're playing with.",
+        text: "Clears, lowmans, best times and the build of every Guardian – yours, your fireteam's, anyone's you look up.",
+      },
+      {
+        name: "Database",
+        title: "Every weapon and armor piece, with real numbers.",
+        text: "All rolls, sources and exact perk values, next to the copies you own.",
+      },
+      {
+        name: "Loadouts",
+        title: "All your loadouts in one place.",
+        text: "In-game slots, DIM loadouts and presets – equip, save and build them without leaving Radar.",
+      },
+      {
+        name: "Armor optimizer",
+        title: "The best armor for the stats you want.",
+        text: "Set your targets and Radar searches your whole vault for the builds that reach them.",
+      },
+      {
+        name: "In game",
+        title: "Right over the game.",
+        text: "Hover a weapon or armor piece as in the game: Radar recognises it and shows its notice. Click it or press F10 for Radar's page on it. Open the artifact too.",
+      },
+    ],
     snippets: [
       {
         title: "Fireteam scanner",
@@ -86,37 +116,66 @@ const en = {
           "Look someone up by name, or straight from their character screen in game",
         ],
       },
+      {
+        title: "Build a loadout",
+        subtitle: "A slot at a time – weapons, armor, subclass and artifact",
+        points: [
+          "Start from what you're wearing or from scratch",
+          "Weapons with the perks you pick, set when you equip",
+          "Save it and equip it later in one click",
+        ],
+      },
+      {
+        title: "Armor for the stats you want",
+        subtitle: "Set minimums, and Radar combines your whole vault",
+        points: [
+          "Shows how high each stat can still go",
+          "Every piece on your characters and in the vault counts",
+          "Masterwork, mods and tier 5 tuning worked in",
+        ],
+      },
+      {
+        title: "Your build, your rules",
+        subtitle: "Exotic, set bonuses and fixed mods – the rest is worked out around them",
+        points: [
+          "Pick an exotic – or let Radar choose one",
+          "Ask for a set bonus: that many pieces go in every build",
+          "Pin a piece or a mod yourself, or leave one out",
+        ],
+      },
+      {
+        title: "Every build, in detail",
+        subtitle: "What each piece adds, what it costs, and what you get",
+        points: [
+          "Stats per piece: roll, masterwork, mods and tuning",
+          "What masterworking the build would cost",
+          "Ability cooldowns and damage resistance at those stats",
+        ],
+      },
     ],
     tryIt: "Click the app to try it yourself.",
-    tryItHint: "A demo with sample data (in English) – some features only work in the real app. Scroll on it or use the arrows for more.",
-    swipe: "Swipe, drag or use the arrows · clips from the real app",
-    pictures: "Pictures of the app",
-    previous: "Previous",
-    next: "Next",
+    tryItHint: "A demo with sample data (in English) – some features only work in the real app.",
+    swipe: "Clips from the real app",
     demo: "Radar demo",
     clickToTry: "Click to try it yourself",
     backToTour: "Back to the tour",
   },
+  game: {
+    note: "A drawn game screen with sample gear; the notice and the page over it are the real Radar · Destiny 2 isn't running here",
+    hover: "Hover",
+    inspect: "Inspect",
+    page: "Radar page",
+    close: "Close",
+    tip: "Click or F10: Radar's page on it",
+  },
   features: {
-    kicker: "Features",
+    kicker: "And more",
     title: "One app instead of five tabs.",
     text: "Built for Destiny 2 on PC, made to stay out of your way.",
     items: [
       {
-        title: "Recognises what you look at",
-        text: "Inspect a weapon or a piece of armor and a notice shows up over the game. F10 opens the full page for it.",
-      },
-      {
         title: "Reads Guardian names",
         text: "Open someone's character screen and Radar finds them — underscores, brackets, symbols, Cyrillic and CJK names too.",
-      },
-      {
-        title: "Artifact perks, exact",
-        text: "On the artifact screen Radar lists every perk of the season's artifact with what it actually does.",
-      },
-      {
-        title: "All your loadouts in one place",
-        text: "Equip in-game and DIM loadouts in one click, save new ones to DIM, or switch a whole preset at once.",
       },
       {
         title: "DIM and Discord over the game",
@@ -134,6 +193,10 @@ const en = {
         title: "Won't slow your game down",
         text: "Radar barely uses your PC: the overlay only draws where its widgets are, and anything you're not using pauses.",
       },
+      {
+        title: "In your colour",
+        text: "Pick a subclass colour or one of your own – the app and the overlay follow.",
+      },
     ],
   },
   safety: {
@@ -141,7 +204,6 @@ const en = {
     title: "Hands off the game.",
     text: "Radar sits next to Destiny 2, not inside it. It looks at the screen and asks Bungie — nothing else.",
     items: [
-      "Never sends a key press or a click to Destiny 2",
       "Doesn't read or change the game's memory or files",
       "Reads only what's on your screen, like a screenshot",
       "Your data comes from Bungie's official API, as with DIM",
@@ -167,7 +229,7 @@ const en = {
     items: [
       {
         q: "Can I get banned for using Radar?",
-        a: "Radar doesn't inject anything, doesn't read the game's memory and never sends input to Destiny 2. It reads what is on your screen (like a screenshot) and talks to Bungie's official API — the same way DIM and other companion apps do.",
+        a: "Radar doesn't inject anything and doesn't read the game's memory. It reads what is on your screen (like a screenshot) and talks to Bungie's official API — the same way DIM and other companion apps do.",
       },
       { q: "Is it free?", a: "Yes. Radar is free to download and use." },
       { q: "Is Radar open source?", a: "Yes. Radar's full source code is public on GitHub – github.com/Niklas2654/D2Radar – under the GPL-3.0 license. The code of every released version is published there." },

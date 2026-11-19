@@ -65,8 +65,12 @@ fn open(path: PathBuf, schema: &str) -> Option<Connection> {
     }
     let conn = Connection::open(&path).map_err(|e| eprintln!("[db] {}: {e}", path.display())).ok()?;
     // Readers don't wait for a writer; writes survive a crash; a bigger page
-    // cache and temp tables in memory (lookups by the hundred).
-    let _ = conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA cache_size = -32000; PRAGMA temp_store = MEMORY;");
+    // cache and temp tables in memory (lookups by the hundred); the log of
+    // writes not yet in the file is cut back to 8 MB once they are (it
+    // otherwise stays as big as it ever got).
+    let _ = conn.execute_batch(
+        "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA cache_size = -32000; PRAGMA temp_store = MEMORY; PRAGMA journal_size_limit = 8388608;",
+    );
     conn.set_prepared_statement_cache_capacity(32);
     conn.execute_batch(schema).map_err(|e| eprintln!("[db] schema: {e}")).ok()?;
     Some(conn)
@@ -102,6 +106,54 @@ pub(crate) fn loadouts(app: &AppHandle, membership: &str) -> Vec<serde_json::Val
         Ok(rows.filter_map(|r| r.ok()).filter_map(|s| serde_json::from_str(&s).ok()).collect())
     })
     .unwrap_or_default()
+}
+
+/// One of the player's loadouts, by its id.
+pub(crate) fn loadout(app: &AppHandle, membership: &str, id: &str) -> Option<serde_json::Value> {
+    user(app, |c| {
+        c.query_row(
+            "SELECT data FROM loadouts WHERE membership = ?1 AND id = ?2",
+            params![membership, id],
+            |r| r.get::<_, String>(0),
+        )
+        .optional()
+    })
+    .flatten()
+    .and_then(|s| serde_json::from_str(&s).ok())
+}
+
+/// Put one loadout: new, or in place of the one with its id (which keeps
+/// its place among the others). The others aren't touched.
+pub(crate) fn set_loadout(
+    app: &AppHandle,
+    membership: &str,
+    l: &serde_json::Value,
+) -> Result<(), String> {
+    let id = l["id"]
+        .as_str()
+        .filter(|id| !id.is_empty())
+        .ok_or("loadout without an id")?;
+    user(app, |c| {
+        c.execute(
+            "INSERT INTO loadouts (membership, id, data, updated) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (membership, id) DO UPDATE SET data = excluded.data, updated = excluded.updated",
+            params![membership, id, l.to_string(), chrono::Utc::now().timestamp()],
+        )
+    })
+    .map(|_| ())
+    .ok_or_else(|| "database not available".to_string())
+}
+
+/// Take one loadout out.
+pub(crate) fn delete_loadout(app: &AppHandle, membership: &str, id: &str) -> Result<(), String> {
+    user(app, |c| {
+        c.execute(
+            "DELETE FROM loadouts WHERE membership = ?1 AND id = ?2",
+            params![membership, id],
+        )
+    })
+    .map(|_| ())
+    .ok_or_else(|| "database not available".to_string())
 }
 
 /// Put the player's loadouts as given (all of them, in one go).

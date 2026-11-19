@@ -251,17 +251,28 @@ pub(crate) fn uuid() -> String {
     )
 }
 
-/// The armor mods plugged into an owned armor piece (no empty sockets,
-/// masterwork or crafting plugs), and apart from them its tuning (the
-/// "+5 / -5" stat plug): that belongs to this very piece (not every piece
-/// takes every tuning), so it is kept with the piece as socket index -> plug.
-/// With `stat_mods` its stat mods (general and artifice socket) are left
-/// out: those are given (the tuning too, when one is given for the piece).
-async fn armor_mods(app: &AppHandle, o: &OwnedItem, stat_mods: bool) -> (Vec<u32>, Vec<(usize, u32)>) {
-    let Some(info) = item(app, o.item_hash as u64).await else { return (Vec::new(), Vec::new()) };
+/// The plug in each socket of an in-game loadout slot's items, as the slot
+/// has them saved: item instance id -> plug per socket index (0: none).
+pub(crate) type SlotPlugs = HashMap<String, Vec<u32>>;
+
+/// A stat mod's plug category: the general socket's and the artifice one's.
+fn stat_plug(category: &str) -> bool {
+    category == "enhancements.v2_general" || category == "enhancements.artifice"
+}
+
+/// The armor mods in an armor piece (`hash`) with `plugs` in its sockets (by
+/// socket index: how it is plugged now, or as an in-game slot has it; no
+/// empty sockets, masterwork or crafting plugs), and apart from them its
+/// tuning (the "+5 / -5" stat plug): that belongs to this very piece (not
+/// every piece takes every tuning), so it is kept with the piece as socket
+/// index -> plug. With `stat_mods` its stat mods (general and artifice
+/// socket) are left out: those are given (the tuning too, when one is given
+/// for the piece).
+async fn armor_mods(app: &AppHandle, hash: u32, plugs: &[u32], stat_mods: bool) -> (Vec<u32>, Vec<(usize, u32)>) {
+    let Some(info) = item(app, hash as u64).await else { return (Vec::new(), Vec::new()) };
     let (mut mods, mut tuning) = (Vec::new(), Vec::new());
     for &(index, empty) in &info.mod_sockets {
-        let Some(&plug) = o.socket_plugs.get(index) else { continue };
+        let Some(&plug) = plugs.get(index) else { continue };
         if plug == 0 || plug as u64 == empty {
             continue;
         }
@@ -269,7 +280,7 @@ async fn armor_mods(app: &AppHandle, o: &OwnedItem, stat_mods: bool) -> (Vec<u32
         let c = &def.plug_category;
         if c.contains("tuning") {
             tuning.push((index, plug));
-        } else if stat_mods && (c == "enhancements.v2_general" || c == "enhancements.artifice") {
+        } else if stat_mods && stat_plug(c) {
             continue;
         } else if !c.contains("masterworks") && !c.contains("crafting") && !c.contains("empty") {
             mods.push(plug);
@@ -278,12 +289,64 @@ async fn armor_mods(app: &AppHandle, o: &OwnedItem, stat_mods: bool) -> (Vec<u32
     (mods, tuning)
 }
 
-/// A loadout (item instance ids, one per slot) as DIM stores it. Subclass
-/// setup, armor mods and tuning are taken from how those items are set up
-/// right now, the artifact from the character's active perks; with
-/// `stat_mods` (armor bucket -> mod items, e.g. the optimizer's) those in
-/// place of the armor's own stat mods, each on its piece (DIM's
-/// modsByBucket).
+/// The same for a piece (item instance `id`, in armor `bucket`) of a loadout
+/// saved before (`base`: the one being edited): its mods and tuning as that
+/// has them, not as the piece happens to be plugged now. None: not in it, or
+/// saved without mods per piece (an older loadout).
+async fn saved_mods(app: &AppHandle, base: &Value, id: &str, bucket: u64, stat_mods: bool) -> Option<(Vec<u32>, Vec<(usize, u32)>)> {
+    let entry = base["equipped"].as_array()?.iter().find(|e| e["id"].as_str() == Some(id))?;
+    let list = base["parameters"]["modsByBucket"][bucket.to_string()].as_array()?;
+    let mut mods = Vec::new();
+    for h in list.iter().filter_map(Value::as_u64) {
+        let category = item(app, h).await.map(|d| d.plug_category).unwrap_or_default();
+        if !(stat_mods && stat_plug(&category)) {
+            mods.push(h as u32);
+        }
+    }
+    let tuning = entry["socketOverrides"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(index, plug)| Some((index.parse().ok()?, plug.as_u64()? as u32)))
+        .collect();
+    Some((mods, tuning))
+}
+
+/// A weapon's perks and mod as an in-game slot has them (`plugs`, by socket
+/// index), as socket index -> plug: the perks this copy can switch to (a
+/// fixed one needs no saving) and its weapon mod; no shader, ornament,
+/// masterwork or tracker.
+async fn weapon_setup(app: &AppHandle, o: &OwnedItem, plugs: &[u32]) -> serde_json::Map<String, Value> {
+    let mut out = serde_json::Map::new();
+    let Some(info) = item(app, o.item_hash as u64).await else { return out };
+    let plug_at = |index: usize| plugs.get(index).copied().filter(|&p| p != 0);
+    for &index in info.perk_sockets() {
+        if let Some(plug) = plug_at(index).filter(|p| o.options.contains(p)) {
+            out.insert(index.to_string(), json!(plug));
+        }
+    }
+    for &(index, empty) in &info.mod_sockets {
+        let Some(plug) = plug_at(index).filter(|&p| p as u64 != empty) else { continue };
+        let category = item(app, plug as u64).await.map(|d| d.plug_category).unwrap_or_default();
+        if category.contains("weapon.mod") && !category.contains("empty") {
+            out.insert(index.to_string(), json!(plug));
+        }
+    }
+    out
+}
+
+/// A loadout (item instance ids, one per slot) as DIM stores it, with each
+/// armor piece's mods on that piece (modsByBucket) and its tuning with the
+/// piece (socket overrides). Subclass setup, armor mods and tuning are taken
+/// from how those items are set up right now, the artifact from the
+/// character's active perks, unless told otherwise:
+/// - `stat_mods` (armor bucket -> mod items, e.g. the optimizer's): those in
+///   place of the armor's own stat mods;
+/// - `slot`: an in-game loadout slot saved, with the plugs it has for its
+///   items (subclass, weapons, armor, artifact): those, not the items' now;
+/// - `base`: the saved loadout this one was opened from: a piece still in it
+///   keeps the mods and tuning saved for it.
+#[allow(clippy::too_many_arguments)]
 async fn build_loadout(
     app: &AppHandle,
     s: &crate::inventory::Session,
@@ -297,21 +360,28 @@ async fn build_loadout(
     subclass_plugs: Option<&HashMap<usize, u32>>,
     artifact: Option<&[u32]>,
     weapon_plugs: Option<&HashMap<String, HashMap<usize, u32>>>,
+    slot: Option<&SlotPlugs>,
+    base: Option<&Value>,
 ) -> Result<Value, String> {
     let (_, class_type) = pick_character(&profile, character_id)?;
 
-    let mut equipped = Vec::new();
-    let mut mods = Vec::new();
+    let mut equipped: Vec<Value> = Vec::new();
     let mut by_bucket = serde_json::Map::new();
     for id in items {
         let Some(o) = owned.iter().find(|o| &o.instance_id == id) else { continue };
+        // (Each item once: a slot lists the artifact, which is added below too.)
+        if equipped.iter().any(|e| e["id"].as_str() == Some(id.as_str())) {
+            continue;
+        }
         let bucket = gear.get(o.item_hash).map(|g| g.bucket).unwrap_or(0);
+        // Its sockets as the slot has them, else as they are now.
+        let plugs: &[u32] = slot.and_then(|s| s.get(&o.instance_id)).unwrap_or(&o.socket_plugs);
         let mut entry = json!({ "id": o.instance_id, "hash": o.item_hash });
         if bucket == SUBCLASS {
-            // Super, abilities, aspects and fragments as set up now, or as
-            // picked (`subclass_plugs`: socket index -> plug).
-            let mut overrides: serde_json::Map<String, Value> = o
-                .socket_plugs
+            // Super, abilities, aspects and fragments as set up (in the
+            // slot, else now), or as picked (`subclass_plugs`: socket index
+            // -> plug).
+            let mut overrides: serde_json::Map<String, Value> = plugs
                 .iter()
                 .enumerate()
                 .filter(|(_, &plug)| plug != 0)
@@ -322,31 +392,66 @@ async fn build_loadout(
             }
             entry["socketOverrides"] = Value::Object(overrides);
         }
-        // A weapon's perks and mods as picked (socket index -> plug).
+        // A weapon's perks and mods as picked (socket index -> plug), else
+        // as the slot has them.
         if let Some(picked) = weapon_plugs.and_then(|w| w.get(&o.instance_id)).filter(|p| !p.is_empty()) {
             entry["socketOverrides"] = Value::Object(picked.iter().map(|(i, p)| (i.to_string(), json!(p))).collect());
+        } else if slot.is_some() && crate::fireteam::WEAPON_BUCKETS.contains(&bucket) {
+            let setup = weapon_setup(app, o, plugs).await;
+            if !setup.is_empty() {
+                entry["socketOverrides"] = Value::Object(setup);
+            }
         }
         if ARMOR_BUCKETS.contains(&bucket) {
-            let (mut piece_mods, mut tuning) = armor_mods(app, o, stat_mods.is_some()).await;
-            match stat_mods {
-                // All of this piece's mods, its stat mods as given.
-                Some(given) => {
-                    let given: Vec<u32> = given.get(&bucket).into_iter().flatten().copied().filter(|&h| h != 0).collect();
-                    // The optimizer's tuning in place of the piece's own.
-                    let mut tuned = false;
-                    for &h in &given {
-                        if item(app, h as u64).await.is_some_and(|d| d.plug_category.contains("tuning")) {
-                            tuned = true;
+            // This piece's mods: as saved before (a loadout edited), else as
+            // plugged (in the slot, or now).
+            let saved = match base {
+                Some(b) => saved_mods(app, b, &o.instance_id, bucket, stat_mods.is_some()).await,
+                None => None,
+            };
+            let (mut piece_mods, mut tuning) = match saved {
+                Some(saved) => saved,
+                None => {
+                    let (now, tuning) = armor_mods(app, o.item_hash, plugs, stat_mods.is_some()).await;
+                    // A build of the optimizer: its stat mods (and the mods
+                    // picked for it) only, not the others in now: they go
+                    // when it's put on (they took the energy the stat mods need).
+                    (if stat_mods.is_some() { Vec::new() } else { now }, tuning)
+                }
+            };
+            // Its stat mods as given.
+            if let Some(given) = stat_mods {
+                let given: Vec<u32> = given.get(&bucket).into_iter().flatten().copied().filter(|&h| h != 0).collect();
+                // The optimizer's tuning in place of the piece's own; mods
+                // planned for the piece (other kinds than stat plugs: the
+                // builder's mod picks) in place of all of its own.
+                let (mut tuned, mut planned) = (false, false);
+                for &h in &given {
+                    let category = item(app, h as u64).await.map(|d| d.plug_category).unwrap_or_default();
+                    if category.contains("tuning") {
+                        tuned = true;
+                    } else if !stat_plug(&category) {
+                        planned = true;
+                    }
+                }
+                if tuned {
+                    tuning.clear();
+                    // (One saved among the piece's mods: the optimizer's of before.)
+                    let mut kept = Vec::new();
+                    for &h in &piece_mods {
+                        if !item(app, h as u64).await.is_some_and(|d| d.plug_category.contains("tuning")) {
+                            kept.push(h);
                         }
                     }
-                    if tuned {
-                        tuning.clear();
-                    }
-                    piece_mods.extend(given);
-                    by_bucket.insert(bucket.to_string(), json!(piece_mods));
+                    piece_mods = kept;
                 }
-                None => mods.extend(piece_mods),
+                if planned {
+                    piece_mods.clear();
+                }
+                piece_mods.extend(given);
             }
+            // All of this piece's mods, on this piece (DIM's modsByBucket).
+            by_bucket.insert(bucket.to_string(), json!(piece_mods));
             if !tuning.is_empty() {
                 let overrides: serde_json::Map<String, Value> =
                     tuning.into_iter().map(|(index, plug)| (index.to_string(), json!(plug))).collect();
@@ -358,32 +463,51 @@ async fn build_loadout(
     if equipped.is_empty() {
         return Err(tr("Wähle mindestens ein Item", "Pick at least one item").into());
     }
-    // The artifact perks picked, else those in the character's artifact now
-    // (DIM's format for them), and the artifact itself, equipped with them.
+    // The artifact perks picked, else those the slot has in its artifact,
+    // else those in the character's artifact now (DIM's format for them),
+    // and the artifact itself, equipped with them.
     let (character, _) = pick_character(&profile, character_id)?;
     let defs = crate::weapons::artifact_defs(app).await;
     let worn = owned.iter().find(|o| o.bucket == crate::weapons::ARTIFACT_BUCKET && o.location == "equipped" && o.character_id.as_deref() == Some(character.as_str()));
-    let artifact = match artifact {
-        Some(picked) => picked.to_vec(),
-        None => match worn.and_then(|w| defs.iter().find(|d| d.hash == w.item_hash).map(|d| (w, d))) {
+    let in_slot = slot.and_then(|s| {
+        s.iter().find_map(|(id, plugs)| {
+            let o = owned.iter().find(|o| &o.instance_id == id)?;
+            let d = defs.iter().find(|d| d.hash == o.item_hash)?;
+            Some(plugs.iter().copied().filter(|&p| d.tier_of(p).is_some()).collect::<Vec<u32>>())
+        })
+    });
+    let artifact = match (artifact, in_slot) {
+        (Some(picked), _) => picked.to_vec(),
+        (None, Some(saved)) => saved,
+        (None, None) => match worn.and_then(|w| defs.iter().find(|d| d.hash == w.item_hash).map(|d| (w, d))) {
             Some((w, d)) => w.socket_plugs.iter().copied().filter(|&p| d.tier_of(p).is_some()).collect(),
             None => crate::apply::active_artifact(app, &s, &character).await,
         },
     };
     if let Some(d) = crate::weapons::artifact_for(&defs, &artifact) {
-        let copy = owned
-            .iter()
-            .find(|o| o.item_hash == d.hash && o.character_id.as_deref() == Some(character.as_str()))
-            .or_else(|| owned.iter().find(|o| o.item_hash == d.hash));
-        let mut entry = json!({ "hash": d.hash });
-        if let Some(c) = copy {
-            entry["id"] = json!(c.instance_id);
+        // (A slot lists its artifact among its items: in already.)
+        if !equipped.iter().any(|e| e["hash"].as_u64() == Some(d.hash as u64)) {
+            let copy = owned
+                .iter()
+                .find(|o| o.item_hash == d.hash && o.character_id.as_deref() == Some(character.as_str()))
+                .or_else(|| owned.iter().find(|o| o.item_hash == d.hash));
+            let mut entry = json!({ "hash": d.hash });
+            if let Some(c) = copy {
+                entry["id"] = json!(c.instance_id);
+            }
+            equipped.push(entry);
         }
-        equipped.push(entry);
     }
-    let mut parameters = json!({ "mods": mods });
+    // (`mods`: DIM's list of mods to put wherever they fit; none, each is
+    // on its piece.)
+    let mut parameters = json!({ "mods": [] });
     if !by_bucket.is_empty() {
         parameters["modsByBucket"] = Value::Object(by_bucket);
+    }
+    // A slot says what's in every socket of its armor: what else is in them
+    // goes when it's put on.
+    if slot.is_some() {
+        parameters["clearMods"] = json!(true);
     }
     if !artifact.is_empty() {
         let season = match own_profile(app, &s, "100").await {
@@ -411,9 +535,42 @@ async fn build_loadout(
     }))
 }
 
-/// Save a loadout (item instance ids, one per slot) to DIM; it then shows
-/// up among the DIM loadouts. Returns the new loadout's id.
+/// Save an in-game loadout slot as a loadout: its items (instance ids) with
+/// the plugs the slot has for them (`slot`), under the slot's name, icon and
+/// color (`identifiers`: Bungie's hashes). Returns the new loadout's id.
+pub(crate) async fn save_slot(
+    app: &AppHandle,
+    character_id: &str,
+    name: &str,
+    items: &[String],
+    slot: &SlotPlugs,
+    identifiers: Value,
+) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(tr("Gib dem Preset einen Namen", "Give the preset a name").into());
+    }
+    let s = session(app).await?;
+    let (profile, owned, gear) = futures::join!(own_profile(app, &s, "200"), owned_items(app), gear(app));
+    let profile = profile?;
+    let gear = gear?;
+    let owned = owned.ok_or(tr("Erst mit Bungie einloggen", "Log in with Bungie first"))?;
+    let mut loadout =
+        build_loadout(app, &s, &profile, &owned, &gear, Some(character_id), name, items, None, None, None, None, Some(slot), None).await?;
+    if identifiers.is_object() {
+        loadout["parameters"]["inGameIdentifiers"] = identifiers;
+    }
+    let id = loadout["id"].as_str().unwrap_or_default().to_string();
+    crate::dimsync::save_loadout(app, &s, loadout).await?;
+    Ok(id)
+}
+
+/// Save a loadout (item instance ids, one per slot); it then shows up among
+/// the saved loadouts. `id`: in place of that one (an edit); `from`: the
+/// saved loadout it was opened from (also when saved as a new one), whose
+/// mods stay with the pieces kept. Returns the loadout's id.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn preset_save(
     app: AppHandle,
     character_id: Option<String>,
@@ -424,6 +581,7 @@ pub async fn preset_save(
     id: Option<String>,
     artifact: Option<Vec<u32>>,
     weapon_plugs: Option<HashMap<String, HashMap<usize, u32>>>,
+    from: Option<String>,
 ) -> Result<String, String> {
     let name = name.trim();
     if name.is_empty() {
@@ -434,12 +592,41 @@ pub async fn preset_save(
     let profile = profile?;
     let gear = gear?;
     let owned = owned.ok_or(tr("Erst mit Bungie einloggen", "Log in with Bungie first"))?;
-    let mut loadout = build_loadout(&app, &s, &profile, &owned, &gear, character_id.as_deref(), name, &items, stat_mods.as_ref(), subclass_plugs.as_ref(), artifact.as_deref(), weapon_plugs.as_ref()).await?;
-    // An edit: in place of the old one (made when that was).
-    if let Some(old) = id.as_deref().and_then(|id| crate::dimsync::local_loadout(&app, &s, id)) {
+    let old = id.as_deref().and_then(|id| crate::dimsync::local_loadout(&app, &s, id));
+    let base = match from.as_deref() {
+        Some(from) if Some(from) != id.as_deref() => crate::dimsync::local_loadout(&app, &s, from),
+        _ => old.clone(),
+    };
+    let mut loadout = build_loadout(
+        &app,
+        &s,
+        &profile,
+        &owned,
+        &gear,
+        character_id.as_deref(),
+        name,
+        &items,
+        stat_mods.as_ref(),
+        subclass_plugs.as_ref(),
+        artifact.as_deref(),
+        weapon_plugs.as_ref(),
+        None,
+        base.as_ref(),
+    )
+    .await?;
+    // An edit: in place of the old one (made when that was), with what else
+    // that had and the builder leaves alone (the in-game slot it is from,
+    // its notes).
+    if let Some(old) = old {
         loadout["id"] = old["id"].clone();
         if old["createdAt"].is_number() {
             loadout["createdAt"] = old["createdAt"].clone();
+        }
+        if old["notes"].is_string() {
+            loadout["notes"] = old["notes"].clone();
+        }
+        if old["parameters"]["inGameIdentifiers"].is_object() {
+            loadout["parameters"]["inGameIdentifiers"] = old["parameters"]["inGameIdentifiers"].clone();
         }
     }
     let id = loadout["id"].as_str().unwrap_or_default().to_string();
@@ -453,7 +640,8 @@ pub async fn preset_save(
 pub struct Edit {
     name: String,
     slots: Vec<Slot>,
-    /// Armor bucket -> its stat mods (none saved apart: the armor's own).
+    /// Armor bucket -> its stat mods, general and artifice socket (none
+    /// saved apart: the armor's own).
     stat_mods: Option<HashMap<u64, Vec<u32>>>,
     /// The subclass's setup (socket index -> plug).
     subclass_plugs: Option<HashMap<usize, u32>>,
@@ -491,7 +679,8 @@ pub async fn preset_edit(app: AppHandle, character_id: Option<String>, id: Strin
         .iter()
         .map(|&bucket| Slot { bucket, item: equipped.iter().find(|(o, _)| bucket_of(o) == bucket).and_then(|(o, _)| choice(o, &gear, &classes)) })
         .collect();
-    // The stat mods (general socket) of each piece, if saved by piece.
+    // The stat mods (general and artifice socket) of each piece, if saved by
+    // piece.
     let mut stat_mods = None;
     if let Some(by_bucket) = saved["parameters"]["modsByBucket"].as_object() {
         let mut out = HashMap::new();
@@ -499,7 +688,7 @@ pub async fn preset_edit(app: AppHandle, character_id: Option<String>, id: Strin
             let Ok(bucket) = bucket.parse::<u64>() else { continue };
             let mut mods = Vec::new();
             for h in list.as_array().into_iter().flatten().filter_map(|h| h.as_u64()) {
-                if item(&app, h).await.is_some_and(|d| d.plug_category == "enhancements.v2_general") {
+                if item(&app, h).await.is_some_and(|d| stat_plug(&d.plug_category)) {
                     mods.push(h as u32);
                 }
             }
@@ -567,8 +756,10 @@ pub struct PresetPreview {
     armor_sets: Vec<crate::fireteam::ArmorSet>,
 }
 
-/// Everything a loadout of these items would save, for the builder.
+/// Everything a loadout of these items would save, for the builder (`from`:
+/// the saved loadout opened in it, as in `preset_save`).
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn preset_preview(
     app: AppHandle,
     character_id: Option<String>,
@@ -577,6 +768,7 @@ pub async fn preset_preview(
     subclass_plugs: Option<HashMap<usize, u32>>,
     artifact: Option<Vec<u32>>,
     weapon_plugs: Option<HashMap<String, HashMap<usize, u32>>>,
+    from: Option<String>,
 ) -> Result<PresetPreview, String> {
     let s = session(&app).await?;
     let (profile, owned, gear) = futures::join!(own_profile(&app, &s, "200"), owned_items(&app), gear(&app));
@@ -598,7 +790,24 @@ pub async fn preset_preview(
     let weapons: Vec<_> = weapons.into_iter().flatten().collect();
     let armor: Vec<_> = armor.into_iter().flatten().collect();
     let armor_sets = crate::fireteam::armor_sets(&app, &armor).await;
-    let draft = build_loadout(&app, &s, &profile, &owned, &gear, character_id.as_deref(), "", &items, stat_mods.as_ref(), subclass_plugs.as_ref(), artifact.as_deref(), weapon_plugs.as_ref()).await;
+    let base = from.as_deref().and_then(|id| crate::dimsync::local_loadout(&app, &s, id));
+    let draft = build_loadout(
+        &app,
+        &s,
+        &profile,
+        &owned,
+        &gear,
+        character_id.as_deref(),
+        "",
+        &items,
+        stat_mods.as_ref(),
+        subclass_plugs.as_ref(),
+        artifact.as_deref(),
+        weapon_plugs.as_ref(),
+        None,
+        base.as_ref(),
+    )
+    .await;
     let loadout = match draft {
         Ok(l) => l,
         // Nothing picked yet: an empty loadout.

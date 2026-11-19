@@ -1,11 +1,46 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { armorApi, type ArmorMods as Mods, type ModPlug } from "../lib/armor";
+import { armorApi, type ArmorMods as Mods, type ModPlug, type ModSlot, type SlotKind } from "../lib/armor";
 import { BUNGIE_ORIGIN, useBungie } from "../lib/bungie";
 import { useT } from "../lib/i18n";
 import { call } from "../lib/tauri";
 import { ActionToast, type ActionState } from "./ActionToast";
 import { cx } from "./glass";
+import { IconLock } from "./icons";
+
+/** A mod set for a slot in the optimizer: by its socket's kind and place
+ *  among the sockets of that kind (the same on every piece of the slot). */
+export interface FixedPick {
+  kind: SlotKind;
+  index: number;
+  plug: ModPlug;
+}
+
+/** Each socket's place among those of its kind ("other:1"). */
+function placesOf(slots: ModSlot[]): Map<number, string> {
+  const seen: Partial<Record<SlotKind, number>> = {};
+  const out = new Map<number, string>();
+  for (const s of slots) {
+    const i = seen[s.kind] ?? 0;
+    seen[s.kind] = i + 1;
+    out.set(s.socket, `${s.kind}:${i}`);
+  }
+  return out;
+}
+
+/** The fixed mods in a piece's sockets: socket -> plug. */
+function fixedBySocket(slots: ModSlot[], fixed: FixedPick[]): Map<number, ModPlug> {
+  const out = new Map<number, ModPlug>();
+  if (fixed.length === 0) return out;
+  for (const [socket, place] of placesOf(slots)) {
+    const f = fixed.find((x) => `${x.kind}:${x.index}` === place);
+    if (f) out.set(socket, f.plug);
+  }
+  return out;
+}
+
+/** An empty plug ("Empty Mod Socket"): picking it takes the mod out. */
+const isEmptyPlug = (plug: ModPlug) => /empty/i.test(plug.item.name) || (plug.cost === 0 && !plug.item.icon);
 
 const src = (icon: string | null) => (icon ? (icon.startsWith("http") ? icon : BUNGIE_ORIGIN + icon) : null);
 
@@ -20,6 +55,7 @@ export function ArmorMods({
   instanceId,
   onUsed,
   onSlots,
+  plan,
 }: {
   versions: number[];
   instanceId?: string;
@@ -27,6 +63,14 @@ export function ArmorMods({
   onUsed?: (used: number) => void;
   /** The mods as they are (changed here too): stats elsewhere follow them. */
   onSlots?: (slots: Mods["slots"]) => void;
+  /** Planning (a loadout being built): picks only kept, by socket (null:
+   *  emptied), nothing changed in game; no lock while in an activity. */
+  plan?: {
+    picks: Record<number, ModPlug | null>;
+    onPick: (socket: number, plug: ModPlug | null) => void;
+    /** Mods set in the optimizer for the slot: in their sockets, locked. */
+    fixed?: FixedPick[];
+  };
 }) {
   const t = useT();
   const snapshot = useBungie();
@@ -78,17 +122,46 @@ export function ArmorMods({
   // played character's are locked: the vault's and the other characters'
   // armor changes through one of those (Bungie locks per character).
   const free = snapshot.online === false || snapshot.activity?.name === "Orbit" || !snapshot.activity;
-  const canEquip = free || (mods ? !mods.onActive : false);
+  const canEquip = !!plan || free || (mods ? !mods.onActive : false);
 
   if (mods === undefined) return <p className="mt-4 px-1 text-[12px] text-white/40">{t("mods.loading")}</p>;
   if (mods === null || mods.slots.length === 0)
     return error ? <p className="mt-4 px-1 text-[12px] text-red-300">{error}</p> : null;
 
 
+  // Planning: the picks; a socket not picked holds nothing in the loadout
+  // (its mod now goes), but the general socket and the tuning: the build's.
+  const general = mods.slots[0]?.socket;
+  const fixedAt = fixedBySocket(mods.slots, plan?.fixed ?? []);
+  const slots = mods.slots.map((s) =>
+    !plan
+      ? s
+      : fixedAt.has(s.socket)
+        ? { ...s, plug: fixedAt.get(s.socket)! }
+        : s.socket in plan.picks
+        ? { ...s, plug: plan.picks[s.socket] }
+        : s.socket === general || (s.plug?.stats ?? []).some(([, v]) => v < 0)
+          ? s
+          : { ...s, plug: null },
+  );
+  const planUsed = slots.reduce((sum, s) => sum + (s.plug?.cost ?? 0), 0);
+
   // Put a mod in: shown in its socket at once (Bungie's profile still has
   // the old one for a while after: reloading then looked like it failed),
   // back to the old one if Bungie says no.
   const equip = (socket: number, plug: ModPlug) => {
+    if (plan) {
+      const before = slots.find((s) => s.socket === socket)?.plug ?? null;
+      setPicking(null);
+      if (mods.energy != null && planUsed - (before?.cost ?? 0) + plug.cost > mods.energy) {
+        setFlash({ socket, ok: false });
+        return;
+      }
+      const shown = /empty/i.test(plug.item.name) || (plug.cost === 0 && !plug.item.icon) ? null : plug;
+      plan.onPick(socket, shown);
+      setFlash({ socket, ok: true });
+      return;
+    }
     const before = mods.slots.find((s) => s.socket === socket)?.plug ?? null;
     if (before?.item.hash === plug.item.hash) {
       setPicking(null);
@@ -134,21 +207,26 @@ export function ArmorMods({
         <span className="text-[12.5px] font-semibold text-white/85">{t("mods.title")}</span>
         {/* (Shown as boxes elsewhere when asked for.) */}
         {mods.energy != null && !onUsed && (
-          <span className="text-[11.5px] text-white/50 tabular-nums">{t("mods.energy", { used: used ?? 0, max: mods.energy })}</span>
+          <span className="text-[11.5px] text-white/50 tabular-nums">{t("mods.energy", { used: plan ? planUsed : (used ?? 0), max: mods.energy })}</span>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {mods.slots.map((slot) => (
-          <ModTile
-            key={slot.socket}
-            plug={slot.plug}
-            locked={!canEquip}
-            active={picking === slot.socket}
-            busy={busy === slot.socket}
-            flash={flash?.socket === slot.socket ? (flash.ok ? "ok" : "error") : null}
-            onClick={() => canEquip && setPicking(picking === slot.socket ? null : slot.socket)}
-          />
-        ))}
+        {slots.map((slot) =>
+          fixedAt.has(slot.socket) ? (
+            // Set in the optimizer: stays (changed up there).
+            <ModTile key={slot.socket} plug={slot.plug} fixed title={t("mods.fixedLocked")} />
+          ) : (
+            <ModTile
+              key={slot.socket}
+              plug={slot.plug}
+              locked={!canEquip}
+              active={picking === slot.socket}
+              busy={busy === slot.socket}
+              flash={flash?.socket === slot.socket ? (flash.ok ? "ok" : "error") : null}
+              onClick={() => canEquip && setPicking(picking === slot.socket ? null : slot.socket)}
+            />
+          ),
+        )}
         {/* Putting a mod in, and how it went: beside the sockets. */}
         <div className="ml-2 min-w-0 flex-1">
           <ActionToast state={action} inline />
@@ -161,9 +239,9 @@ export function ArmorMods({
           itemHash={mods.itemHash}
           instanceId={mods.instanceId}
           socket={picking}
-          current={mods.slots.find((s) => s.socket === picking)?.plug?.item.hash ?? null}
+          current={slots.find((s) => s.socket === picking)?.plug?.item.hash ?? null}
           // The energy a mod here may take: what's free, plus what's in it now.
-          room={mods.energy == null ? null : mods.energy - (used ?? 0) + (mods.slots.find((s) => s.socket === picking)?.plug?.cost ?? 0)}
+          room={mods.energy == null ? null : mods.energy - (plan ? planUsed : (used ?? 0)) + (slots.find((s) => s.socket === picking)?.plug?.cost ?? 0)}
           onPick={(plug) => equip(picking, plug)}
         />
       )}
@@ -180,10 +258,13 @@ function ModTile({
   flash = null,
   cost,
   disabled = false,
+  fixed = false,
   title,
   onClick,
 }: {
   plug: ModPlug | null;
+  /** Set in the optimizer: shown, not changed here. */
+  fixed?: boolean;
   /** Can't go in (not enough energy): greyed out, no click. */
   disabled?: boolean;
   title?: string;
@@ -204,14 +285,16 @@ function ModTile({
       <button
         ref={anchor}
         type="button"
-        onClick={disabled ? undefined : onClick}
-        aria-disabled={disabled || undefined}
+        onClick={disabled || fixed ? undefined : onClick}
+        aria-disabled={disabled || fixed || undefined}
         title={title}
         onPointerEnter={() => setHover(true)}
         onPointerLeave={() => setHover(false)}
         className={cx(
           "relative size-12 shrink-0 overflow-hidden rounded-lg border transition-[border-color,box-shadow,opacity] duration-300",
-          locked
+          fixed
+            ? "cursor-default border-(--accent-glow)"
+            : locked
             ? "cursor-not-allowed border-[#e2626b]/70"
             : flash === "ok"
               ? "border-[#7fd49a] shadow-[0_0_0_2px_rgb(127_212_154/0.45)]"
@@ -233,6 +316,11 @@ function ModTile({
         {busy && (
           <span className="absolute inset-0 grid place-items-center bg-black/55">
             <span className="size-5 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+          </span>
+        )}
+        {fixed && (
+          <span className="absolute bottom-0 left-0 grid size-4 place-items-center rounded-tr bg-black/70 text-white/80">
+            <IconLock />
           </span>
         )}
         {cost !== undefined && cost > 0 && (
@@ -281,8 +369,8 @@ function ModCard({ plug, anchor }: { plug: ModPlug; anchor: HTMLElement | null }
 /** The options of a socket (of a piece, for a copy), loaded ahead: kept
  *  for the run (the backend keeps them a while too). */
 const optionsOf = new Map<string, Promise<ModPlug[]>>();
-export function modOptions(itemHash: number, socket: number, instanceId: string) {
-  const key = `${itemHash}:${socket}:${instanceId}`;
+export function modOptions(itemHash: number, socket: number, instanceId?: string) {
+  const key = `${itemHash}:${socket}:${instanceId ?? ""}`;
   let list = optionsOf.get(key);
   if (!list) {
     list = armorApi.modOptions(itemHash, socket, instanceId).then((o) => o ?? []);
@@ -303,7 +391,7 @@ function ModPicker({
   onPick,
 }: {
   itemHash: number;
-  instanceId: string;
+  instanceId?: string;
   socket: number;
   current: number | null;
   /** The energy a mod here may cost (null: not known, all allowed). */
@@ -339,6 +427,182 @@ function ModPicker({
           ))}
           {options.length === 0 && <p className="px-1 text-[12px] text-white/40">{t("mods.none")}</p>}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Mods set for a slot in the optimizer: counted in every build (their stats,
+ * the energy they take, the sockets they fill) and put in with the
+ * loadout. The sockets of the piece picked by hand; else those most pieces
+ * of the slot have (a tuning: any of them, the pieces offering it count).
+ */
+/** Whether the fixed mods are shown (localStorage). */
+const FIXED_OPEN_KEY = "radar.optimizer.fixedOpen";
+
+export function FixedMods({
+  source,
+  picks,
+  onChange,
+  assume,
+}: {
+  /** The piece whose sockets are shown (`own`: picked by hand: its own
+   *  energy and tunings); undefined while not known, null: none. */
+  source: { hash: number; id: string; tier: number; own: boolean; name: string } | null | undefined;
+  picks: FixedPick[];
+  onChange: (picks: FixedPick[]) => void;
+  /** Masterworks assumed: a piece's full energy counts. */
+  assume: boolean;
+}) {
+  const t = useT();
+  // Folded away or not (remembered on this PC).
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(FIXED_OPEN_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () => {
+    setOpen((o) => {
+      try {
+        localStorage.setItem(FIXED_OPEN_KEY, o ? "0" : "1");
+      } catch {
+        // (Not kept: open next time.)
+      }
+      return !o;
+    });
+    setPicking(null);
+  };
+  const [mods, setMods] = useState<Mods | null | undefined>(undefined);
+  const [picking, setPicking] = useState<number | null>(null);
+  const [flash, setFlash] = useState<{ socket: number; ok: boolean } | null>(null);
+  useEffect(() => {
+    if (!flash) return;
+    const id = window.setTimeout(() => setFlash(null), 900);
+    return () => window.clearTimeout(id);
+  }, [flash]);
+  useEffect(() => {
+    setMods(undefined);
+    setPicking(null);
+    if (!source) return;
+    let alive = true;
+    armorApi
+      .mods([source.hash], source.id)
+      .then((m) => alive && setMods(m ?? null))
+      .catch(() => alive && setMods(null));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source?.id, source?.hash]);
+
+  // The energy there is: the piece's own (all of it with masterworks
+  // assumed); a plain piece of the slot: all of it (each piece's own counts
+  // in the search).
+  const full = source?.tier === 5 ? 11 : 10;
+  const max =
+    source?.own && mods?.energy != null ? (assume ? Math.max(mods.energy, full) : mods.energy) : full;
+  const places = mods ? placesOf(mods.slots) : new Map<number, string>();
+  const at = mods ? fixedBySocket(mods.slots, picks) : new Map<number, ModPlug>();
+  const used = picks.reduce((sum, p) => sum + p.plug.cost, 0);
+
+  // Other sockets (another piece picked, or none): what doesn't fit goes.
+  useEffect(() => {
+    if (!mods) return;
+    let alive = true;
+    const present = new Map([...places].map(([socket, place]) => [place, socket]));
+    void (async () => {
+      let kept = picks.filter((p) => present.has(`${p.kind}:${p.index}`));
+      // A tuning the piece picked by hand doesn't offer.
+      if (source?.own) {
+        const offered = await Promise.all(
+          kept.map(async (p) => {
+            if (p.kind !== "tuning") return true;
+            const socket = present.get(`${p.kind}:${p.index}`)!;
+            const list = await modOptions(mods.itemHash, socket, mods.instanceId).catch(() => [] as ModPlug[]);
+            return list.some((o) => o.item.hash === p.plug.item.hash);
+          }),
+        );
+        kept = kept.filter((_, i) => offered[i]);
+      }
+      // More than the energy: the last ones go.
+      while (kept.length && kept.reduce((sum, p) => sum + p.plug.cost, 0) > max) kept = kept.slice(0, -1);
+      if (alive && kept.length !== picks.length) onChange(kept);
+    })();
+    return () => {
+      alive = false;
+    };
+    // (Once the sockets or the energy change; picks made here fit.)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mods, max]);
+
+  if (source === null) return null;
+
+  const pick = (socket: number, plug: ModPlug) => {
+    setPicking(null);
+    const place = places.get(socket);
+    if (!place) return;
+    const [kind, index] = place.split(":");
+    const rest = picks.filter((p) => `${p.kind}:${p.index}` !== place);
+    if (isEmptyPlug(plug)) {
+      onChange(rest);
+      return;
+    }
+    if (rest.reduce((sum, p) => sum + p.plug.cost, 0) + plug.cost > max) {
+      setFlash({ socket, ok: false });
+      return;
+    }
+    onChange([...rest, { kind: kind as SlotKind, index: Number(index), plug }]);
+    setFlash({ socket, ok: true });
+  };
+
+  return (
+    <div className="mb-3 rounded-xl border border-white/[0.06] bg-black/15 p-3">
+      <button onClick={toggle} className={cx("flex w-full items-baseline gap-3 text-left", open && "mb-1")}>
+        <span className="flex-1 text-[12px] font-semibold text-white/85">
+          {t("mods.fixedTitle")}
+          {!open && picks.length > 0 && <span className="ml-1.5 font-normal text-white/45">({picks.length})</span>}
+        </span>
+        {mods && <span className="text-[11.5px] text-white/50 tabular-nums">{t("mods.energy", { used, max })}</span>}
+        <span className={cx("text-[10px] text-white/40 transition-transform duration-200", !open && "-rotate-90")}>▾</span>
+      </button>
+      {open && (
+        <>
+        <p className="mb-2.5 text-[11px] text-white/45">
+          {source?.own ? t("mods.fixedOwn", { name: source.name }) : t("mods.fixedAny")}
+        </p>
+        {mods === undefined ? (
+          <p className="px-1 text-[12px] text-white/40">{t("mods.loading")}</p>
+        ) : mods === null || mods.slots.length === 0 ? (
+          <p className="px-1 text-[12px] text-white/40">{t("mods.none")}</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              {mods.slots.map((s) => (
+                <ModTile
+                  key={s.socket}
+                  plug={at.get(s.socket) ?? null}
+                  active={picking === s.socket}
+                  flash={flash?.socket === s.socket ? (flash.ok ? "ok" : "error") : null}
+                  onClick={() => setPicking(picking === s.socket ? null : s.socket)}
+                />
+              ))}
+            </div>
+            {picking !== null && (
+              <ModPicker
+                itemHash={mods.itemHash}
+                instanceId={source?.own ? mods.instanceId : undefined}
+                socket={picking}
+                current={at.get(picking)?.item.hash ?? null}
+                room={max - used + (at.get(picking)?.cost ?? 0)}
+                onPick={(plug) => pick(picking, plug)}
+              />
+            )}
+          </>
+        )}
+        </>
       )}
     </div>
   );

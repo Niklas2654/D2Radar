@@ -27,6 +27,7 @@ import {
 import { REFRESHED_EVENT } from "../lib/preload";
 import { loadoutSets, type LoadoutSet, type SetEntry } from "../lib/presets";
 import { isTauri, navigate, subscribe } from "../lib/tauri";
+import { finishTask, startTask, stepTask } from "../lib/tasks";
 
 /** Drag-and-drop type of a DIM loadout id. */
 const DRAG_TYPE = "application/x-radar-loadout";
@@ -306,7 +307,7 @@ function GameLoadouts({
                           ? "text-[#7fd49a] opacity-100"
                           : naming === slot.index
                             ? "bg-white/10 text-white opacity-100"
-                            : "text-white/40 opacity-0 group-hover:opacity-100",
+                            : "text-white/35 group-hover:text-white/60",
                       )}
                     >
                       {saved === slot.index ? "✓" : <IconDownload />}
@@ -316,7 +317,9 @@ function GameLoadouts({
                         onClick={() => setConfirm(slot.index)}
                         disabled={disabled || clearing !== null}
                         title={t("game.clear")}
-                        className="grid size-7 place-items-center rounded-lg text-white/35 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-200 disabled:hidden"
+                        aria-label={t("game.clear")}
+                        // Always there (not only on hover): emptying a slot is found at once.
+                        className="grid size-7 place-items-center rounded-lg text-white/35 transition-colors group-hover:text-white/60 hover:bg-red-500/20 hover:text-red-200 disabled:opacity-30"
                       >
                         <IconClose />
                       </button>
@@ -880,17 +883,22 @@ export function LoadoutsPage() {
                 }
               }}
               onDelete={async () => {
-                // Gone from the list at once; DIM catches up in the background.
+                // Gone from the list at once; deleted in the background. (This
+                // runs when the delete fuse has burnt down, maybe with another
+                // loadout open by then: nothing here is from when it was lit.)
                 const id = loadout.id;
-                const before = list;
+                const who = character;
                 const drop = (l: typeof list) => (l ? { ...l, loadouts: l.loadouts.filter((x) => x.id !== id) } : l);
                 setList(drop);
-                if (character && before) lastList.set(character, drop(before)!);
-                openView(null);
+                const kept = who ? lastList.get(who) : undefined;
+                if (who && kept) lastList.set(who, drop(kept)!);
+                // Closed only if it's still the one open.
+                setView((v) => (v?.kind === "loadout" && v.id === id ? null : v));
+                setPreview((p) => (p === id ? null : p));
                 loadouts.remove(id).catch((e) => {
-                  // Didn't work: back in the list, with the reason.
-                  setList(before);
-                  if (character && before) lastList.set(character, before);
+                  // Didn't work: the list read again (it's back in it), with the reason.
+                  if (who) lastList.delete(who);
+                  void load(pickedRef.current, true);
                   setError(String(e));
                 });
               }}
@@ -1186,10 +1194,14 @@ function SetEditor({
     onRunning(true);
     setResults(null);
     const done: SetResult[] = [];
+    // In the task panel (every page): which loadout, and its steps.
+    const task = startTask(t("tasks.preset", { name: name.trim() }), assigned.length, t("loadouts.starting"));
+    const off = subscribe<string>("loadout-progress", (step) => stepTask(task, step));
     for (const [i, e] of assigned.entries()) {
       const l = byId(e.loadoutId);
       const label = l?.name ?? t("sets.missing");
       setProgress({ i: i + 1, n: assigned.length, name: label, slot: e.slot, step: t("loadouts.starting") });
+      stepTask(task, t("tasks.presetStep", { name: label, n: e.slot + 1 }), i);
       if (!l) {
         done.push({ name: label, slot: e.slot, ok: false, messages: [t("sets.missingHint")] });
         continue;
@@ -1206,6 +1218,9 @@ function SetEditor({
     }
     setResults(done);
     setProgress(null);
+    off();
+    const failed = done.filter((d) => !d.ok);
+    finishTask(task, failed.length === 0, failed.length ? failed.map((d) => `${d.name}: ${d.messages.join(", ")}`).join(" · ") : undefined);
     onRunning(false);
     onWritten();
   };

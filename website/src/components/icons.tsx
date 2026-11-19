@@ -111,3 +111,10 @@ export const IconGlobe = () => (
     <path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z" />
   </svg>
 );
+/** A drop of colour. */
+export const IconColor = () => (
+  <svg {...base}>
+    <path d="M12 3.5c3.4 3.9 5.5 6.9 5.5 9.9a5.5 5.5 0 0 1-11 0c0-3 2.1-6 5.5-9.9z" />
+    <path d="M9.5 14a2.6 2.6 0 0 0 2.2 2.5" />
+  </svg>
+);

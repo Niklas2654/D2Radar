@@ -62,6 +62,15 @@ export interface ArmorCopy {
   tuning: ModPlug | null;
 }
 
+/** What a mod socket takes: the general mod, the tuning, an artifice mod,
+ *  or another (a slot's mods, an activity's). */
+export type SlotKind = "general" | "tuning" | "artifice" | "other";
+export interface ModSlot {
+  socket: number;
+  plug: ModPlug | null;
+  kind: SlotKind;
+}
+
 /** The mods in the player's copy of an armor piece. */
 export interface ArmorMods {
   itemHash: number;
@@ -69,7 +78,7 @@ export interface ArmorMods {
   /** The character holding it (null: in the vault). */
   characterId: string | null;
   energy: number | null;
-  slots: { socket: number; plug: ModPlug | null }[];
+  slots: ModSlot[];
   /** Held by the character played last (locked while in an activity). */
   onActive: boolean;
 }
@@ -93,8 +102,16 @@ export const armorApi = {
   pull: (instanceId: string, itemHash: number, from: string | null) =>
     call<string>("armor_pull", { instanceId, itemHash, from }),
   compare: (itemHash: number) => (hasBackend ? call<ArmorCompare | null>("armor_compare", { itemHash }) : Promise.resolve(null)),
-  modOptions: (itemHash: number, socket: number, instanceId: string) =>
-    hasBackend ? call<ModPlug[]>("armor_mod_options", { itemHash, socket, instanceId }) : Promise.resolve([] as ModPlug[]),
+  /** Without `instanceId`: as any copy of it may have them (a tuning's
+   *  every choice). */
+  modOptions: (itemHash: number, socket: number, instanceId?: string) =>
+    hasBackend
+      ? call<ModPlug[]>("armor_mod_options", { itemHash, socket, instanceId: instanceId ?? null })
+      : Promise.resolve([] as ModPlug[]),
+  /** Of copies ([instance id, item hash]), the one with the fewest mod
+   *  sockets (as most of the slot has them). */
+  plainPiece: (ids: [string, number][]) =>
+    hasBackend ? call<string | null>("armor_plain_piece", { ids }) : Promise.resolve(null),
   setMod: (instanceId: string, characterId: string | null, socket: number, plug: number) =>
     call("armor_set_mod", { instanceId, characterId, socket, plug }),
 };
