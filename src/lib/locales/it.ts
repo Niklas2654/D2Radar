@@ -91,8 +91,6 @@ const it: Record<TranslationKey, string> = {
   "builder.editSubtitle": "Dotazione salvata",
   "builder.saveAsNew": "Salva come nuova",
   "builder.saveAsNewHint": "Salva come un'altra dotazione; quella modificata resta com'era",
-  "builder.toSlots": "Agli slot",
-  "builder.toSlotsHint": "Gli oggetti come salvati, senza scegliere una build",
   "loadouts.edit": "Modifica",
   "loadouts.openEditHint": "Aprirla nell'ottimizzatore, così come è stata creata",
   "builder.saving": "Salvataggio …",

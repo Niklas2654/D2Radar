@@ -91,8 +91,6 @@ const pl: Record<TranslationKey, string> = {
   "builder.editSubtitle": "Zapisane uzbrojenie",
   "builder.saveAsNew": "Zapisz jako nowe",
   "builder.saveAsNewHint": "Zapisz jako osobne uzbrojenie; edytowane zostaje bez zmian",
-  "builder.toSlots": "Do slotów",
-  "builder.toSlotsHint": "Przedmioty jak zapisane, bez wybierania buildu",
   "loadouts.edit": "Edytuj",
   "loadouts.openEditHint": "Otwórz w optymalizatorze, tak jak zostało zbudowane",
   "builder.saving": "Zapisywanie …",

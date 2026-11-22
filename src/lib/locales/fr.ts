@@ -91,8 +91,6 @@ const fr: Record<TranslationKey, string> = {
   "builder.editSubtitle": "Équipement enregistré",
   "builder.saveAsNew": "Enregistrer comme nouveau",
   "builder.saveAsNewHint": "Enregistrer comme un autre équipement ; l'original reste tel quel",
-  "builder.toSlots": "Aux emplacements",
-  "builder.toSlotsHint": "Les objets tels qu'enregistrés, sans choisir de build",
   "loadouts.edit": "Modifier",
   "loadouts.openEditHint": "L'ouvrir dans l'optimiseur, tel qu'il a été construit",
   "builder.saving": "Enregistrement …",

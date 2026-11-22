@@ -1863,12 +1863,36 @@ pub async fn optimizer_exotics(app: AppHandle, character_id: Option<String>) -> 
     }
     let mut list: Vec<ExoticChoice> = by_name.into_values().collect();
     list.sort_by(|a, b| a.slot.cmp(&b.slot).then_with(|| a.name.cmp(&b.name)));
-    // Exact numbers by the English name.
-    let english = futures::future::join_all(list.iter().map(|e| crate::fireteam::definition_in(&app, "DestinyInventoryItemDefinition", e.hash as u64, "en"))).await;
-    for (e, def) in list.iter_mut().zip(english) {
-        e.exact = def.as_ref().and_then(|d| d["displayProperties"]["name"].as_str()).and_then(crate::compendium::exact);
+    // Exact numbers by the English name, else by its perk's.
+    let exact = futures::future::join_all(list.iter().map(|e| exotic_exact(&app, e.hash))).await;
+    for (e, exact) in list.iter_mut().zip(exact) {
+        e.exact = exact;
     }
     Ok(list)
+}
+
+/// What an exotic armor piece does, exact numbers (Compendium): by its
+/// English name, else by its exotic perk's (the sheet names some pieces
+/// otherwise: "Loreley Splendor" for "Loreley Splendor Helm"). Not for an
+/// exotic class item: its two perks vary.
+async fn exotic_exact(app: &AppHandle, hash: u32) -> Option<String> {
+    let english = |hash: u64| crate::fireteam::definition_in(app, "DestinyInventoryItemDefinition", hash, "en");
+    let def = english(hash as u64).await?;
+    if let Some(exact) = def["displayProperties"]["name"].as_str().and_then(crate::compendium::exact) {
+        return Some(exact);
+    }
+    let initial = def["sockets"]["socketEntries"].as_array()?.iter().filter_map(|e| e["singleInitialItemHash"].as_u64().filter(|&h| h != 0));
+    let plugs = futures::future::join_all(initial.map(english)).await;
+    let perks: Vec<&str> = plugs
+        .iter()
+        .flatten()
+        .filter(|p| p["plug"]["plugCategoryIdentifier"].as_str() == Some("intrinsics"))
+        .filter_map(|p| p["displayProperties"]["name"].as_str().filter(|n| !n.is_empty()))
+        .collect();
+    match perks[..] {
+        [perk] => crate::compendium::exact(perk),
+        _ => None,
+    }
 }
 
 /// Where the optimizer starts when a saved loadout is edited: its exotic

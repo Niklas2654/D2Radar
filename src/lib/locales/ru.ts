@@ -91,8 +91,6 @@ const ru: Record<TranslationKey, string> = {
   "builder.editSubtitle": "Сохранённый набор",
   "builder.saveAsNew": "Сохранить как новый",
   "builder.saveAsNewHint": "Сохранить как отдельный набор; исходный не изменится",
-  "builder.toSlots": "К слотам",
-  "builder.toSlotsHint": "Предметы как сохранены, без выбора сборки",
   "loadouts.edit": "Изменить",
   "loadouts.openEditHint": "Открыть в оптимизаторе, как он был собран",
   "builder.saving": "Сохранение …",

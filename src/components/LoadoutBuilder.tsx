@@ -581,6 +581,8 @@ interface BuilderDraft {
   artifact?: number[] | null;
   /** Weapons' perks and mods picked. */
   weaponPlugs?: WeaponPlugs;
+  /** Taken from the gear worn ("Current gear"): saved with its mods as they are now. */
+  worn?: boolean;
 }
 
 /** `edit`: a saved loadout being edited (its own draft, apart from the new one's). */
@@ -670,6 +672,10 @@ export function LoadoutBuilder({
   const [artifact, setArtifact] = useState<number[] | null>(first?.artifact ?? null);
   // Weapons' perks and mods picked here (instance id -> socket -> plug).
   const [weaponPlugs, setWeaponPlugs] = useState<WeaponPlugs>(first?.weaponPlugs ?? {});
+  // Taken from the gear worn ("Current gear"): the armor's mods (and the
+  // rest) as they are now, not as the loadout being edited had them.
+  const [worn, setWorn] = useState(first?.worn ?? false);
+  const from = worn ? null : (edit ?? null);
   const pickWeaponPlug = (weapon: string, index: number, plug: number | null) =>
     setWeaponPlugs((all) => {
       const mine = { ...(all[weapon] ?? {}) };
@@ -680,18 +686,32 @@ export function LoadoutBuilder({
   // Exact numbers for chosen exotic armor, on hover (Clarity).
   const exoticPerks = useClarityItems(slots.filter((s) => s.item?.exotic && ARMOR_BUCKETS.includes(s.bucket)).map((s) => s.item!.hash));
 
-  const loadDraft = async (characterId: string | null) => {
+  /** The character's slots; `worn`: with what it wears now ("Current
+   *  gear"), else empty (a new loadout starts with nothing of what's worn). */
+  const loadDraft = async (characterId: string | null, worn = false) => {
     setLoading(true);
     setError(null);
     try {
       const draft = await presets.draft(characterId);
-      // A new loadout starts empty (its slots only): nothing of what's worn.
-      if (draft) setSlots(draft.slots.map((sl) => ({ ...sl, item: null })));
+      if (draft) setSlots(worn ? draft.slots : draft.slots.map((sl) => ({ ...sl, item: null })));
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
+  };
+
+  /** "Current gear": everything as the character wears it now, armor
+   *  mods, subclass, weapon perks and artifact included (what was picked
+   *  or saved for them goes). */
+  const takeWorn = async () => {
+    setStatMods(null);
+    setSubclassPlugs(null);
+    setWeaponPlugs({});
+    setArtifact(null);
+    setWorn(true);
+    setOptimizing(false);
+    await loadDraft(character, true);
   };
 
   // The character's draft as kept, else its gear as worn. `draftOf`: whose
@@ -710,11 +730,13 @@ export function LoadoutBuilder({
       setSubclassPlugs(kept.subclassPlugs);
       setArtifact(kept.artifact ?? null);
       setWeaponPlugs(kept.weaponPlugs ?? {});
+      setWorn(kept.worn ?? false);
     } else {
       setStatMods(null);
       setSubclassPlugs(null);
       setArtifact(null);
       setWeaponPlugs({});
+      setWorn(false);
       setOptimizing(true);
       void loadDraft(character);
     }
@@ -724,11 +746,11 @@ export function LoadoutBuilder({
   useEffect(() => {
     if (draftOf !== character || slots.length === 0) return;
     try {
-      localStorage.setItem(builderKey(character, edit), JSON.stringify({ slots, name, optimizing, statMods, subclassPlugs, artifact, weaponPlugs } satisfies BuilderDraft));
+      localStorage.setItem(builderKey(character, edit), JSON.stringify({ slots, name, optimizing, statMods, subclassPlugs, artifact, weaponPlugs, worn } satisfies BuilderDraft));
     } catch {
       // Not kept; fine.
     }
-  }, [character, draftOf, slots, name, optimizing, statMods, subclassPlugs, artifact, weaponPlugs]);
+  }, [character, draftOf, slots, name, optimizing, statMods, subclassPlugs, artifact, weaponPlugs, worn]);
 
   // Candidates for the slot being picked.
   useEffect(() => {
@@ -756,7 +778,7 @@ export function LoadoutBuilder({
     setPreviewing(true);
     const timer = window.setTimeout(() => {
       presets
-        .preview(character, ids, statMods, subclassPlugs, artifact, weaponPlugs, edit ?? null)
+        .preview(character, ids, statMods, subclassPlugs, artifact, weaponPlugs, from)
         .then((p) => !cancelled && setPreview(p ?? null))
         .catch(() => {})
         .finally(() => !cancelled && setPreviewing(false));
@@ -766,7 +788,7 @@ export function LoadoutBuilder({
       window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, character, statMods, subclassPlugs, artifact, weaponPlugs, edit]);
+  }, [idsKey, character, statMods, subclassPlugs, artifact, weaponPlugs, from]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -782,6 +804,7 @@ export function LoadoutBuilder({
   // A build of the optimizer: its pieces in the armor slots.
   const takeOptimized = (pieces: Choice[], mods: Record<number, number[]>, subclass: Choice | null, plugs: Record<number, number> | null) => {
     setOptimizing(false);
+    setWorn(false);
     setStatMods(mods);
     setSubclassPlugs(subclass ? plugs : null);
     if (subclass) setSlots((all) => all.map((s) => (s.bucket === SUBCLASS_BUCKET ? { ...s, item: subclass } : s)));
@@ -811,7 +834,7 @@ export function LoadoutBuilder({
         asNew ? null : edit,
         artifact,
         weaponPlugs,
-        edit ?? null,
+        from,
       );
       // Saved: the next new loadout (or edit) starts afresh.
       try {
@@ -880,12 +903,6 @@ export function LoadoutBuilder({
           />
         </div>
         <InventoryReload />
-        {/* Editing: the slots as saved, without picking a build. */}
-        {edit && optimizing && slots.length > 0 && (
-          <GlassButton onClick={() => setOptimizing(false)} className="shrink-0 whitespace-nowrap" title={t("builder.toSlotsHint")}>
-            {t("builder.toSlots")}
-          </GlassButton>
-        )}
       </div>
       {/* Name and save once there is a loadout to save (not in the optimizer, but when editing: a weapon or the artifact changed). */}
       {(!optimizing || edit) && (
@@ -898,7 +915,7 @@ export function LoadoutBuilder({
           autoFocus
         />
         <GlassButton
-          onClick={() => void loadDraft(character)}
+          onClick={() => void takeWorn()}
           disabled={loading || saving}
           title={t("builder.fromEquippedHint")}
           className="shrink-0 whitespace-nowrap"

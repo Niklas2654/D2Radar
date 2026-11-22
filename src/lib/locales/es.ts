@@ -91,8 +91,6 @@ const es: Record<TranslationKey, string> = {
   "builder.editSubtitle": "Equipación guardada",
   "builder.saveAsNew": "Guardar como nueva",
   "builder.saveAsNewHint": "Guardar como otra equipación; la editada queda como estaba",
-  "builder.toSlots": "A los huecos",
-  "builder.toSlotsHint": "Los objetos como se guardaron, sin elegir build",
   "loadouts.edit": "Editar",
   "loadouts.openEditHint": "Abrirla en el optimizador, tal como se creó",
   "builder.saving": "Guardando …",

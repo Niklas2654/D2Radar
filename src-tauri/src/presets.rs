@@ -568,7 +568,8 @@ pub(crate) async fn save_slot(
 /// Save a loadout (item instance ids, one per slot); it then shows up among
 /// the saved loadouts. `id`: in place of that one (an edit); `from`: the
 /// saved loadout it was opened from (also when saved as a new one), whose
-/// mods stay with the pieces kept. Returns the loadout's id.
+/// mods stay with the pieces kept (none: each piece's mods as they are now).
+/// Returns the loadout's id.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn preset_save(
@@ -593,9 +594,12 @@ pub async fn preset_save(
     let gear = gear?;
     let owned = owned.ok_or(tr("Erst mit Bungie einloggen", "Log in with Bungie first"))?;
     let old = id.as_deref().and_then(|id| crate::dimsync::local_loadout(&app, &s, id));
+    // (None: from the gear worn, not from a loadout; its mods as they are
+    // now, also when it replaces one.)
     let base = match from.as_deref() {
         Some(from) if Some(from) != id.as_deref() => crate::dimsync::local_loadout(&app, &s, from),
-        _ => old.clone(),
+        Some(_) => old.clone(),
+        None => None,
     };
     let mut loadout = build_loadout(
         &app,

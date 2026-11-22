@@ -56,8 +56,10 @@ pub struct ArtifactPerk {
 
 static TEXTS: LazyLock<Texts> = LazyLock::new(|| serde_json::from_str(SNAPSHOT).unwrap_or_default());
 
+/// (The sheet sometimes writes ’ where Bungie writes ', as in
+/// "Fortune’s Favor".)
 fn key(name: &str) -> String {
-    name.trim().trim_end_matches('.').to_lowercase()
+    name.trim().trim_end_matches('.').replace(['‘', '’'], "'").to_lowercase()
 }
 
 /// The key of a set's bonus by the set's name and its piece count (the
@@ -119,6 +121,16 @@ pub(crate) fn base_cooldown(english_name: &str) -> Option<f64> {
 
 pub(crate) fn artifacts() -> &'static [Artifact] {
     &TEXTS.artifacts
+}
+
+#[cfg(test)]
+mod lookup {
+    #[test]
+    fn names_with_an_apostrophe() {
+        for name in ["Fortune's Favor", "Mothkeeper's Wraps", "Shinobu's Vow"] {
+            assert!(super::exact(name).is_some(), "{name}");
+        }
+    }
 }
 
 /// Reading the sheets: only for making the copy (see the module docs).

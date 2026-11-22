@@ -91,8 +91,6 @@ const pt: Record<TranslationKey, string> = {
   "builder.editSubtitle": "Set salvo",
   "builder.saveAsNew": "Salvar como novo",
   "builder.saveAsNewHint": "Salvar como outro set; o editado fica como estava",
-  "builder.toSlots": "Para os espaços",
-  "builder.toSlotsHint": "Os itens como salvos, sem escolher uma build",
   "loadouts.edit": "Editar",
   "loadouts.openEditHint": "Abrir no otimizador, como foi montado",
   "builder.saving": "Salvando …",
