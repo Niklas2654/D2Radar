@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { TaskPanel } from "./components/TaskPanel";
 import { Badge, Tooltip } from "./components/glass";
-import { IconChat, IconCrosshair, IconDim, IconRadar, IconSettings, IconSwap, IconUsers } from "./components/icons";
+import { IconChat, IconCrosshair, IconDim, IconMacro, IconRadar, IconSettings, IconSwap, IconUsers } from "./components/icons";
 import { Navbar, type NavItem } from "./components/Navbar";
 import { Backdrop } from "./components/Backdrop";
 import { CopySwap } from "./components/CopySwap";
@@ -23,12 +23,23 @@ import { DimPage, preloadDimIfUsed } from "./pages/DimPage";
 import { DiscordPage, preloadDiscord } from "./pages/DiscordPage";
 import { FireteamPage } from "./pages/FireteamPage";
 import { LoadoutsPage } from "./pages/LoadoutsPage";
+import { MacrosPage } from "./pages/MacrosPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ArsenalPage } from "./pages/ArsenalPage";
 
-type PageKey = "dashboard" | "fireteam" | "weapons" | "loadouts" | "dim" | "discord" | "settings";
+type PageKey = "dashboard" | "fireteam" | "weapons" | "loadouts" | "dim" | "discord" | "macros" | "settings";
 
-const ORDER: readonly PageKey[] = ["dashboard", "fireteam", "weapons", "loadouts", "dim", "discord", "settings"];
+// Macros only in the app (the website's demo has nothing to play them in).
+const ORDER: readonly PageKey[] = [
+  "dashboard",
+  "fireteam",
+  "weapons",
+  "loadouts",
+  "dim",
+  "discord",
+  ...(isDemo ? [] : (["macros"] as const)),
+  "settings",
+];
 
 export function App() {
   const t = useT();
@@ -37,15 +48,16 @@ export function App() {
   const [page, setPage] = useState<PageKey>("dashboard");
   const snapshot = useBungie();
 
-  const pages: NavItem<PageKey>[] = [
+  const pages = ([
     { key: "dashboard", label: t("nav.dashboard"), icon: <IconRadar /> },
     { key: "fireteam", label: t("nav.fireteam"), icon: <IconUsers /> },
     { key: "weapons", label: t("nav.weapons"), icon: <IconCrosshair /> },
     { key: "loadouts", label: t("nav.loadouts"), icon: <IconSwap /> },
     { key: "dim", label: t("nav.dim"), icon: <IconDim /> },
     { key: "discord", label: t("nav.discord"), icon: <IconChat /> },
+    { key: "macros", label: t("nav.macros"), icon: <IconMacro /> },
     { key: "settings", label: t("nav.settings"), icon: <IconSettings /> },
-  ];
+  ] satisfies NavItem<PageKey>[]).filter((p) => ORDER.includes(p.key));
 
   // The Rust side localizes its messages and Bungie content (item and
   // activity names); keep it on the app language.
@@ -136,7 +148,8 @@ export function App() {
             <ArsenalPage />
           ) : key === "loadouts" ? (
             <LoadoutsPage />
-
+          ) : key === "macros" ? (
+            <MacrosPage />
           ) : key === "settings" ? (
             <SettingsPage />
           ) : (

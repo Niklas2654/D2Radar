@@ -35,6 +35,8 @@ mod i18n;
 mod inventory;
 mod launch;
 mod loadouts;
+mod macros;
+mod mousekeys;
 mod oauth;
 mod optimizer;
 mod presets;
@@ -349,10 +351,16 @@ pub fn run() {
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
+                    let action = hotkeys::action_for(app, shortcut);
+                    // Macros hear letting go too (played while held).
+                    if let Some(hotkeys::Action::Macro(index)) = action {
+                        macros::on_hotkey(app, index, event.state() == ShortcutState::Pressed);
+                        return;
+                    }
                     if event.state() != ShortcutState::Pressed {
                         return;
                     }
-                    match hotkeys::action_for(app, shortcut) {
+                    match action {
                         Some(hotkeys::Action::Overlay) => apply_visible(app, !WANTED.load(Ordering::SeqCst)),
                         Some(hotkeys::Action::Edit) => apply_edit_mode(app, !EDIT_MODE.load(Ordering::SeqCst)),
                         // While the layout is edited no window over the game
@@ -367,7 +375,9 @@ pub fn run() {
                         Some(hotkeys::Action::Discord) if in_game() || over_game(app) => discord::toggle_in_game(app),
                         Some(hotkeys::Action::Loadout(index)) => loadouts::equip_from_hotkey(app, index),
                         // Out of game: an in-game window's hotkey does nothing.
-                        Some(hotkeys::Action::Weapon | hotkeys::Action::Dim | hotkeys::Action::Discord) | None => {}
+                        Some(hotkeys::Action::Weapon | hotkeys::Action::Dim | hotkeys::Action::Discord)
+                        | Some(hotkeys::Action::Macro(_))
+                        | None => {}
                     }
                 })
                 .build(),
@@ -465,6 +475,14 @@ pub fn run() {
             discord::discord_watch_stop,
             discord::discord_set_accent,
             hotkeys::hotkeys_get,
+            macros::macros_get,
+            macros::macro_save,
+            macros::macro_delete,
+            macros::macro_game_bindings,
+            macros::macro_ability_icons,
+            macros::macro_import_cvars,
+            macros::macro_set_game_key,
+            macros::macro_lock_cvars,
             hotkeys::hotkey_set,
             hotkeys::dim_game_set_opacity,
             hotkeys::discord_game_set_opacity,

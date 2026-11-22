@@ -96,6 +96,7 @@ export function keyLabels(keys: string, german: boolean): string[] {
     if (k === "Ctrl") return german ? "Strg" : "Ctrl";
     if (/^Digit\d$/.test(k)) return k.slice(5);
     if (/^Numpad\d$/.test(k)) return `Num ${k.slice(6)}`;
+    if (/^Mouse\d$/.test(k)) return `${german ? "Maus" : "Mouse"} ${k.slice(5)}`;
     return KEY_LABELS[k] ?? k;
   });
 }

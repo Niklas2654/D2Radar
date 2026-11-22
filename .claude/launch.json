@@ -4,8 +4,27 @@
     {
       "name": "website",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "website", "dev", "--port", "5180", "--strictPort"],
+      "runtimeArgs": [
+        "--dir",
+        "website",
+        "dev",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
       "port": 5180
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "exec",
+        "vite",
+        "--port",
+        "5181",
+        "--strictPort"
+      ],
+      "port": 5181
     }
   ]
 }

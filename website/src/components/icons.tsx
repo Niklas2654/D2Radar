@@ -112,6 +112,22 @@ export const IconGlobe = () => (
   </svg>
 );
 /** A drop of colour. */
+/** Macros: keys played one after another (as in the app). */
+export const IconMacro = () => (
+  <svg {...base}>
+    <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
+    <path d="M6.5 10h1M10 10h1M13.5 10h1M17 10h.5M7 14h10" />
+  </svg>
+);
+
+/** A key bound anew: a key and the arrows of a swap. */
+export const IconRebind = () => (
+  <svg {...base}>
+    <rect x="3" y="7" width="10" height="10" rx="2" />
+    <path d="M6.5 12h3M16 9h5l-2-2M21 15h-5l2 2" />
+  </svg>
+);
+
 export const IconColor = () => (
   <svg {...base}>
     <path d="M12 3.5c3.4 3.9 5.5 6.9 5.5 9.9a5.5 5.5 0 0 1-11 0c0-3 2.1-6 5.5-9.9z" />

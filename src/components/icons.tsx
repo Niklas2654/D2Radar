@@ -88,6 +88,14 @@ export const IconPlus = () => (
   </svg>
 );
 
+/** Macros: keys played one after another. */
+export const IconMacro = () => (
+  <svg {...base}>
+    <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
+    <path d="M6.5 10h1M10 10h1M13.5 10h1M17 10h.5M7 14h10" />
+  </svg>
+);
+
 export const IconEdit = () => (
   <svg {...base}>
     <path d="M4 20h4L19 9l-4-4L4 16v4z" />

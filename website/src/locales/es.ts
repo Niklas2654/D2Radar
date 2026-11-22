@@ -199,14 +199,22 @@ const es: Strings = {
         title: "A tu color",
         text: "Elige el color de una subclase o uno propio: la app y el overlay lo siguen.",
       },
+      {
+        title: "Macros",
+        text: "Crea secuencias de habilidades, teclas, botones del ratón y pausas y asígnalas a un atajo o a Ratón 4/5: una vez, mantenido o alterno. Usan las teclas que tienes en el juego.",
+      },
+      {
+        title: "Reasigna las teclas del juego",
+        text: "Cambia las teclas de Destiny directamente en Radar, con búsqueda en todas las acciones. Si quieres, protégelas contra escritura para que el juego no las restablezca.",
+      },
     ],
   },
   safety: {
     kicker: "Seguridad",
-    title: "Sin tocar el juego.",
-    text: "Radar está al lado de Destiny 2, no dentro. Mira la pantalla y pregunta a Bungie — nada más.",
+    title: "Al lado del juego, no dentro.",
+    text: "Radar está al lado de Destiny 2, no dentro. Mira la pantalla, pregunta a Bungie y, para las macros, pulsa teclas como lo harías tú en tu teclado.",
     items: [
-      "No lee ni cambia la memoria ni los archivos del juego",
+      "Nunca lee ni cambia la memoria del juego. Solo cambia tus teclas cuando lo haces en Radar.",
       "Solo lee lo que hay en tu pantalla, como una captura",
       "Tus datos vienen de la API oficial de Bungie, como con DIM",
       "Tu inicio de sesión de Bungie se queda en tu PC",
@@ -231,9 +239,10 @@ const es: Strings = {
     items: [
       {
         q: "¿Me pueden banear por usar Radar?",
-        a: "Radar no inyecta nada ni lee la memoria del juego. Lee lo que hay en tu pantalla (como una captura) y habla con la API oficial de Bungie — igual que DIM y otras apps complementarias.",
+        a: "Radar no mete código en el juego ni lee su memoria. Lee lo que hay en tu pantalla (como una captura) y habla con la API oficial de Bungie, igual que DIM. Las macros pulsan teclas como si las pulsaras tú.",
       },
-      { q: "¿Es gratis?", a: "Sí. Radar es gratis de descargar y usar." },
+      { q: "¿Es gratis?", a: "Sí. Radar es gratis de descargar y usar." },
+
       { q: "¿Radar es de código abierto?", a: "Sí. Todo el código fuente de Radar es público en GitHub – github.com/Niklas2654/D2Radar – bajo la licencia GPL-3.0. El código de cada versión publicada está allí." },
       {
         q: "¿Para qué sirve el inicio de sesión de Bungie?",
@@ -266,7 +275,9 @@ const es: Strings = {
     version: "Versión {version}",
     installer: "Instalador de {size}",
     windows: "Windows 10 / 11",
-    free: "Gratis",
+    free: "Gratis",
+
+
     openSource: "Código abierto",
     downloads: "{n} descargas",
     downloadsLive: "Contado en directo",
@@ -275,7 +286,8 @@ const es: Strings = {
   },
   footer: {
     legal: "Aviso legal",
-    privacy: "Privacidad",
+    privacy: "Privacidad",
+
     source: "Código fuente",
     disclaimer: "Sin afiliación con Bungie. Destiny 2 es una marca registrada de Bungie, Inc.",
   },

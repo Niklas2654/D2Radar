@@ -27,6 +27,8 @@ pub enum Action {
     Discord,
     /// Equip in-game loadout slot n (0-based).
     Loadout(usize),
+    /// Play macro n (its place in macros.json; see macros.rs).
+    Macro(usize),
 }
 
 /// Loadout slots that can get a hotkey.
@@ -87,6 +89,7 @@ impl HotkeyConfig {
                 }
                 &mut self.loadouts[i]
             }
+            Action::Macro(_) => unreachable!("a macro's keys are in macros.json"),
         }
     }
 
@@ -98,6 +101,7 @@ impl HotkeyConfig {
             Action::Dim => &self.dim,
             Action::Discord => &self.discord,
             Action::Loadout(i) => self.loadouts.get(i).map(String::as_str).unwrap_or(""),
+            Action::Macro(_) => "",
         }
     }
 }
@@ -135,7 +139,7 @@ fn save(app: &AppHandle, config: HotkeyConfig) {
     let _ = app.emit("hotkeys-changed", config);
 }
 
-fn parse(keys: &str) -> Option<Shortcut> {
+pub(crate) fn parse(keys: &str) -> Option<Shortcut> {
     keys.parse().ok()
 }
 
@@ -144,9 +148,18 @@ fn parse(keys: &str) -> Option<Shortcut> {
 /// free for other programs otherwise. Set by lib.rs's game watch.
 static ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// Whether the hotkeys are taken now (see ACTIVE).
+pub fn is_active() -> bool {
+    ACTIVE.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 /// Take the hotkeys (`on`) or let them go.
 pub fn set_active(app: &AppHandle, on: bool) {
     ACTIVE.store(on, std::sync::atomic::Ordering::SeqCst);
+    // Out of the game no macro goes on (but those set to play anywhere).
+    if !on {
+        crate::macros::stop_focused();
+    }
     register_all(app);
 }
 
@@ -170,19 +183,59 @@ pub fn register_all(app: &AppHandle) -> Vec<String> {
             None => failed.push(format!("{keys}: {}", tr("unbekannte Taste", "unknown key"))),
         }
     }
+    // The macros that are on (a key bound twice is registered once). The
+    // mouse's side buttons go to the mouse hook instead.
+    crate::mousekeys::update(app, crate::macros::mouse_bindings(app));
+    for (_, keys) in crate::macros::hotkeys(app) {
+        if crate::mousekeys::button(&keys).is_some() {
+            continue;
+        }
+        match parse(&keys).map(|s| (shortcuts.is_registered(s), s)) {
+            Some((true, _)) => {}
+            Some((false, s)) => {
+                if let Err(e) = shortcuts.register(s) {
+                    failed.push(format!("{keys}: {e}"));
+                }
+            }
+            None => failed.push(format!("{keys}: {}", tr("unbekannte Taste", "unknown key"))),
+        }
+    }
     if !ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
         let _ = shortcuts.unregister_all();
+        // Macros set to play anywhere keep their keys.
+        for keys in crate::macros::free_hotkeys(app) {
+            if let Some(s) = parse(&keys) {
+                if !shortcuts.is_registered(s) {
+                    let _ = shortcuts.register(s);
+                }
+            }
+        }
     }
     failed
 }
 
-/// The action bound to a pressed shortcut.
+/// The action bound to a pressed shortcut (Radar's own first, then the macros).
 pub fn action_for(app: &AppHandle, pressed: &Shortcut) -> Option<Action> {
     let config = config(app);
     actions()
         .into_iter()
         .find(|(action, _)| parse(config.keys(*action)).is_some_and(|s| s.id() == pressed.id()))
         .map(|(action, _)| action)
+        .or_else(|| {
+            crate::macros::hotkeys(app)
+                .into_iter()
+                .find(|(_, keys)| parse(keys).is_some_and(|s| s.id() == pressed.id()))
+                .map(|(index, _)| Action::Macro(index))
+        })
+}
+
+/// One of Radar's own actions has this shortcut (by id).
+pub fn taken_by_radar(app: &AppHandle, id: u32) -> bool {
+    let config = config(app);
+    actions().into_iter().any(|(action, _)| {
+        // Loadout hotkeys aren't registered any more (see register_all).
+        !matches!(action, Action::Loadout(_)) && parse(config.keys(action)).is_some_and(|s| s.id() == id)
+    })
 }
 
 #[tauri::command]
@@ -209,6 +262,12 @@ pub fn hotkey_set(app: AppHandle, action: String, keys: String) -> Result<Hotkey
         });
         if taken {
             return Err(tr("Schon für eine andere Aktion vergeben", "Already used for another action").into());
+        }
+        let macro_keys = crate::macros::all(&app)
+            .into_iter()
+            .any(|m| parse(&m.hotkey).is_some_and(|s| s.id() == shortcut.id()));
+        if macro_keys {
+            return Err(tr("Schon für ein Makro vergeben", "Already used by a macro").into());
         }
     }
     let mut next = previous.clone();
