@@ -1589,20 +1589,47 @@ function MsInput({ value, min, small, onChange }: { value: number; min: number; 
   );
 }
 
-/** The macro's hotkey: click, then press it (Esc cancels, Backspace removes it). */
+/** The keys that are a macro hotkey on their own too (see mousekeys.rs);
+ *  AltGr is the right Alt. */
+const LONE_KEYS: Record<string, string> = { Control: "Ctrl", Alt: "Alt", AltGraph: "Alt", Shift: "Shift" };
+
+/** The macro's hotkey: click, then press it (Esc cancels, Backspace removes
+ *  it; Ctrl/Alt/Shift alone is taken when let go). */
 function HotkeyField({ keys, onChange }: { keys: string; onChange: (keys: string) => void }) {
   const t = useT();
   const [recording, setRecording] = useState(false);
   useEffect(() => {
     if (!recording) return;
+    // Ctrl, Alt or Shift held on its own: taken when it's let go with no
+    // other key pressed in between (else the combo is taken, as before).
+    let alone: string | null = null;
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopImmediatePropagation();
       if (e.key === "Escape") return setRecording(false);
+      if (e.key in LONE_KEYS) {
+        if (e.repeat) return;
+        const mine = (key: string) => e.key === key || (e.key === "AltGraph" && (key === "Control" || key === "Alt"));
+        const others = (e.ctrlKey && !mine("Control")) || (e.altKey && !mine("Alt")) || (e.shiftKey && !mine("Shift")) || e.metaKey;
+        alone = others ? null : LONE_KEYS[e.key];
+        return;
+      }
+      alone = null;
       const next = ["Backspace", "Delete"].includes(e.key) && !e.ctrlKey && !e.altKey ? "" : keysFromEvent(e);
       if (next === null) return;
       setRecording(false);
       onChange(next);
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!(e.key in LONE_KEYS)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const keys = alone;
+      alone = null;
+      if (keys === LONE_KEYS[e.key]) {
+        setRecording(false);
+        onChange(keys);
+      }
     };
     // The side buttons of the mouse (4 and 5) work as a hotkey too.
     const onMouse = (e: MouseEvent) => {
@@ -1617,10 +1644,12 @@ function HotkeyField({ keys, onChange }: { keys: string; onChange: (keys: string
     };
     const cancel = () => setRecording(false);
     window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onKeyUp, true);
     window.addEventListener("mousedown", onMouse, true);
     window.addEventListener("blur", cancel);
     return () => {
       window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("mousedown", onMouse, true);
       window.removeEventListener("blur", cancel);
     };

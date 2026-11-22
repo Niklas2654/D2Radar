@@ -9,7 +9,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
 use crate::i18n::tr;
 
@@ -143,6 +143,21 @@ pub(crate) fn parse(keys: &str) -> Option<Shortcut> {
     keys.parse().ok()
 }
 
+/// A macro's plain key (no Ctrl/Shift/Alt in it) with Ctrl, Shift and/or
+/// Alt held: it plays then too (sprinting with Shift, say). Not those
+/// Windows needs: Alt+Tab, Alt+F4, anything with Esc.
+pub(crate) fn held_variants(plain: &Shortcut) -> Vec<Shortcut> {
+    if !plain.mods.is_empty() || plain.key == Code::Escape {
+        return Vec::new();
+    }
+    let (ctrl, shift, alt) = (Modifiers::CONTROL, Modifiers::SHIFT, Modifiers::ALT);
+    [ctrl, shift, alt, ctrl | shift, ctrl | alt, shift | alt, ctrl | shift | alt]
+        .into_iter()
+        .filter(|mods| !(mods.contains(alt) && matches!(plain.key, Code::Tab | Code::F4)))
+        .map(|mods| Shortcut::new(Some(mods), plain.key))
+        .collect()
+}
+
 /// Whether the hotkeys are taken now: only while the game has the focus
 /// (or a Radar window over it, or the layout is edited), so the keys stay
 /// free for other programs otherwise. Set by lib.rs's game watch.
@@ -200,6 +215,17 @@ pub fn register_all(app: &AppHandle) -> Vec<String> {
             None => failed.push(format!("{keys}: {}", tr("unbekannte Taste", "unknown key"))),
         }
     }
+    // Then the plain keys with Ctrl/Shift/Alt held, where nothing else (a
+    // Radar action, a macro on that combo) has them. Only while the game is
+    // in front (let go below otherwise), so Ctrl+C stays copying elsewhere.
+    for (_, keys) in crate::macros::hotkeys(app) {
+        for s in parse(&keys).map(|s| held_variants(&s)).unwrap_or_default() {
+            if !shortcuts.is_registered(s) {
+                // (Taken by another program: then just not with it held.)
+                let _ = shortcuts.register(s);
+            }
+        }
+    }
     if !ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
         let _ = shortcuts.unregister_all();
         // Macros set to play anywhere keep their keys.
@@ -225,6 +251,15 @@ pub fn action_for(app: &AppHandle, pressed: &Shortcut) -> Option<Action> {
             crate::macros::hotkeys(app)
                 .into_iter()
                 .find(|(_, keys)| parse(keys).is_some_and(|s| s.id() == pressed.id()))
+                .map(|(index, _)| Action::Macro(index))
+        })
+        .or_else(|| {
+            // A plain key with Ctrl/Shift/Alt held.
+            crate::macros::hotkeys(app)
+                .into_iter()
+                .find(|(_, keys)| {
+                    parse(keys).is_some_and(|s| held_variants(&s).iter().any(|v| v.id() == pressed.id()))
+                })
                 .map(|(index, _)| Action::Macro(index))
         })
 }
@@ -327,6 +362,21 @@ mod tests {
         }
         assert_eq!(parse("Ctrl+Shift+D").unwrap().id(), parse("shift+ctrl+KeyD").unwrap().id());
         assert!(parse("Ctrl+").is_none());
+    }
+
+    #[test]
+    fn plain_keys_also_play_with_modifiers_held() {
+        let f = held_variants(&parse("KeyF").unwrap());
+        assert_eq!(f.len(), 7);
+        assert!(f.iter().any(|v| v.id() == parse("Ctrl+KeyF").unwrap().id()));
+        assert!(f.iter().any(|v| v.id() == parse("Shift+Alt+KeyF").unwrap().id()));
+        // A combo stays just that.
+        assert!(held_variants(&parse("Ctrl+KeyF").unwrap()).is_empty());
+        // Alt+Tab / Alt+F4 stay Windows'.
+        let tab = held_variants(&parse("Tab").unwrap());
+        assert_eq!(tab.len(), 3);
+        assert!(!tab.iter().any(|v| v.id() == parse("Alt+Tab").unwrap().id()));
+        assert!(held_variants(&parse("Escape").unwrap()).is_empty());
     }
 
     #[test]

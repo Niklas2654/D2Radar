@@ -179,8 +179,8 @@ pub fn free_hotkeys(app: &AppHandle) -> Vec<String> {
         .collect()
 }
 
-/// The macros on a side button of the mouse: (button, index, only with
-/// Destiny in front).
+/// The macros on a side button of the mouse or on Ctrl/Alt/Shift alone:
+/// (input, index, only with Destiny in front).
 pub fn mouse_bindings(app: &AppHandle) -> Vec<(u16, usize, bool)> {
     all(app)
         .into_iter()
@@ -217,8 +217,9 @@ pub fn macro_save(app: AppHandle, mut item: Macro) -> Result<Vec<Macro>, String>
     }
     let previous = all(&app);
     if crate::mousekeys::button(&item.hotkey).is_some() {
-        // A side button of the mouse: Radar's own actions take keys only.
-        // Several macros may share it (all of them play).
+        // A side button of the mouse, Ctrl/Alt/Shift on its own (see
+        // mousekeys.rs): Radar's own actions take none of these. Several
+        // macros may share it (all of them play).
     } else if !item.hotkey.is_empty() {
         let shortcut = crate::hotkeys::parse(&item.hotkey)
             .ok_or(tr("Diese Taste wird nicht unterstützt", "This key isn't supported"))?;
