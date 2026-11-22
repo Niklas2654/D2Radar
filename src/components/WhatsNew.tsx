@@ -39,8 +39,10 @@ export function WhatsNew({ ready }: { ready: boolean }) {
   const { releases } = notes;
   const several = releases.length > 1;
   return (
-    <div className="animate-fade-in fixed inset-0 z-[90] grid place-items-center bg-[#020307]/60 p-6" onClick={close}>
-      <div className="w-full max-w-[440px]" onClick={(e) => e.stopPropagation()}>
+    // (Not closed by a click beside it: the click that brings Radar to the
+    // front after an update would close it before it's read.)
+    <div className="animate-fade-in fixed inset-0 z-[90] grid place-items-center bg-[#020307]/60 p-6">
+      <div className="w-full max-w-[440px]">
         <GlassPanel className="flex max-h-[min(560px,80vh)] flex-col p-5">
           <div className="mb-3">
             <h2 className="font-display text-[16px] font-semibold tracking-tight text-white">{t("whatsNew.title")}</h2>

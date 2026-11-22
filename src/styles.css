@@ -939,6 +939,12 @@ body {
 .app-idle *::after {
   animation-play-state: paused !important;
 }
+/* Except a fade in: short, and held at its start it stays invisible (a
+   window opened while Radar is behind, like "What's new" after an update,
+   would catch the first click unseen). */
+.app-idle .animate-fade-in {
+  animation-play-state: running !important;
+}
 
 /* ---------- Fireteam: a list item still loading (FireteamPage) ---------- */
 
