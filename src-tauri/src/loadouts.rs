@@ -99,10 +99,12 @@ async fn describe(app: &AppHandle, index: usize, loadout: &Value, owned: &HashMa
 }
 
 /// Slots cleared here lately: (character, slot, when). Bungie's profile
-/// keeps showing a cleared slot's loadout for a while: until it says empty
-/// too (or a while passed), it is shown empty.
+/// keeps showing a cleared slot's loadout for a while, and not steadily:
+/// one answer says empty, the next one filled again. So it is shown empty
+/// for a while whatever Bungie says (unless something is saved into it
+/// from here, see `slot_written`).
 static CLEARED: Mutex<Vec<(String, usize, std::time::Instant)>> = Mutex::new(Vec::new());
-const CLEARED_FOR: std::time::Duration = std::time::Duration::from_secs(600);
+const CLEARED_FOR: std::time::Duration = std::time::Duration::from_secs(180);
 
 /// In the plugItemHashes of a slot item (by socket index): no plug saved for
 /// that socket.
@@ -132,33 +134,29 @@ pub async fn loadouts_list(app: AppHandle, character_id: Option<String>) -> Resu
         .map(|o| (o.instance_id, o.item_hash as u64))
         .collect();
     let mut loadouts = join_all(raw.iter().enumerate().map(|(i, l)| describe(&app, i, l, &owned))).await;
-    // Cleared here, still filled in Bungie's answer: empty (Bungie catches
-    // up a little later); Bungie empty too: no longer needed.
+    // Cleared here lately, filled in Bungie's answer: empty (Bungie catches
+    // up a little later).
     {
         let mut cleared = CLEARED.lock().unwrap();
         cleared.retain(|(_, _, at)| at.elapsed() < CLEARED_FOR);
-        cleared.retain(|(c, i, _)| {
+        for (c, i, _) in cleared.iter() {
             if *c != character_id {
-                return true;
+                continue;
             }
-            match loadouts.get_mut(*i) {
-                Some(l) if !l.empty => {
-                    *l = LoadoutOut {
-                        index: *i,
-                        name: format!("Loadout {}", i + 1),
-                        icon: None,
-                        color: None,
-                        empty: true,
-                        name_hash: 0,
-                        color_hash: 0,
-                        icon_hash: 0,
-                        items: Vec::new(),
-                    };
-                    true
-                }
-                _ => false,
+            if let Some(l) = loadouts.get_mut(*i).filter(|l| !l.empty) {
+                *l = LoadoutOut {
+                    index: *i,
+                    name: format!("Loadout {}", i + 1),
+                    icon: None,
+                    color: None,
+                    empty: true,
+                    name_hash: 0,
+                    color_hash: 0,
+                    icon_hash: 0,
+                    items: Vec::new(),
+                };
             }
-        });
+        }
     }
     Ok(LoadoutsOut { class_name: class_name(class_type).into(), loadouts })
 }
