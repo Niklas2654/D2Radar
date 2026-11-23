@@ -633,7 +633,9 @@ pub(crate) async fn describe(app: &AppHandle, l: &Value, character: &str, class_
         .await
         .into_iter()
         .flatten()
-        .filter(|p| p.icon_present())
+        // Not an empty aspect/fragment socket (DIM saves those too): the
+        // only subclass plugs without a type, in every language.
+        .filter(|p| p.icon_present() && !p.type_name().is_empty())
         .collect();
     let params = &l["parameters"];
     let artifact_hashes: Vec<u64> = params["artifactUnlocks"]["unlockedItemHashes"]

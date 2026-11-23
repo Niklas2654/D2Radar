@@ -38,6 +38,7 @@ mod loadouts;
 mod macros;
 mod mousekeys;
 mod oauth;
+mod report;
 mod optimizer;
 mod presets;
 mod screen;
@@ -426,6 +427,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_overlay_state,
+            report::report_send,
+            report::report_list,
             launch::launch_with_destiny_get,
             launch::launch_with_destiny_set,
             set_overlay_visible,

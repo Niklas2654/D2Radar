@@ -246,6 +246,15 @@ function Privacy() {
           (provider and data transfer as under “Download via GitHub” above).
         </p>
 
+        <H3>Bug reports and feature requests</H3>
+        <p>
+          Only when you send one (the feedback button at the top of the app): Radar sends what you wrote, whether it's a bug or a feature request, and the app and Windows version through a
+          function on this website (d2radar.vercel.app/api/report, hosted by Vercel, see above) to GitHub, where it becomes a public issue in the
+          D2Radar project that anyone can read (provider and data transfer as under “Download via GitHub” above). No name, account id or log is
+          sent, so please don't write personal details into it. To limit misuse, a salted hash of your IP address is counted for an hour
+          (Upstash, see above). You can ask for it to be deleted at any time. The list of reports in the app is loaded from GitHub's public interface. Legal basis: Art. 6 (1) (f) GDPR (fixing errors in the app).
+        </p>
+
         <H3>Connections to third parties</H3>
         <p>
           For its features the app fetches data straight from your computer from the services below. Each provider receives your IP address and the
@@ -451,6 +460,16 @@ function Datenschutz() {
           ist; unter Einstellungen → Über Radar lässt sich das auch selbst anstoßen. Abschalten lässt sich diese Abfrage unter Einstellungen →
           Datenschutz → „Automatisch nach Updates suchen“. Wird ein Update installiert, wird es von GitHub heruntergeladen. Dabei erhält GitHub Ihre
           IP-Adresse und die technisch nötigen Anfragedaten (Anbieter und Datenübermittlung wie oben unter „Download über GitHub“).
+        </p>
+
+        <H3>Fehlerberichte und Funktionswünsche</H3>
+        <p>
+          Nur wenn Sie einen senden (das Feedback-Symbol oben in der App): Radar schickt Ihre Beschreibung, ob es ein Fehler oder ein Wunsch ist, sowie die App- und Windows-Version über
+          eine Funktion dieser Website (d2radar.vercel.app/api/report, gehostet bei Vercel, siehe oben) an GitHub, wo daraus ein öffentlicher,
+          für alle lesbarer Eintrag im Projekt D2Radar wird (Anbieter und Datenübermittlung wie oben unter „Download über GitHub“). Name,
+          Konto-ID oder Protokolle werden nicht mitgeschickt; schreiben Sie bitte keine persönlichen Angaben hinein. Gegen Missbrauch wird
+          ein gesalzener Hash Ihrer IP-Adresse eine Stunde lang gezählt (Upstash, siehe oben). Sie können jederzeit die Löschung
+          verlangen. Die Liste in der App wird über die öffentliche Schnittstelle von GitHub geladen. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (Fehlerbehebung in der App).
         </p>
 
         <H3>Verbindungen zu Drittanbietern</H3>

@@ -250,3 +250,10 @@ export const IconArrowLeft = () => (
     <path d="m12 19-7-7 7-7" />
   </svg>
 );
+
+export const IconFeedback = () => (
+  <svg {...base}>
+    <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4z" />
+    <path d="M12 7.5V12M12 14.5v.01" />
+  </svg>
+);

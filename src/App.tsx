@@ -6,6 +6,7 @@ import { Navbar, type NavItem } from "./components/Navbar";
 import { Backdrop } from "./components/Backdrop";
 import { CopySwap } from "./components/CopySwap";
 import { UpdateBadge } from "./components/UpdateButton";
+import { FeedbackButton } from "./components/Feedback";
 import { UpdateScreen } from "./components/UpdateScreen";
 import { WhatsNew } from "./components/WhatsNew";
 import { Splash } from "./components/Splash";
@@ -119,6 +120,7 @@ export function App() {
   const status = (
     <div className="flex items-center gap-2">
       <UpdateBadge />
+      <FeedbackButton />
       {snapshot.status !== "unconfigured" && (
         <NameBadge name={name} live={!!snapshot.online} fallback={t(snapshot.online ? "common.online" : "common.offline")} />
       )}
