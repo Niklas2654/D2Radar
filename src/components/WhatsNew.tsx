@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { useCover } from "../lib/cover";
 import { useT } from "../lib/i18n";
 import { isTauri } from "../lib/tauri";
 import { loadWhatsNew, markSeen, type WhatsNew as Notes } from "../lib/whatsNew";
@@ -11,6 +12,7 @@ import { GlassButton, GlassPanel } from "./glass";
 export function WhatsNew({ ready }: { ready: boolean }) {
   const t = useT();
   const [notes, setNotes] = useState<Notes | null>(null);
+  useCover(!!notes);
   useEffect(() => {
     if (!ready) return;
     let stale = false;

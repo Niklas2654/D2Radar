@@ -12,6 +12,7 @@ import { WhatsNew } from "./components/WhatsNew";
 import { Splash } from "./components/Splash";
 import { PageTransition } from "./components/PageTransition";
 import { useBungie } from "./lib/bungie";
+import { useCover } from "./lib/cover";
 import { startLights } from "./lib/lights";
 import { keepFresh } from "./lib/preload";
 import { reloadAllPlayers } from "./lib/fireteam";
@@ -196,6 +197,7 @@ function LanguageRestart() {
   const t = useT();
   const [on, setOn] = useState(false);
   useEffect(() => subscribe("language-restarting", () => setOn(true)), []);
+  useCover(on);
   if (!on) return null;
   return (
     <div className="animate-fade-in fixed inset-0 z-[200] grid place-items-center bg-[#020307]/90 backdrop-blur-sm">

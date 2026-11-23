@@ -4,6 +4,7 @@ import { CopySwap } from "../components/CopySwap";
 import { cx, GlassButton, GlassPanel, PanelHeader } from "../components/glass";
 import { IconChat, IconClose, IconHome, IconPlus } from "../components/icons";
 import type { Direction, Phase } from "../components/PageTransition";
+import { useCovered } from "../lib/cover";
 import { useT } from "../lib/i18n";
 import { accentColor, useSettings } from "../lib/settings";
 import { call, isTauri, nextSeq, subscribe } from "../lib/tauri";
@@ -162,7 +163,9 @@ export function DiscordPage({ phase }: { phase: Phase; dir: Direction }) {
   // The native webview can't slide with the page: it only shows once the
   // page has arrived. Until then its last picture (or, on the first visit,
   // the loading panel) slides in with the page.
-  const webviewShown = phase === "active";
+  // (Not under a window over the app: the native webview would cover it.)
+  const covered = useCovered();
+  const webviewShown = phase === "active" && !covered;
   // What lies under the webview (its picture, the loading hint) only shows
   // while the page moves: under the see-through webview it would shine
   // through (and look smeared when scrolling).
@@ -175,7 +178,7 @@ export function DiscordPage({ phase }: { phase: Phase; dir: Direction }) {
     const id = window.setTimeout(() => setSettled(true), 250);
     return () => window.clearTimeout(id);
   }, [phase]);
-  const underlay = phase !== "active" || !settled;
+  const underlay = phase !== "active" || !settled || covered;
 
   useEffect(() => {
     void call<DiscordConfig>("discord_config").then((c) => {

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { cx, GlassButton } from "../components/glass";
 import { IconDim, IconExternal, IconHome, IconRefresh } from "../components/icons";
 import type { Direction, Phase } from "../components/PageTransition";
+import { useCovered } from "../lib/cover";
 import { useT } from "../lib/i18n";
 import { call, isTauri, nextSeq } from "../lib/tauri";
 
@@ -58,7 +59,9 @@ export function DimPage({ phase, dir }: { phase: Phase; dir: Direction }) {
   const arriveWithPicture = visit.current.picture;
   // The webview shows once the page is in place (with a picture) or right
   // away (animating itself), until the page starts leaving.
-  const webviewShown = phase === "active" || (phase === "enter" && !arriveWithPicture);
+  // (Not under a window over the app: the native webview would cover it.)
+  const covered = useCovered();
+  const webviewShown = !covered && (phase === "active" || (phase === "enter" && !arriveWithPicture));
   // What lies under the webview (its picture, the loading hint) only shows
   // while the page moves: under the see-through webview it would shine
   // through (and look smeared when scrolling).
@@ -71,7 +74,7 @@ export function DimPage({ phase, dir }: { phase: Phase; dir: Direction }) {
     const id = window.setTimeout(() => setSettled(true), 250);
     return () => window.clearTimeout(id);
   }, [phase]);
-  const underlay = phase !== "active" || !settled;
+  const underlay = phase !== "active" || !settled || covered;
   // Whether DIM has loaded (it loads in the background at start): only
   // then is there nothing to wait for and no loading hint to show.
   const [ready, setReady] = useState(false);

@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useState } from "react";
+import { useCover } from "../lib/cover";
 import { LOCALES, useLanguage, useT, type TranslationKey } from "../lib/i18n";
 import { call, isTauri } from "../lib/tauri";
 import { Badge, cx, GlassButton, GlassPanel, IconButton } from "./glass";
@@ -54,6 +55,7 @@ export function FeedbackButton() {
   const t = useT();
   const language = useLanguage();
   const [open, setOpen] = useState(false);
+  useCover(open);
   const [kind, setKind] = useState<Kind>("bug");
   const [drafts, setDrafts] = useState<Record<Kind, string>>({ bug: "", feature: "" });
   const [sending, setSending] = useState(false);
